@@ -6,7 +6,11 @@ export default defineConfig({
   server: { port: 3000 },
   preview: {
     port: process.env.PORT || 3000,
-    host: true,
-    allowedHosts: ['all']
+    host: '0.0.0.0',
+    allowedHosts: [
+      'clientes.grupoaventus.com.br',
+      'customersucess-production.up.railway.app',
+      'all'
+    ]
   }
 })
