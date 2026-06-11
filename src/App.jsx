@@ -20,10 +20,23 @@ function AppInner() {
   const [current, setCurrent] = useState('ops')
   const { loggedIn } = useApp()
   const section = SECTIONS[current]
-  if (!loggedIn[current]) return <LoginScreen section={current} sectionName={section.label} />
-  return <div><Nav current={current} onChange={setCurrent} /><section.component /></div>
+
+  if (!loggedIn[current]) {
+    return <LoginScreen section={current} sectionName={section.label} />
+  }
+
+  return (
+    <div>
+      <Nav current={current} onChange={setCurrent} />
+      <section.component />
+    </div>
+  )
 }
 
 export default function App() {
-  return <AppProvider><AppInner /></AppProvider>
+  return (
+    <AppProvider>
+      <AppInner />
+    </AppProvider>
+  )
 }

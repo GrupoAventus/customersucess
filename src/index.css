@@ -1,18 +1,57 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #0a0a0a; --bg-card: #141414; --bg-hover: #181818;
-  --bg-input: #1a1a1a; --border: #222; --border-hover: #333;
-  --orange: #FF6B1A; --orange-dark: #e55a0f; --orange-dim: #1f1008;
-  --text: #f0f0f0; --text-muted: #888; --text-dim: #555; --text-faint: #333;
-  --green: #639922; --green-bg: #1a2e12; --amber: #EF9F27;
-  --amber-bg: #2e1a12; --red: #E24B4A; --red-bg: #2e1212;
+  --bg: #0a0a0a;
+  --bg-card: #141414;
+  --bg-hover: #181818;
+  --bg-input: #1a1a1a;
+  --border: #222;
+  --border-hover: #333;
+  --orange: #FF6B1A;
+  --orange-dark: #e55a0f;
+  --orange-dim: #1f1008;
+  --text: #f0f0f0;
+  --text-muted: #888;
+  --text-dim: #555;
+  --text-faint: #333;
+  --green: #639922;
+  --green-bg: #1a2e12;
+  --amber: #EF9F27;
+  --amber-bg: #2e1a12;
+  --red: #E24B4A;
+  --red-bg: #2e1212;
 }
-body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; line-height: 1.5; }
-input, select, textarea { font-family: inherit; font-size: 13px; background: var(--bg-input); border: 0.5px solid var(--border); border-radius: 8px; color: var(--text); padding: 9px 12px; width: 100%; outline: none; transition: border-color 0.15s; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+input, select, textarea {
+  font-family: inherit;
+  font-size: 13px;
+  background: var(--bg-input);
+  border: 0.5px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 9px 12px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+}
 input:focus, select:focus, textarea:focus { border-color: var(--orange); }
-select { cursor: pointer; } textarea { resize: vertical; }
+select { cursor: pointer; }
+textarea { resize: vertical; }
+
 button { font-family: inherit; cursor: pointer; }
+
 a { color: var(--text-muted); text-decoration: none; transition: color 0.15s; }
 a:hover { color: var(--orange); }
-::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: #222; border-radius: 4px; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #222; border-radius: 4px; }
