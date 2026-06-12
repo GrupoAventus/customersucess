@@ -1,4 +1,4 @@
-import { useApp, PRIORITY_COLORS, computeCurrentSaldo } from '../lib/AppContext'
+import { useApp, PRIORITY_COLORS, computeCurrentSaldo, getDaysInStatus } from '../lib/AppContext'
 import { StatCard, SectionHeader } from '../components/UI'
 import DemandTable from '../components/DemandTable'
 
@@ -18,6 +18,14 @@ export default function Dashboard() {
   const critical = clients.filter(c => c.priorityStatus === 'prioridade').length
   const low = clients.filter(c => c.priorityStatus === 'atencao').length
 
+  const stuckClients = clients
+    .filter(c => c.status === 'Pegar acessos')
+    .map(c => ({ ...c, days: getDaysInStatus(c) }))
+    .sort((a, b) => b.days - a.days)
+  const avgStuckDays = stuckClients.length
+    ? Math.round(stuckClients.reduce((sum, c) => sum + c.days, 0) / stuckClients.length)
+    : 0
+
   return (
     <div style={{ padding: '1.5rem' }}>
       <SectionHeader title="Dashboard geral" subtitle="Visão consolidada — Squad 1, Squad 2 e Centros Criativos" />
@@ -28,6 +36,38 @@ export default function Dashboard() {
         <StatCard label="Demandas concluídas" value={done} color="var(--green)" />
         <StatCard label="Prioridade" value={critical} color="var(--red)" />
         <StatCard label="Atenção" value={low} color="var(--amber)" />
+      </div>
+
+      {/* Pegar acessos - tempo parado */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <div style={{
+          padding: '6px 10px', background: '#1a0d04', borderRadius: 6, marginBottom: 8
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--orange)' }}>Pegar acessos — tempo parado</span>
+        </div>
+        {stuckClients.length === 0 ? (
+          <div style={{ fontSize: 13, color: '#333', padding: '8px 0' }}>Nenhum cliente em "Pegar acessos"</div>
+        ) : (
+          <div style={{ background: 'var(--bg-card)', border: '0.5px solid #1f1f1f', borderRadius: 10, padding: '14px 16px' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 10 }}>
+              {stuckClients.length} cliente{stuckClients.length !== 1 ? 's' : ''} · média de {avgStuckDays} dia{avgStuckDays !== 1 ? 's' : ''} parado{avgStuckDays !== 1 ? 's' : ''}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {stuckClients.map(c => {
+                const colors = PRIORITY_COLORS[c.priorityStatus || 'estavel']
+                return (
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
+                    <span>{c.name}</span>
+                    <span style={{ color: colors.border, fontWeight: 500 }}>
+                      {c.days} dia{c.days !== 1 ? 's' : ''}
+                      {c.days >= 3 && <i className="ti ti-alert-triangle" style={{ marginLeft: 6 }} />}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Social Media Summary */}
