@@ -10,7 +10,18 @@ const SECTIONS = [
 ]
 
 export default function Nav({ current, onChange }) {
-  const { logout } = useApp()
+  const { logout, isAdmin, unlockAdmin, lockAdmin } = useApp()
+
+  const toggleAdmin = () => {
+    if (isAdmin) {
+      lockAdmin()
+    } else {
+      const pw = window.prompt('Senha de administrador:')
+      if (pw === null) return
+      if (!unlockAdmin(pw)) alert('Senha incorreta')
+    }
+  }
+
   return (
     <nav style={{
       background: '#0f0f0f', borderBottom: '0.5px solid #1f1f1f',
@@ -36,10 +47,27 @@ export default function Nav({ current, onChange }) {
           {s.label}
         </button>
       ))}
+
+      <button
+        onClick={toggleAdmin}
+        title={isAdmin ? 'Modo admin ativo — clique para sair' : 'Ativar modo admin'}
+        style={{
+          marginLeft: 'auto', fontSize: 12,
+          color: isAdmin ? 'var(--orange)' : '#444',
+          cursor: 'pointer', padding: '6px 10px', background: 'none',
+          border: `0.5px solid ${isAdmin ? 'var(--orange)' : '#2a2a2a'}`,
+          borderRadius: 6, flexShrink: 0, marginRight: 8,
+          display: 'flex', alignItems: 'center', gap: 4
+        }}
+      >
+        <i className={`ti ti-${isAdmin ? 'lock-open' : 'lock'}`} />
+        {isAdmin ? 'Admin' : ''}
+      </button>
+
       <button
         onClick={() => logout()}
         style={{
-          marginLeft: 'auto', fontSize: 12, color: '#444', cursor: 'pointer',
+          fontSize: 12, color: '#444', cursor: 'pointer',
           padding: '6px 12px', background: 'none',
           border: '0.5px solid #2a2a2a', borderRadius: 6, flexShrink: 0
         }}
