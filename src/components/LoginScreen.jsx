@@ -1,14 +1,19 @@
 import { useState } from 'react'
 import { useApp } from '../lib/AppContext'
 
-export default function LoginScreen({ section, sectionName }) {
+export default function LoginScreen({ section, sectionName, onUnlock }) {
   const { login } = useApp()
   const [pw, setPw] = useState('')
   const [error, setError] = useState(false)
 
   const attempt = () => {
-    if (login(section, pw)) { setError(false) }
-    else { setError(true); setPw('') }
+    const result = login(section, pw)
+    if (result) {
+      setError(false)
+      if (onUnlock) onUnlock(result)
+    } else {
+      setError(true); setPw('')
+    }
   }
 
   return (
