@@ -5,10 +5,10 @@ import { Modal, Btn, Field } from './UI'
 const DEST_OPTIONS = ['Ecom', 'LP', 'Social Media', 'Squad 1', 'Squad 2']
 const CC_OPTIONS = ['Centro criativo 1', 'Centro criativo 2']
 
-export default function NewClientModal({ onClose }) {
+export default function NewClientModal({ onClose, prefillName }) {
   const { createClient } = useApp()
   const [form, setForm] = useState({
-    name: '', drive: '', instagram: '', site: '',
+    name: prefillName || '', drive: '', instagram: '', site: '',
     entrou: new Date().toISOString().slice(0, 10),
     destino: '', rechargeAmount: '', dailySpend: '',
     destinos: [],
