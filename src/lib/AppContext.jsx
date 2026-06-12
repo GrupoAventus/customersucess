@@ -1,15 +1,22 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet } from './sheets'
+import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet, setClientPrioritySheet, setClientFinanceSheet } from './sheets'
 
 const AppContext = createContext(null)
 
 export const KANBAN_COLUMNS = ['Pegar acessos', 'Aguardando campanha', 'Campanha ativa', 'Anúncios pausados']
+export const PRIORITY_LEVELS = ['estavel', 'atencao', 'prioridade']
+export const PRIORITY_RANK = { prioridade: 0, atencao: 1, estavel: 2 }
+export const PRIORITY_COLORS = {
+  estavel: { border: 'var(--green)', bg: 'rgba(99,153,34,0.08)', label: 'Estável' },
+  atencao: { border: 'var(--amber)', bg: 'rgba(239,159,39,0.08)', label: 'Atenção' },
+  prioridade: { border: 'var(--red)', bg: 'rgba(226,75,74,0.08)', label: 'Prioridade' },
+}
 
 // Fallback demo data when Sheets not configured
 const DEMO_CLIENTS = [
-  { id: 'c_1', name: 'Bella Store', drive: 'https://drive.google.com', instagram: 'https://instagram.com/bellastore', site: 'https://bellastore.com', entrou: '2024-09-10', destino: 'Squad 1', saldoMax: 500, saldo: 120, createdAt: '', destinos: ['Squad 1','Social Media'], ccLP:'', ccEcom:'', ccSocial:'Centro criativo 1', socialPosts: 1, socialWeek: '', status: 'Campanha ativa', observacoes: '', cancelado: false },
-  { id: 'c_2', name: 'TechFlow', drive: 'https://drive.google.com', instagram: 'https://instagram.com/techflow', site: 'https://techflow.com', entrou: '2024-10-01', destino: 'Squad 2', saldoMax: 1000, saldo: 890, createdAt: '', destinos: ['Squad 2'], ccLP:'', ccEcom:'', ccSocial:'', socialPosts: 0, socialWeek: '', status: 'Aguardando campanha', observacoes: '', cancelado: false },
-  { id: 'c_3', name: 'Casa & Cia', drive: 'https://drive.google.com', instagram: 'https://instagram.com/casaecia', site: 'https://casaecia.com', entrou: '2024-11-05', destino: 'Ecom', saldoMax: 400, saldo: 22, createdAt: '', destinos: ['Ecom','Social Media'], ccLP:'', ccEcom:'Centro criativo 2', ccSocial:'Centro criativo 2', socialPosts: 0, socialWeek: '', status: 'Pegar acessos', observacoes: '', cancelado: false },
+  { id: 'c_1', name: 'Bella Store', drive: 'https://drive.google.com', instagram: 'https://instagram.com/bellastore', site: 'https://bellastore.com', entrou: '2024-09-10', destino: 'Squad 1', createdAt: '', destinos: ['Squad 1','Social Media'], ccLP:'', ccEcom:'', ccSocial:'Centro criativo 1', socialPosts: 1, socialWeek: '', status: 'Campanha ativa', observacoes: '', cancelado: false, rechargeAmount: 500, dailySpend: 25, lastRecharge: new Date().toISOString().slice(0,10), priorityStatus: 'estavel' },
+  { id: 'c_2', name: 'TechFlow', drive: 'https://drive.google.com', instagram: 'https://instagram.com/techflow', site: 'https://techflow.com', entrou: '2024-10-01', destino: 'Squad 2', createdAt: '', destinos: ['Squad 2'], ccLP:'', ccEcom:'', ccSocial:'', socialPosts: 0, socialWeek: '', status: 'Aguardando campanha', observacoes: '', cancelado: false, rechargeAmount: 100, dailySpend: 20, lastRecharge: new Date().toISOString().slice(0,10), priorityStatus: 'atencao' },
+  { id: 'c_3', name: 'Casa & Cia', drive: 'https://drive.google.com', instagram: 'https://instagram.com/casaecia', site: 'https://casaecia.com', entrou: '2024-11-05', destino: 'Ecom', createdAt: '', destinos: ['Ecom','Social Media'], ccLP:'', ccEcom:'Centro criativo 2', ccSocial:'Centro criativo 2', socialPosts: 0, socialWeek: '', status: 'Pegar acessos', observacoes: '', cancelado: false, rechargeAmount: 50, dailySpend: 30, lastRecharge: new Date().toISOString().slice(0,10), priorityStatus: 'prioridade' },
 ]
 const DEMO_DEMANDS = [
   { id: 'd_1', clientId: 'c_1', text: 'Criar campanha de remarketing', prazo: '2024-12-01', dest: 'Squad 1', done: true, createdAt: '' },
@@ -36,6 +43,21 @@ function getCurrentWeek() {
   return `${now.getFullYear()}-W${week}`
 }
 
+function daysSince(dateStr) {
+  if (!dateStr) return 0
+  const start = new Date(dateStr)
+  const now = new Date()
+  const diff = Math.floor((now.setHours(0,0,0,0) - start.setHours(0,0,0,0)) / 86400000)
+  return Math.max(0, diff)
+}
+
+export function computeCurrentSaldo(client) {
+  const recharge = parseFloat(client.rechargeAmount) || 0
+  const daily = parseFloat(client.dailySpend) || 0
+  const days = daysSince(client.lastRecharge)
+  return Math.max(0, recharge - daily * days)
+}
+
 export function AppProvider({ children }) {
   const [clients, setClients] = useState(useSheets ? [] : DEMO_CLIENTS)
   const [demands, setDemands] = useState(useSheets ? [] : DEMO_DEMANDS)
@@ -59,7 +81,7 @@ export function AppProvider({ children }) {
   useEffect(() => { load() }, [load])
 
   const createClient = async (data) => {
-    const payload = { status: 'Pegar acessos', observacoes: '', cancelado: false, ...data }
+    const payload = { status: 'Pegar acessos', observacoes: '', cancelado: false, priorityStatus: 'estavel', rechargeAmount: 0, dailySpend: 0, lastRecharge: new Date().toISOString().slice(0,10), ...data }
     if (useSheets) {
       const saved = await addClient(payload)
       setClients(prev => [...prev, saved])
@@ -121,6 +143,34 @@ export function AppProvider({ children }) {
     }
   }
 
+  const setClientPriority = async (clientId, priorityStatus) => {
+    setClients(prev => prev.map(c => c.id === clientId ? { ...c, priorityStatus } : c))
+    if (useSheets) {
+      try { await setClientPrioritySheet(clientId, priorityStatus) } catch (e) { console.error(e) }
+    }
+  }
+
+  // recharge: sets new rechargeAmount and resets lastRecharge to today; also allows updating dailySpend
+  const setClientFinance = async (clientId, { rechargeAmount, dailySpend, recharged }) => {
+    setClients(prev => prev.map(c => {
+      if (c.id !== clientId) return c
+      const updated = { ...c }
+      if (dailySpend != null) updated.dailySpend = dailySpend
+      if (rechargeAmount != null) updated.rechargeAmount = rechargeAmount
+      if (recharged) updated.lastRecharge = new Date().toISOString().slice(0,10)
+      return updated
+    }))
+    if (useSheets) {
+      const client = clients.find(c => c.id === clientId) || {}
+      const payload = {
+        rechargeAmount: rechargeAmount != null ? rechargeAmount : client.rechargeAmount,
+        dailySpend: dailySpend != null ? dailySpend : client.dailySpend,
+        lastRecharge: recharged ? new Date().toISOString().slice(0,10) : client.lastRecharge
+      }
+      try { await setClientFinanceSheet(clientId, payload) } catch (e) { console.error(e) }
+    }
+  }
+
   const cancelClient = async (clientId, cancelado = true) => {
     setClients(prev => prev.map(c => c.id === clientId ? { ...c, cancelado } : c))
     if (useSheets) {
@@ -158,7 +208,6 @@ export function AppProvider({ children }) {
       setLoggedIn(prev => ({ ...prev, [section]: true }))
       return section
     }
-    // Check if password matches another section's password -> unlock & redirect there
     for (const [sec, pwds] of Object.entries(SECTION_PASSWORDS)) {
       if (pwds.includes(password)) {
         setLoggedIn(prev => ({ ...prev, [sec]: true }))
@@ -175,14 +224,6 @@ export function AppProvider({ children }) {
 
   const getClientDemands = (clientId) => demands.filter(d => d.clientId === clientId)
   const getSectionDemands = (dest) => demands.filter(d => d.dest === dest)
-
-  const getSaldoStatus = (client) => {
-    if (!client.saldoMax) return 'ok'
-    const pct = client.saldo / client.saldoMax
-    if (pct > 0.3) return 'ok'
-    if (pct > 0.1) return 'low'
-    return 'critical'
-  }
 
   // Returns clients assigned to a given Social Media center (cc1 or cc2), excluding cancelled
   const getSocialClients = (centroCriativo) => {
@@ -203,10 +244,10 @@ export function AppProvider({ children }) {
       clients: activeClients, allClients: clients, cancelledClients,
       demands, loading, loggedIn, isAdmin,
       createClient, createDemand, toggleDemand, registerSocialPost,
-      setClientStatus, setClientNotes, cancelClient,
+      setClientStatus, setClientNotes, setClientPriority, setClientFinance, cancelClient,
       unlockAdmin, lockAdmin, deleteClient, deleteDemand,
       login, logout,
-      getClientDemands, getSectionDemands, getSaldoStatus, getSocialClients,
+      getClientDemands, getSectionDemands, getSocialClients,
       reload: load,
       useSheets
     }}>
