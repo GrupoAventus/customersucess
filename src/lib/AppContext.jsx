@@ -15,7 +15,7 @@ const DEMO_DEMANDS = [
   { id: 'd_3', clientId: 'c_2', text: 'Landing page nova', prazo: '2024-12-20', dest: 'Squad 2', done: false, createdAt: '' },
 ]
 
-const useSheets = Boolean(import.meta.env.VITE_SHEET_ID)
+const useSheets = Boolean(import.meta.env.VITE_SCRIPT_URL)
 
 export function AppProvider({ children }) {
   const [clients, setClients] = useState(useSheets ? [] : DEMO_CLIENTS)
