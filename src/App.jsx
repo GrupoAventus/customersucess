@@ -22,7 +22,7 @@ function AppInner() {
   const section = SECTIONS[current]
 
   if (!loggedIn[current]) {
-    return <LoginScreen section={current} sectionName={section.label} />
+    return <LoginScreen section={current} sectionName={section.label} onUnlock={(sec) => setCurrent(sec)} />
   }
 
   return (
