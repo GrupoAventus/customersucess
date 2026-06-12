@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet } from './sheets'
+import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet } from './sheets'
 
 const AppContext = createContext(null)
 
@@ -18,6 +18,7 @@ const DEMO_DEMANDS = [
 ]
 
 const useSheets = Boolean(import.meta.env.VITE_SCRIPT_URL)
+const ADMIN_PASSWORD = '9912'
 
 function getCurrentWeek() {
   const now = new Date()
@@ -31,6 +32,7 @@ export function AppProvider({ children }) {
   const [demands, setDemands] = useState(useSheets ? [] : DEMO_DEMANDS)
   const [loading, setLoading] = useState(useSheets)
   const [loggedIn, setLoggedIn] = useState({})
+  const [isAdmin, setIsAdmin] = useState(false)
 
   const load = useCallback(async () => {
     if (!useSheets) return
@@ -117,6 +119,30 @@ export function AppProvider({ children }) {
     }
   }
 
+  const unlockAdmin = (password) => {
+    if (password === ADMIN_PASSWORD) {
+      setIsAdmin(true)
+      return true
+    }
+    return false
+  }
+
+  const lockAdmin = () => setIsAdmin(false)
+
+  const deleteClient = async (clientId) => {
+    setClients(prev => prev.filter(c => c.id !== clientId))
+    if (useSheets) {
+      try { await deleteClientSheet(clientId) } catch (e) { console.error(e) }
+    }
+  }
+
+  const deleteDemand = async (demandId) => {
+    setDemands(prev => prev.filter(d => d.id !== demandId))
+    if (useSheets) {
+      try { await deleteDemandSheet(demandId) } catch (e) { console.error(e) }
+    }
+  }
+
   const login = (section, password) => {
     if (password === '12') {
       setLoggedIn(prev => ({ ...prev, [section]: true }))
@@ -158,9 +184,10 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider value={{
       clients: activeClients, allClients: clients, cancelledClients,
-      demands, loading, loggedIn,
+      demands, loading, loggedIn, isAdmin,
       createClient, createDemand, toggleDemand, registerSocialPost,
       setClientStatus, setClientNotes, cancelClient,
+      unlockAdmin, lockAdmin, deleteClient, deleteDemand,
       login, logout,
       getClientDemands, getSectionDemands, getSaldoStatus, getSocialClients,
       reload: load,
