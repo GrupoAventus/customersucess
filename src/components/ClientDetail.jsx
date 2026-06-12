@@ -5,7 +5,7 @@ import { Modal, Btn, Field } from './UI'
 const DEST_OPTIONS = ['Squad 1', 'Squad 2', 'Centro criativo 1', 'Centro criativo 2']
 
 export default function ClientDetail({ client, onClose, hideFinance }) {
-  const { getSaldoStatus, getClientDemands, toggleDemand, createDemand, setClientNotes, cancelClient } = useApp()
+  const { getSaldoStatus, getClientDemands, toggleDemand, createDemand, setClientNotes, cancelClient, isAdmin, deleteClient } = useApp()
   const status = getSaldoStatus(client)
   const demands = getClientDemands(client.id)
   const [showNewDemand, setShowNewDemand] = useState(false)
@@ -34,6 +34,13 @@ export default function ClientDetail({ client, onClose, hideFinance }) {
   const handleCancel = async () => {
     if (window.confirm(`Cancelar o cliente "${client.name}"? Ele será movido para o histórico de Cancelados.`)) {
       await cancelClient(client.id, true)
+      onClose()
+    }
+  }
+
+  const handleDelete = async () => {
+    if (window.confirm(`EXCLUIR PERMANENTEMENTE o cliente "${client.name}"? Esta ação não pode ser desfeita.`)) {
+      await deleteClient(client.id)
       onClose()
     }
   }
@@ -187,10 +194,15 @@ export default function ClientDetail({ client, onClose, hideFinance }) {
         </div>
       )}
       {client.cancelado && (
-        <div style={{ borderTop: '0.5px solid #1f1f1f', paddingTop: 12 }}>
-          <Btn onClick={() => cancelClient(client.id, false)} style={{ width: '100%' }}>
+        <div style={{ borderTop: '0.5px solid #1f1f1f', paddingTop: 12, display: 'flex', gap: 8 }}>
+          <Btn onClick={() => cancelClient(client.id, false)} style={{ flex: 1 }}>
             <i className="ti ti-rotate" /> Reativar cliente
           </Btn>
+          {isAdmin && (
+            <Btn danger onClick={handleDelete} style={{ flex: 1 }}>
+              <i className="ti ti-trash" /> Excluir permanentemente
+            </Btn>
+          )}
         </div>
       )}
     </Modal>
