@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { useApp, KANBAN_COLUMNS } from '../lib/AppContext'
+import { useApp, KANBAN_COLUMNS, PRIORITY_RANK, PRIORITY_COLORS, computeCurrentSaldo } from '../lib/AppContext'
 import ClientCard from '../components/ClientCard'
 import ClientDetail from '../components/ClientDetail'
 import NewDemandModal from '../components/NewDemandModal'
 import DemandTable from '../components/DemandTable'
 import { Btn, SectionHeader } from '../components/UI'
+
+const RECHARGE_THRESHOLD = 50
 
 export default function Squad({ label, title }) {
   const { clients, demands, setClientStatus } = useApp()
@@ -23,6 +25,22 @@ export default function Squad({ label, title }) {
     'Campanha ativa': 'var(--green)',
     'Anúncios pausados': 'var(--red)',
   }
+
+  // Recharge queue: clients with current saldo <= threshold, sorted by priority (prioridade > atencao > estavel)
+  const needsRecharge = squadClients
+    .map(c => ({ ...c, currentSaldo: computeCurrentSaldo(c) }))
+    .filter(c => c.currentSaldo <= RECHARGE_THRESHOLD)
+    .sort((a, b) => {
+      const rankDiff = (PRIORITY_RANK[a.priorityStatus] ?? 2) - (PRIORITY_RANK[b.priorityStatus] ?? 2)
+      if (rankDiff !== 0) return rankDiff
+      return a.currentSaldo - b.currentSaldo
+    })
+
+  const nextRecharge = needsRecharge[0]
+
+  const sortByPriority = (list) => [...list].sort((a, b) => {
+    return (PRIORITY_RANK[a.priorityStatus] ?? 2) - (PRIORITY_RANK[b.priorityStatus] ?? 2)
+  })
 
   const handleDrop = (column) => {
     if (dragId) {
@@ -43,10 +61,37 @@ export default function Squad({ label, title }) {
         }
       />
 
+      {/* Recharge queue highlight */}
+      {nextRecharge && (
+        <div style={{
+          background: PRIORITY_COLORS[nextRecharge.priorityStatus]?.bg || 'var(--orange-dim)',
+          border: `0.5px solid ${PRIORITY_COLORS[nextRecharge.priorityStatus]?.border || 'var(--orange)'}`,
+          borderRadius: 10, padding: '12px 16px', marginBottom: 16,
+          display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer'
+        }} onClick={() => setSelected(nextRecharge)}>
+          <i className="ti ti-alert-triangle" style={{ color: PRIORITY_COLORS[nextRecharge.priorityStatus]?.border, fontSize: 20 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Próximo a reabastecer</div>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>{nextRecharge.name}</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Saldo atual</div>
+            <div style={{ fontSize: 16, fontWeight: 500, color: PRIORITY_COLORS[nextRecharge.priorityStatus]?.border }}>
+              R${nextRecharge.currentSaldo.toLocaleString('pt-BR')}
+            </div>
+          </div>
+          {needsRecharge.length > 1 && (
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', borderLeft: '0.5px solid #333', paddingLeft: 10 }}>
+              +{needsRecharge.length - 1} na fila
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Kanban */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: '2rem' }}>
         {KANBAN_COLUMNS.map(col => {
-          const colClients = squadClients.filter(c => (c.status || 'Pegar acessos') === col)
+          const colClients = sortByPriority(squadClients.filter(c => (c.status || 'Pegar acessos') === col))
           return (
             <div
               key={col}
