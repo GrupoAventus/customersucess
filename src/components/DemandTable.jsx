@@ -3,11 +3,18 @@ import { useApp } from '../lib/AppContext'
 import DemandDetailModal from './DemandDetailModal'
 
 export default function DemandTable({ demands }) {
-  const { toggleDemand } = useApp()
+  const { toggleDemand, isAdmin, deleteDemand } = useApp()
   const [selected, setSelected] = useState(null)
 
   if (demands.length === 0) {
     return <div style={{ fontSize: 13, color: '#333', padding: '8px 0' }}>Nenhuma demanda</div>
+  }
+
+  const handleDelete = (e, d) => {
+    e.stopPropagation()
+    if (window.confirm(`Excluir a demanda "${d.text}"?`)) {
+      deleteDemand(d.id)
+    }
   }
 
   return (
@@ -15,7 +22,7 @@ export default function DemandTable({ demands }) {
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
-            {['Cliente', 'Demanda', 'Prazo', 'Status'].map(h => (
+            {['Cliente', 'Demanda', 'Prazo', 'Status', ''].map(h => (
               <th key={h} style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'left', padding: '6px 10px', borderBottom: '0.5px solid #1f1f1f' }}>{h}</th>
             ))}
           </tr>
@@ -42,6 +49,20 @@ export default function DemandTable({ demands }) {
                 >
                   {d.done ? 'Feita' : 'Pendente'}
                 </span>
+              </td>
+              <td style={{ padding: '8px 10px', width: 32 }}>
+                {isAdmin && (
+                  <button
+                    onClick={(e) => handleDelete(e, d)}
+                    title="Excluir demanda"
+                    style={{
+                      background: 'none', border: 'none', color: 'var(--red)',
+                      cursor: 'pointer', padding: 4, display: 'flex'
+                    }}
+                  >
+                    <i className="ti ti-trash" />
+                  </button>
+                )}
               </td>
             </tr>
           ))}
