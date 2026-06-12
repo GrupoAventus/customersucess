@@ -136,3 +136,20 @@ export async function toggleDemandSheet(demand) {
 export async function deleteDemandSheet(id) {
   await callPost({ action: 'deleteDemand', id })
 }
+
+// ---- PENDING SALES (integration with external financial dashboard) ----
+
+export async function fetchPendingSales() {
+  try {
+    const data = await callGet('getPending')
+    if (data.error) return []
+    return data.filter(r => (r.status || '').toLowerCase() === 'aguardando cadastro')
+  } catch (e) {
+    console.error('fetchPendingSales error:', e)
+    return []
+  }
+}
+
+export async function markPendingDoneSheet(id) {
+  await callPost({ action: 'markPendingDone', id })
+}
