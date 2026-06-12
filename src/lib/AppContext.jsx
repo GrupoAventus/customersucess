@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet, setClientPrioritySheet, setClientFinanceSheet } from './sheets'
+import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet, setClientPrioritySheet, setClientFinanceSheet, fetchPendingSales, markPendingDoneSheet } from './sheets'
 
 const AppContext = createContext(null)
 
@@ -64,6 +64,7 @@ export function AppProvider({ children }) {
   const [loading, setLoading] = useState(useSheets)
   const [loggedIn, setLoggedIn] = useState({})
   const [isAdmin, setIsAdmin] = useState(false)
+  const [pendingSales, setPendingSales] = useState([])
 
   const load = useCallback(async () => {
     if (!useSheets) return
@@ -72,6 +73,7 @@ export function AppProvider({ children }) {
       const [c, d] = await Promise.all([fetchClients(), fetchDemands()])
       setClients(c)
       setDemands(d)
+      try { setPendingSales(await fetchPendingSales()) } catch (e) { console.error(e) }
     } catch (e) {
       console.error('Load error:', e)
     }
@@ -82,15 +84,47 @@ export function AppProvider({ children }) {
 
   const createClient = async (data) => {
     const payload = { status: 'Pegar acessos', observacoes: '', cancelado: false, priorityStatus: 'estavel', rechargeAmount: 0, dailySpend: 0, lastRecharge: new Date().toISOString().slice(0,10), ...data }
+    let saved
     if (useSheets) {
-      const saved = await addClient(payload)
+      saved = await addClient(payload)
       setClients(prev => [...prev, saved])
-      return saved
     } else {
-      const newC = { ...payload, id: `c_${Date.now()}`, socialPosts: 0, socialWeek: '' }
-      setClients(prev => [...prev, newC])
-      return newC
+      saved = { ...payload, id: `c_${Date.now()}`, socialPosts: 0, socialWeek: '' }
+      setClients(prev => [...prev, saved])
     }
+    // Auto-create LP/Ecom demands for the respective creative center
+    const destinos = saved.destinos || []
+    if (destinos.includes('LP') && saved.ccLP) {
+      await createDemand({ clientId: saved.id, text: `Criar LP para ${saved.name}`, prazo: '', dest: saved.ccLP })
+    }
+    if (destinos.includes('Ecom') && saved.ccEcom) {
+      await createDemand({ clientId: saved.id, text: `Criar Ecom para ${saved.name}`, prazo: '', dest: saved.ccEcom })
+    }
+    return saved
+  }
+
+  const dismissPendingSale = async (id) => {
+    setPendingSales(prev => prev.filter(p => p.id !== id))
+    if (useSheets) {
+      try { await markPendingDoneSheet(id) } catch (e) { console.error(e) }
+    }
+  }
+
+  // One-time backfill: create LP/Ecom demands for existing clients that don't have them yet
+  const backfillLpEcomDemands = async () => {
+    let created = 0
+    for (const c of clients) {
+      const destinos = c.destinos || []
+      if (destinos.includes('LP') && c.ccLP) {
+        const exists = demands.some(d => d.clientId === c.id && d.text === `Criar LP para ${c.name}`)
+        if (!exists) { await createDemand({ clientId: c.id, text: `Criar LP para ${c.name}`, prazo: '', dest: c.ccLP }); created++ }
+      }
+      if (destinos.includes('Ecom') && c.ccEcom) {
+        const exists = demands.some(d => d.clientId === c.id && d.text === `Criar Ecom para ${c.name}`)
+        if (!exists) { await createDemand({ clientId: c.id, text: `Criar Ecom para ${c.name}`, prazo: '', dest: c.ccEcom }); created++ }
+      }
+    }
+    return created
   }
 
   const createDemand = async (data) => {
@@ -242,10 +276,10 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider value={{
       clients: activeClients, allClients: clients, cancelledClients,
-      demands, loading, loggedIn, isAdmin,
+      demands, loading, loggedIn, isAdmin, pendingSales,
       createClient, createDemand, toggleDemand, registerSocialPost,
       setClientStatus, setClientNotes, setClientPriority, setClientFinance, cancelClient,
-      unlockAdmin, lockAdmin, deleteClient, deleteDemand,
+      unlockAdmin, lockAdmin, deleteClient, deleteDemand, dismissPendingSale, backfillLpEcomDemands,
       login, logout,
       getClientDemands, getSectionDemands, getSocialClients,
       reload: load,
