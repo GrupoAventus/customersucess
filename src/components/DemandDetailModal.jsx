@@ -1,12 +1,10 @@
-import { useApp } from '../lib/AppContext'
+import { useApp, PRIORITY_COLORS } from '../lib/AppContext'
 import { Modal } from './UI'
 
 export default function DemandDetailModal({ demand, onClose }) {
-  const { clients, getSaldoStatus, toggleDemand } = useApp()
+  const { clients, toggleDemand } = useApp()
   const client = clients.find(c => c.id === demand.clientId)
-
-  const status = client ? getSaldoStatus(client) : 'ok'
-  const saldoColor = { ok: 'var(--green)', low: 'var(--amber)', critical: 'var(--red)' }[status]
+  const colors = client ? PRIORITY_COLORS[client.priorityStatus || 'estavel'] : PRIORITY_COLORS.estavel
 
   return (
     <Modal title="Detalhes da demanda" onClose={onClose}>
@@ -46,19 +44,11 @@ export default function DemandDetailModal({ demand, onClose }) {
             Cliente
           </div>
           <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 4 }}>{client.name}</div>
-          <div style={{ fontSize: 12, color: 'var(--orange)', marginBottom: 12 }}>{client.destino}</div>
-
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <div style={{ background: '#1a1a1a', borderRadius: 8, padding: '10px 14px', flex: 1, border: '0.5px solid var(--border)' }}>
-              <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Saldo atual</div>
-              <div style={{ fontSize: 18, fontWeight: 500, color: saldoColor }}>
-                R${client.saldo?.toLocaleString('pt-BR')}
-              </div>
-            </div>
-            <div style={{ background: '#1a1a1a', borderRadius: 8, padding: '10px 14px', flex: 1, border: '0.5px solid var(--border)' }}>
-              <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Orçamento total</div>
-              <div style={{ fontSize: 18, fontWeight: 500 }}>R${client.saldoMax?.toLocaleString('pt-BR')}</div>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <span style={{ fontSize: 12, color: 'var(--orange)' }}>{client.destino}</span>
+            <span style={{ fontSize: 11, color: colors.border, background: colors.bg, padding: '2px 10px', borderRadius: 20, border: `0.5px solid ${colors.border}` }}>
+              {colors.label}
+            </span>
           </div>
 
           {[
