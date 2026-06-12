@@ -85,6 +85,10 @@ export async function cancelClientSheet(id, cancelado) {
   await callPost({ action: 'cancelClient', id, cancelado })
 }
 
+export async function deleteClientSheet(id) {
+  await callPost({ action: 'deleteClient', id })
+}
+
 export async function incrementSocialPost(clientId) {
   return callPost({ action: 'incrementSocialPost', id: clientId })
 }
@@ -117,4 +121,8 @@ export async function addDemand(demand) {
 
 export async function toggleDemandSheet(demand) {
   await callPost({ action: 'toggleDemand', id: demand.id, done: demand.done })
+}
+
+export async function deleteDemandSheet(id) {
+  await callPost({ action: 'deleteDemand', id })
 }
