@@ -4,13 +4,15 @@ import { Modal, Btn, Field } from './UI'
 
 const DEST_OPTIONS = ['Squad 1', 'Squad 2', 'Centro criativo 1', 'Centro criativo 2']
 
-export default function ClientDetail({ client, onClose }) {
-  const { getSaldoStatus, getClientDemands, toggleDemand, createDemand } = useApp()
+export default function ClientDetail({ client, onClose, hideFinance }) {
+  const { getSaldoStatus, getClientDemands, toggleDemand, createDemand, setClientNotes, cancelClient } = useApp()
   const status = getSaldoStatus(client)
   const demands = getClientDemands(client.id)
   const [showNewDemand, setShowNewDemand] = useState(false)
   const [demandForm, setDemandForm] = useState({ text: '', prazo: '', dest: 'Squad 1' })
   const [saving, setSaving] = useState(false)
+  const [notes, setNotes] = useState(client.observacoes || '')
+  const [notesSaved, setNotesSaved] = useState(true)
 
   const saldoColor = { ok: 'var(--green)', low: 'var(--amber)', critical: 'var(--red)' }[status]
   const saldoLabel = { ok: 'Saldo ok', low: 'Saldo baixo', critical: 'Saldo crítico' }[status]
@@ -24,29 +26,45 @@ export default function ClientDetail({ client, onClose }) {
     setSaving(false)
   }
 
+  const saveNotes = async () => {
+    await setClientNotes(client.id, notes)
+    setNotesSaved(true)
+  }
+
+  const handleCancel = async () => {
+    if (window.confirm(`Cancelar o cliente "${client.name}"? Ele será movido para o histórico de Cancelados.`)) {
+      await cancelClient(client.id, true)
+      onClose()
+    }
+  }
+
   return (
     <Modal title={client.name} onClose={onClose}>
-      <div style={{ fontSize: 12, color: 'var(--orange)', marginTop: -14, marginBottom: 16 }}>
-        {client.destino}
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: -10, marginBottom: 16 }}>
+        {(client.destinos && client.destinos.length > 0 ? client.destinos : [client.destino]).filter(Boolean).map(d => (
+          <span key={d} style={{ fontSize: 11, color: 'var(--orange)', background: 'var(--orange-dim)', padding: '2px 10px', borderRadius: 20 }}>{d}</span>
+        ))}
       </div>
 
       {/* Saldo info */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        <div style={{ background: '#1a1a1a', borderRadius: 8, padding: '10px 14px', flex: 1, border: '0.5px solid var(--border)' }}>
-          <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Saldo atual</div>
-          <div style={{ fontSize: 20, fontWeight: 500, color: saldoColor }}>
-            R${client.saldo?.toLocaleString('pt-BR')}
+      {!hideFinance && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+          <div style={{ background: '#1a1a1a', borderRadius: 8, padding: '10px 14px', flex: 1, border: '0.5px solid var(--border)' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Saldo atual</div>
+            <div style={{ fontSize: 20, fontWeight: 500, color: saldoColor }}>
+              R${client.saldo?.toLocaleString('pt-BR')}
+            </div>
+            <div style={{ fontSize: 10, color: saldoColor, marginTop: 2 }}>{saldoLabel}</div>
           </div>
-          <div style={{ fontSize: 10, color: saldoColor, marginTop: 2 }}>{saldoLabel}</div>
-        </div>
-        <div style={{ background: '#1a1a1a', borderRadius: 8, padding: '10px 14px', flex: 1, border: '0.5px solid var(--border)' }}>
-          <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Orçamento total</div>
-          <div style={{ fontSize: 20, fontWeight: 500 }}>R${client.saldoMax?.toLocaleString('pt-BR')}</div>
-          <div style={{ fontSize: 10, color: '#444', marginTop: 2 }}>
-            {client.saldoMax ? Math.round((client.saldo / client.saldoMax) * 100) : 0}% restante
+          <div style={{ background: '#1a1a1a', borderRadius: 8, padding: '10px 14px', flex: 1, border: '0.5px solid var(--border)' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Orçamento total</div>
+            <div style={{ fontSize: 20, fontWeight: 500 }}>R${client.saldoMax?.toLocaleString('pt-BR')}</div>
+            <div style={{ fontSize: 10, color: '#444', marginTop: 2 }}>
+              {client.saldoMax ? Math.round((client.saldo / client.saldoMax) * 100) : 0}% restante
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Links */}
       <div style={{ marginBottom: 20 }}>
@@ -124,24 +142,57 @@ export default function ClientDetail({ client, onClose }) {
         ))}
       </div>
 
-      {/* Análise buttons */}
-      <div style={{ borderTop: '0.5px solid #1f1f1f', paddingTop: 16, display: 'flex', gap: 8 }}>
-        <Btn primary style={{ flex: 1 }}
-          onClick={() => {
-            const done = demands.filter(d => d.done).length
-            const pending = demands.filter(d => !d.done).length
-            const pct = client.saldoMax ? Math.round((client.saldo / client.saldoMax) * 100) : 0
-            window.sendPrompt && window.sendPrompt(`Gere uma análise preditiva completa para o cliente ${client.name}: saldo R$${client.saldo} de R$${client.saldoMax} (${pct}% restante), ${pending} demandas pendentes, ${done} concluídas. Preveja se haverá resultado, quando o saldo acaba, pontos de atenção e sugestões de melhoria.`)
-          }}>
-          <i className="ti ti-sparkles" /> Análise preditiva ↗
-        </Btn>
-        <Btn style={{ flex: 1 }}
-          onClick={() => {
-            window.sendPrompt && window.sendPrompt(`Para o cliente ${client.name}, quero uma análise customizada. Quais métricas e período devo informar?`)
-          }}>
-          <i className="ti ti-adjustments" /> Customizada ↗
-        </Btn>
+      {/* Observações */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 11, color: 'var(--orange)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8, paddingBottom: 6, borderBottom: '0.5px solid #1f1f1f' }}>
+          Observações
+        </div>
+        <textarea
+          rows={3}
+          placeholder="Escreva anotações sobre este cliente..."
+          value={notes}
+          onChange={e => { setNotes(e.target.value); setNotesSaved(false) }}
+          onBlur={saveNotes}
+        />
+        {!notesSaved && <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>Salvando ao sair do campo...</div>}
       </div>
+
+      {/* Análise buttons */}
+      {!hideFinance && (
+        <div style={{ borderTop: '0.5px solid #1f1f1f', paddingTop: 16, display: 'flex', gap: 8, marginBottom: 12 }}>
+          <Btn primary style={{ flex: 1 }}
+            onClick={() => {
+              const done = demands.filter(d => d.done).length
+              const pending = demands.filter(d => !d.done).length
+              const pct = client.saldoMax ? Math.round((client.saldo / client.saldoMax) * 100) : 0
+              window.sendPrompt && window.sendPrompt(`Gere uma análise preditiva completa para o cliente ${client.name}: saldo R$${client.saldo} de R$${client.saldoMax} (${pct}% restante), ${pending} demandas pendentes, ${done} concluídas. Preveja se haverá resultado, quando o saldo acaba, pontos de atenção e sugestões de melhoria.`)
+            }}>
+            <i className="ti ti-sparkles" /> Análise preditiva ↗
+          </Btn>
+          <Btn style={{ flex: 1 }}
+            onClick={() => {
+              window.sendPrompt && window.sendPrompt(`Para o cliente ${client.name}, quero uma análise customizada. Quais métricas e período devo informar?`)
+            }}>
+            <i className="ti ti-adjustments" /> Customizada ↗
+          </Btn>
+        </div>
+      )}
+
+      {/* Cancelar cliente */}
+      {!client.cancelado && (
+        <div style={{ borderTop: '0.5px solid #1f1f1f', paddingTop: 12 }}>
+          <Btn danger onClick={handleCancel} style={{ width: '100%' }}>
+            <i className="ti ti-x" /> Cancelar cliente
+          </Btn>
+        </div>
+      )}
+      {client.cancelado && (
+        <div style={{ borderTop: '0.5px solid #1f1f1f', paddingTop: 12 }}>
+          <Btn onClick={() => cancelClient(client.id, false)} style={{ width: '100%' }}>
+            <i className="ti ti-rotate" /> Reativar cliente
+          </Btn>
+        </div>
+      )}
     </Modal>
   )
 }
