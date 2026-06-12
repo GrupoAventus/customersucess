@@ -30,7 +30,7 @@ export default function Nav({ current, onChange }) {
       gap: 0, overflowX: 'auto'
     }}>
       <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--orange)', marginRight: '2rem', flexShrink: 0 }}>
-        ⬡ AgencyOS
+        ⬡ Grupo Aventus_
       </span>
       {SECTIONS.map(s => (
         <button
