@@ -67,9 +67,7 @@ export function AppProvider({ children }) {
       if (d.id !== demandId) return d
       const updated = { ...d, done: !d.done }
       if (useSheets) {
-        // find row index (header is row 1, data starts row 2)
-        const idx = prev.findIndex(x => x.id === demandId)
-        toggleDemandSheet(updated, idx + 2).catch(console.error)
+        toggleDemandSheet(updated).catch(console.error)
       }
       return updated
     }))
