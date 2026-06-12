@@ -156,9 +156,16 @@ export function AppProvider({ children }) {
     const valid = SECTION_PASSWORDS[section] || []
     if (password === 'admbruno_' || valid.includes(password)) {
       setLoggedIn(prev => ({ ...prev, [section]: true }))
-      return true
+      return section
     }
-    return false
+    // Check if password matches another section's password -> unlock & redirect there
+    for (const [sec, pwds] of Object.entries(SECTION_PASSWORDS)) {
+      if (pwds.includes(password)) {
+        setLoggedIn(prev => ({ ...prev, [sec]: true }))
+        return sec
+      }
+    }
+    return null
   }
 
   const logout = (section) => {
