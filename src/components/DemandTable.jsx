@@ -17,6 +17,8 @@ export default function DemandTable({ demands }) {
     }
   }
 
+  const isOverdue = (d) => !d.done && d.prazo && d.prazo < new Date().toISOString().slice(0,10)
+
   return (
     <>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -29,14 +31,17 @@ export default function DemandTable({ demands }) {
         </thead>
         <tbody>
           {demands.map(d => (
-            <tr key={d.id} style={{ borderBottom: '0.5px solid #141414', cursor: 'pointer' }}
+            <tr key={d.id} style={{ borderBottom: '0.5px solid #141414', cursor: 'pointer', background: isOverdue(d) ? 'rgba(226,75,74,0.08)' : 'transparent' }}
               onClick={() => setSelected(d)}
-              onMouseEnter={e => e.currentTarget.style.background = '#161616'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              onMouseEnter={e => e.currentTarget.style.background = isOverdue(d) ? 'rgba(226,75,74,0.15)' : '#161616'}
+              onMouseLeave={e => e.currentTarget.style.background = isOverdue(d) ? 'rgba(226,75,74,0.08)' : 'transparent'}
             >
               <td style={{ fontSize: 13, color: 'var(--orange)', padding: '8px 10px' }}>{d.clientName}</td>
               <td style={{ fontSize: 13, color: '#ccc', padding: '8px 10px', maxWidth: 220 }}>{d.text}</td>
-              <td style={{ fontSize: 13, color: '#444', padding: '8px 10px', whiteSpace: 'nowrap' }}>{d.prazo || '—'}</td>
+              <td style={{ fontSize: 13, padding: '8px 10px', whiteSpace: 'nowrap', color: isOverdue(d) ? 'var(--red)' : '#444', fontWeight: isOverdue(d) ? 500 : 400 }}>
+                {isOverdue(d) && <i className="ti ti-alert-triangle" style={{ marginRight: 4 }} />}
+                {d.prazo || '—'}
+              </td>
               <td style={{ padding: '8px 10px' }}>
                 <span
                   onClick={(e) => { e.stopPropagation(); toggleDemand(d.id) }}
