@@ -45,8 +45,6 @@ export async function fetchClients() {
       site: r.site || '',
       entrou: r.entrou || '',
       destino: r.destino || '',
-      saldoMax: parseFloat(r.saldoMax) || 0,
-      saldo: parseFloat(r.saldo) || 0,
       createdAt: r.createdAt || '',
       destinos: safeParseArray(r.destinos),
       ccLP: r.ccLP || '',
@@ -57,6 +55,10 @@ export async function fetchClients() {
       status: r.status || 'Pegar acessos',
       observacoes: r.observacoes || '',
       cancelado: r.cancelado === 'TRUE' || r.cancelado === true,
+      rechargeAmount: parseFloat(r.rechargeAmount) || 0,
+      dailySpend: parseFloat(r.dailySpend) || 0,
+      lastRecharge: r.lastRecharge || '',
+      priorityStatus: r.priorityStatus || 'estavel',
     }))
   } catch (e) {
     console.error('fetchClients error:', e)
@@ -66,7 +68,7 @@ export async function fetchClients() {
 
 export async function addClient(client) {
   const result = await callPost({ action: 'addClient', ...client })
-  return { ...client, id: result.id, socialPosts: 0, status: client.status || 'Pegar acessos', observacoes: client.observacoes || '', cancelado: false }
+  return { ...client, id: result.id, socialPosts: 0, status: client.status || 'Pegar acessos', observacoes: client.observacoes || '', cancelado: false, priorityStatus: client.priorityStatus || 'estavel' }
 }
 
 export async function updateClient(client) {
@@ -79,6 +81,14 @@ export async function updateClientStatus(id, status) {
 
 export async function updateClientNotes(id, observacoes) {
   await callPost({ action: 'updateClientNotes', id, observacoes })
+}
+
+export async function setClientPrioritySheet(id, priorityStatus) {
+  await callPost({ action: 'setClientPriority', id, priorityStatus })
+}
+
+export async function setClientFinanceSheet(id, { rechargeAmount, dailySpend, lastRecharge }) {
+  await callPost({ action: 'setClientFinance', id, rechargeAmount, dailySpend, lastRecharge })
 }
 
 export async function cancelClientSheet(id, cancelado) {
