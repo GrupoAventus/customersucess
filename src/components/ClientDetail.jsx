@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useApp, PRIORITY_COLORS, PRIORITY_LEVELS, computeCurrentSaldo } from '../lib/AppContext'
 import { Modal, Btn, Field } from './UI'
+import NewClientModal from './NewClientModal'
 
 const DEST_OPTIONS = ['Squad 1', 'Squad 2', 'Centro criativo 1', 'Centro criativo 2']
 
@@ -14,6 +15,7 @@ export default function ClientDetail({ client, onClose, hideFinance }) {
   const [notesSaved, setNotesSaved] = useState(true)
   const [dailySpend, setDailySpend] = useState(client.dailySpend || 0)
   const [rechargeInput, setRechargeInput] = useState('')
+  const [showEdit, setShowEdit] = useState(false)
 
   const priority = client.priorityStatus || 'estavel'
   const colors = PRIORITY_COLORS[priority]
@@ -60,11 +62,16 @@ export default function ClientDetail({ client, onClose, hideFinance }) {
 
   return (
     <Modal title={client.name} onClose={onClose}>
-      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: -10, marginBottom: 16 }}>
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: -10, marginBottom: 16, alignItems: 'center' }}>
         {(client.destinos && client.destinos.length > 0 ? client.destinos : [client.destino]).filter(Boolean).map(d => (
           <span key={d} style={{ fontSize: 11, color: 'var(--orange)', background: 'var(--orange-dim)', padding: '2px 10px', borderRadius: 20 }}>{d}</span>
         ))}
+        <Btn onClick={() => setShowEdit(true)} style={{ marginLeft: 'auto', fontSize: 11, padding: '3px 10px' }}>
+          <i className="ti ti-edit" /> Editar
+        </Btn>
       </div>
+
+      {showEdit && <NewClientModal editingClient={client} onClose={() => setShowEdit(false)} />}
 
       {/* Priority buttons */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
