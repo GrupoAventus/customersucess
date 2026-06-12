@@ -43,12 +43,38 @@ function getCurrentWeek() {
   return `${now.getFullYear()}-W${week}`
 }
 
-function daysSince(dateStr) {
+export function daysSince(dateStr) {
   if (!dateStr) return 0
   const start = new Date(dateStr)
   const now = new Date()
   const diff = Math.floor((now.setHours(0,0,0,0) - start.setHours(0,0,0,0)) / 86400000)
   return Math.max(0, diff)
+}
+
+export function getDaysInStatus(client) {
+  return daysSince(client.statusChangedAt || client.createdAt)
+}
+
+// Auto-escalates priority for clients stuck in "Pegar acessos":
+// >=3 days: estavel -> atencao | >=5 days: atencao (auto) -> prioridade
+function applyAutoPriority(clients) {
+  const changes = []
+  const updated = clients.map(c => {
+    if (c.status !== 'Pegar acessos' || c.cancelado) return c
+    const days = getDaysInStatus(c)
+    let newPriority = c.priorityStatus
+    if (days >= 5 && (c.priorityStatus === 'estavel' || c.priorityStatus === 'atencao')) {
+      newPriority = 'prioridade'
+    } else if (days >= 3 && c.priorityStatus === 'estavel') {
+      newPriority = 'atencao'
+    }
+    if (newPriority !== c.priorityStatus) {
+      changes.push({ id: c.id, priorityStatus: newPriority })
+      return { ...c, priorityStatus: newPriority }
+    }
+    return c
+  })
+  return { clients: updated, changes }
 }
 
 export function computeCurrentSaldo(client) {
@@ -71,8 +97,14 @@ export function AppProvider({ children }) {
     setLoading(true)
     try {
       const [c, d] = await Promise.all([fetchClients(), fetchDemands()])
-      setClients(c)
+      const escalated = applyAutoPriority(c)
+      setClients(escalated.clients)
       setDemands(d)
+      if (useSheets) {
+        for (const upd of escalated.changes) {
+          setClientPrioritySheet(upd.id, upd.priorityStatus).catch(console.error)
+        }
+      }
       try { setPendingSales(await fetchPendingSales()) } catch (e) { console.error(e) }
     } catch (e) {
       console.error('Load error:', e)
@@ -83,7 +115,7 @@ export function AppProvider({ children }) {
   useEffect(() => { load() }, [load])
 
   const createClient = async (data) => {
-    const payload = { status: 'Pegar acessos', observacoes: '', cancelado: false, priorityStatus: 'estavel', rechargeAmount: 0, dailySpend: 0, lastRecharge: new Date().toISOString().slice(0,10), ...data }
+    const payload = { status: 'Pegar acessos', observacoes: '', cancelado: false, priorityStatus: 'estavel', rechargeAmount: 0, dailySpend: 0, lastRecharge: new Date().toISOString().slice(0,10), statusChangedAt: new Date().toISOString().slice(0,10), ...data }
     let saved
     if (useSheets) {
       saved = await addClient(payload)
@@ -164,9 +196,10 @@ export function AppProvider({ children }) {
   }
 
   const setClientStatus = async (clientId, status) => {
-    setClients(prev => prev.map(c => c.id === clientId ? { ...c, status } : c))
+    const today = new Date().toISOString().slice(0,10)
+    setClients(prev => prev.map(c => c.id === clientId ? { ...c, status, statusChangedAt: today } : c))
     if (useSheets) {
-      try { await updateClientStatus(clientId, status) } catch (e) { console.error(e) }
+      try { await updateClientStatus(clientId, status, today) } catch (e) { console.error(e) }
     }
   }
 
@@ -203,6 +236,35 @@ export function AppProvider({ children }) {
       }
       try { await setClientFinanceSheet(clientId, payload) } catch (e) { console.error(e) }
     }
+  }
+
+  const editClient = async (clientId, data) => {
+    const updated = { id: clientId, ...data }
+    setClients(prev => prev.map(c => c.id === clientId ? { ...c, ...data } : c))
+    if (useSheets) {
+      const client = clients.find(c => c.id === clientId) || {}
+      try {
+        await updateClient({
+          id: clientId,
+          name: data.name ?? client.name,
+          drive: data.drive ?? client.drive,
+          instagram: data.instagram ?? client.instagram,
+          site: data.site ?? client.site,
+          entrou: data.entrou ?? client.entrou,
+          destino: data.destino ?? client.destino,
+          destinos: data.destinos ?? client.destinos,
+          ccLP: data.ccLP ?? client.ccLP,
+          ccEcom: data.ccEcom ?? client.ccEcom,
+          ccSocial: data.ccSocial ?? client.ccSocial,
+          status: client.status,
+          observacoes: client.observacoes,
+          cancelado: client.cancelado,
+          socialPosts: client.socialPosts,
+          socialWeek: client.socialWeek,
+        })
+      } catch (e) { console.error(e) }
+    }
+    return updated
   }
 
   const cancelClient = async (clientId, cancelado = true) => {
@@ -277,7 +339,7 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       clients: activeClients, allClients: clients, cancelledClients,
       demands, loading, loggedIn, isAdmin, pendingSales,
-      createClient, createDemand, toggleDemand, registerSocialPost,
+      createClient, createDemand, toggleDemand, registerSocialPost, editClient,
       setClientStatus, setClientNotes, setClientPriority, setClientFinance, cancelClient,
       unlockAdmin, lockAdmin, deleteClient, deleteDemand, dismissPendingSale, backfillLpEcomDemands,
       login, logout,
