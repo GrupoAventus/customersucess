@@ -23,10 +23,10 @@ const ADMIN_PASSWORD = '9912'
 const SECTION_PASSWORDS = {
   ops: ['admbruno_'],
   dash: ['headpaulo', 'admbruno_'],
-  squad1: ['squad1'],
-  squad2: ['squad2_'],
-  cc1: ['centro1'],
-  cc2: ['centro2_'],
+  squad1: ['squad1', 'headpaulo'],
+  squad2: ['squad2_', 'headpaulo'],
+  cc1: ['centro1', 'headpaulo'],
+  cc2: ['centro2_', 'headpaulo'],
 }
 
 function getCurrentWeek() {
