@@ -6,29 +6,55 @@ import NewClientModal from '../components/NewClientModal'
 import { Btn, SectionHeader, EmptyState } from '../components/UI'
 
 export default function Ops() {
-  const { clients, loading } = useApp()
+  const { clients, cancelledClients, loading } = useApp()
   const [selected, setSelected] = useState(null)
   const [showNew, setShowNew] = useState(false)
+  const [tab, setTab] = useState('clients')
 
   if (loading) return <div style={{ padding: '3rem', color: 'var(--text-dim)', textAlign: 'center' }}>Carregando...</div>
+
+  const list = tab === 'clients' ? clients : cancelledClients
 
   return (
     <div style={{ padding: '1.5rem' }}>
       <SectionHeader
         title="Centro de operações"
-        subtitle={`${clients.length} cliente${clients.length !== 1 ? 's' : ''} cadastrado${clients.length !== 1 ? 's' : ''}`}
+        subtitle={`${clients.length} cliente${clients.length !== 1 ? 's' : ''} ativo${clients.length !== 1 ? 's' : ''} · ${cancelledClients.length} cancelado${cancelledClients.length !== 1 ? 's' : ''}`}
         action={
-          <Btn primary onClick={() => setShowNew(true)}>
-            <i className="ti ti-plus" /> Novo cliente
-          </Btn>
+          tab === 'clients' ? (
+            <Btn primary onClick={() => setShowNew(true)}>
+              <i className="ti ti-plus" /> Novo cliente
+            </Btn>
+          ) : null
         }
       />
 
-      {clients.length === 0
-        ? <EmptyState icon="users" text="Nenhum cliente cadastrado ainda" />
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '0.5px solid #1f1f1f' }}>
+        {[
+          { id: 'clients', label: 'Clientes ativos' },
+          { id: 'cancelled', label: `Cancelados (${cancelledClients.length})` },
+        ].map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            style={{
+              padding: '8px 16px', background: 'none', border: 'none',
+              borderBottom: tab === t.id ? '2px solid var(--orange)' : '2px solid transparent',
+              color: tab === t.id ? 'var(--orange)' : '#666',
+              fontSize: 13, cursor: 'pointer'
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {list.length === 0
+        ? <EmptyState icon="users" text={tab === 'clients' ? 'Nenhum cliente cadastrado ainda' : 'Nenhum cliente cancelado'} />
         : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
-            {clients.map(c => (
+            {list.map(c => (
               <ClientCard key={c.id} client={c} onClick={() => setSelected(c)} />
             ))}
           </div>
