@@ -1,21 +1,23 @@
 import { useState } from 'react'
-import { useApp } from '../lib/AppContext'
+import { useApp, PRIORITY_COLORS, PRIORITY_LEVELS, computeCurrentSaldo } from '../lib/AppContext'
 import { Modal, Btn, Field } from './UI'
 
 const DEST_OPTIONS = ['Squad 1', 'Squad 2', 'Centro criativo 1', 'Centro criativo 2']
 
 export default function ClientDetail({ client, onClose, hideFinance }) {
-  const { getSaldoStatus, getClientDemands, toggleDemand, createDemand, setClientNotes, cancelClient, isAdmin, deleteClient } = useApp()
-  const status = getSaldoStatus(client)
+  const { getClientDemands, toggleDemand, createDemand, setClientNotes, setClientPriority, setClientFinance, cancelClient, isAdmin, deleteClient } = useApp()
   const demands = getClientDemands(client.id)
   const [showNewDemand, setShowNewDemand] = useState(false)
   const [demandForm, setDemandForm] = useState({ text: '', prazo: '', dest: 'Squad 1' })
   const [saving, setSaving] = useState(false)
   const [notes, setNotes] = useState(client.observacoes || '')
   const [notesSaved, setNotesSaved] = useState(true)
+  const [dailySpend, setDailySpend] = useState(client.dailySpend || 0)
+  const [rechargeInput, setRechargeInput] = useState('')
 
-  const saldoColor = { ok: 'var(--green)', low: 'var(--amber)', critical: 'var(--red)' }[status]
-  const saldoLabel = { ok: 'Saldo ok', low: 'Saldo baixo', critical: 'Saldo crítico' }[status]
+  const priority = client.priorityStatus || 'estavel'
+  const colors = PRIORITY_COLORS[priority]
+  const currentSaldo = computeCurrentSaldo(client)
 
   const saveDemand = async () => {
     if (!demandForm.text.trim()) return
@@ -29,6 +31,17 @@ export default function ClientDetail({ client, onClose, hideFinance }) {
   const saveNotes = async () => {
     await setClientNotes(client.id, notes)
     setNotesSaved(true)
+  }
+
+  const saveDailySpend = async () => {
+    await setClientFinance(client.id, { dailySpend: parseFloat(dailySpend) || 0 })
+  }
+
+  const doRecharge = async () => {
+    const val = parseFloat(rechargeInput)
+    if (!val || val <= 0) return
+    await setClientFinance(client.id, { rechargeAmount: val, recharged: true })
+    setRechargeInput('')
   }
 
   const handleCancel = async () => {
@@ -53,22 +66,59 @@ export default function ClientDetail({ client, onClose, hideFinance }) {
         ))}
       </div>
 
-      {/* Saldo info */}
+      {/* Priority buttons */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        {PRIORITY_LEVELS.map(level => {
+          const c = PRIORITY_COLORS[level]
+          const active = priority === level
+          return (
+            <button
+              key={level}
+              onClick={() => setClientPriority(client.id, level)}
+              style={{
+                flex: 1, padding: '8px', borderRadius: 8, fontSize: 12, fontWeight: 500,
+                border: `0.5px solid ${c.border}`,
+                background: active ? c.border : 'transparent',
+                color: active ? '#fff' : c.border,
+                cursor: 'pointer', transition: 'all 0.15s'
+              }}
+            >
+              {c.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Saldo / Reabastecimento */}
       {!hideFinance && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-          <div style={{ background: '#1a1a1a', borderRadius: 8, padding: '10px 14px', flex: 1, border: '0.5px solid var(--border)' }}>
-            <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Saldo atual</div>
-            <div style={{ fontSize: 20, fontWeight: 500, color: saldoColor }}>
-              R${client.saldo?.toLocaleString('pt-BR')}
-            </div>
-            <div style={{ fontSize: 10, color: saldoColor, marginTop: 2 }}>{saldoLabel}</div>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: 'var(--orange)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8, paddingBottom: 6, borderBottom: '0.5px solid #1f1f1f' }}>
+            Saldo da campanha
           </div>
-          <div style={{ background: '#1a1a1a', borderRadius: 8, padding: '10px 14px', flex: 1, border: '0.5px solid var(--border)' }}>
-            <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Orçamento total</div>
-            <div style={{ fontSize: 20, fontWeight: 500 }}>R${client.saldoMax?.toLocaleString('pt-BR')}</div>
-            <div style={{ fontSize: 10, color: '#444', marginTop: 2 }}>
-              {client.saldoMax ? Math.round((client.saldo / client.saldoMax) * 100) : 0}% restante
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <div style={{ background: '#1a1a1a', borderRadius: 8, padding: '10px 14px', flex: 1, border: '0.5px solid var(--border)' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Saldo atual (estimado)</div>
+              <div style={{ fontSize: 20, fontWeight: 500, color: colors.border }}>
+                R${currentSaldo.toLocaleString('pt-BR')}
+              </div>
+              <div style={{ fontSize: 10, color: '#444', marginTop: 2 }}>
+                Reabastecido: R${(parseFloat(client.rechargeAmount)||0).toLocaleString('pt-BR')} em {client.lastRecharge || '—'}
+              </div>
             </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <Field label="Gasto diário da campanha (R$)">
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input type="number" value={dailySpend} onChange={e => setDailySpend(e.target.value)} onBlur={saveDailySpend} />
+              </div>
+            </Field>
+            <Field label="Reabastecer (novo saldo R$)">
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input type="number" placeholder="Ex: 500" value={rechargeInput} onChange={e => setRechargeInput(e.target.value)} />
+                <Btn primary onClick={doRecharge} style={{ flexShrink: 0 }}>Reabastecer</Btn>
+              </div>
+            </Field>
           </div>
         </div>
       )}
@@ -171,8 +221,7 @@ export default function ClientDetail({ client, onClose, hideFinance }) {
             onClick={() => {
               const done = demands.filter(d => d.done).length
               const pending = demands.filter(d => !d.done).length
-              const pct = client.saldoMax ? Math.round((client.saldo / client.saldoMax) * 100) : 0
-              window.sendPrompt && window.sendPrompt(`Gere uma análise preditiva completa para o cliente ${client.name}: saldo R$${client.saldo} de R$${client.saldoMax} (${pct}% restante), ${pending} demandas pendentes, ${done} concluídas. Preveja se haverá resultado, quando o saldo acaba, pontos de atenção e sugestões de melhoria.`)
+              window.sendPrompt && window.sendPrompt(`Gere uma análise preditiva completa para o cliente ${client.name}: saldo atual estimado R$${currentSaldo}, gasto diário R$${client.dailySpend}, ${pending} demandas pendentes, ${done} concluídas, status atual: ${colors.label}. Preveja se haverá resultado, quando o saldo acaba, pontos de atenção e sugestões de melhoria.`)
             }}>
             <i className="ti ti-sparkles" /> Análise preditiva ↗
           </Btn>
