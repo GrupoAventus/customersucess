@@ -10,7 +10,7 @@ export default function NewClientModal({ onClose }) {
   const [form, setForm] = useState({
     name: '', drive: '', instagram: '', site: '',
     entrou: new Date().toISOString().slice(0, 10),
-    destino: '', saldoMax: '', saldo: '',
+    destino: '', rechargeAmount: '', dailySpend: '',
     destinos: [],
     ccLP: '', ccEcom: '', ccSocial: ''
   })
@@ -48,8 +48,10 @@ export default function NewClientModal({ onClose }) {
     await createClient({
       ...form,
       destino: primaryDestino,
-      saldo: parseFloat(form.saldo) || 0,
-      saldoMax: parseFloat(form.saldoMax) || 0,
+      rechargeAmount: parseFloat(form.rechargeAmount) || 0,
+      dailySpend: parseFloat(form.dailySpend) || 0,
+      lastRecharge: new Date().toISOString().slice(0,10),
+      priorityStatus: 'estavel',
     })
     setSaving(false)
     onClose()
@@ -77,11 +79,11 @@ export default function NewClientModal({ onClose }) {
         </Field>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <Field label="Orçamento total (R$)">
-          <input type="number" placeholder="1000" value={form.saldoMax} onChange={e => set('saldoMax', e.target.value)} />
+        <Field label="Reabastecimento inicial (R$)">
+          <input type="number" placeholder="500" value={form.rechargeAmount} onChange={e => set('rechargeAmount', e.target.value)} />
         </Field>
-        <Field label="Saldo atual (R$)">
-          <input type="number" placeholder="1000" value={form.saldo} onChange={e => set('saldo', e.target.value)} />
+        <Field label="Gasto diário da campanha (R$)">
+          <input type="number" placeholder="25" value={form.dailySpend} onChange={e => set('dailySpend', e.target.value)} />
         </Field>
       </div>
 
