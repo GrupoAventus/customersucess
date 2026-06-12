@@ -20,6 +20,17 @@ async function callPost(body) {
   return res.json()
 }
 
+function safeParseArray(val) {
+  if (Array.isArray(val)) return val
+  if (!val) return []
+  try {
+    const parsed = JSON.parse(val)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
 // ---- CLIENTS ----
 
 export async function fetchClients() {
@@ -37,6 +48,15 @@ export async function fetchClients() {
       saldoMax: parseFloat(r.saldoMax) || 0,
       saldo: parseFloat(r.saldo) || 0,
       createdAt: r.createdAt || '',
+      destinos: safeParseArray(r.destinos),
+      ccLP: r.ccLP || '',
+      ccEcom: r.ccEcom || '',
+      ccSocial: r.ccSocial || '',
+      socialPosts: parseFloat(r.socialPosts) || 0,
+      socialWeek: r.socialWeek || '',
+      status: r.status || 'Pegar acessos',
+      observacoes: r.observacoes || '',
+      cancelado: r.cancelado === 'TRUE' || r.cancelado === true,
     }))
   } catch (e) {
     console.error('fetchClients error:', e)
@@ -46,11 +66,27 @@ export async function fetchClients() {
 
 export async function addClient(client) {
   const result = await callPost({ action: 'addClient', ...client })
-  return { ...client, id: result.id }
+  return { ...client, id: result.id, socialPosts: 0, status: client.status || 'Pegar acessos', observacoes: client.observacoes || '', cancelado: false }
 }
 
 export async function updateClient(client) {
   await callPost({ action: 'updateClient', ...client })
+}
+
+export async function updateClientStatus(id, status) {
+  await callPost({ action: 'updateClientStatus', id, status })
+}
+
+export async function updateClientNotes(id, observacoes) {
+  await callPost({ action: 'updateClientNotes', id, observacoes })
+}
+
+export async function cancelClientSheet(id, cancelado) {
+  await callPost({ action: 'cancelClient', id, cancelado })
+}
+
+export async function incrementSocialPost(clientId) {
+  return callPost({ action: 'incrementSocialPost', id: clientId })
 }
 
 // ---- DEMANDS ----
