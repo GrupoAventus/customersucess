@@ -59,6 +59,7 @@ export async function fetchClients() {
       dailySpend: parseFloat(r.dailySpend) || 0,
       lastRecharge: r.lastRecharge || '',
       priorityStatus: r.priorityStatus || 'estavel',
+      statusChangedAt: r.statusChangedAt || r.createdAt || '',
     }))
   } catch (e) {
     console.error('fetchClients error:', e)
@@ -75,8 +76,8 @@ export async function updateClient(client) {
   await callPost({ action: 'updateClient', ...client })
 }
 
-export async function updateClientStatus(id, status) {
-  await callPost({ action: 'updateClientStatus', id, status })
+export async function updateClientStatus(id, status, statusChangedAt) {
+  await callPost({ action: 'updateClientStatus', id, status, statusChangedAt })
 }
 
 export async function updateClientNotes(id, observacoes) {
