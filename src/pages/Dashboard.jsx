@@ -1,4 +1,4 @@
-import { useApp } from '../lib/AppContext'
+import { useApp, PRIORITY_COLORS, computeCurrentSaldo } from '../lib/AppContext'
 import { StatCard, SectionHeader } from '../components/UI'
 import DemandTable from '../components/DemandTable'
 
@@ -6,7 +6,7 @@ const SECTIONS_LIST = ['Squad 1', 'Squad 2', 'Centro criativo 1', 'Centro criati
 const CC_LIST = ['Centro criativo 1', 'Centro criativo 2']
 
 export default function Dashboard() {
-  const { clients, demands, getSaldoStatus, getSocialClients } = useApp()
+  const { clients, demands, getSocialClients } = useApp()
 
   const allDemands = demands.map(d => ({
     ...d,
@@ -15,8 +15,8 @@ export default function Dashboard() {
 
   const pending = allDemands.filter(d => !d.done).length
   const done = allDemands.filter(d => d.done).length
-  const critical = clients.filter(c => getSaldoStatus(c) === 'critical').length
-  const low = clients.filter(c => getSaldoStatus(c) === 'low').length
+  const critical = clients.filter(c => c.priorityStatus === 'prioridade').length
+  const low = clients.filter(c => c.priorityStatus === 'atencao').length
 
   return (
     <div style={{ padding: '1.5rem' }}>
@@ -26,8 +26,8 @@ export default function Dashboard() {
         <StatCard label="Total clientes" value={clients.length} />
         <StatCard label="Demandas pendentes" value={pending} color="var(--amber)" />
         <StatCard label="Demandas concluídas" value={done} color="var(--green)" />
-        <StatCard label="Saldo crítico" value={critical} color="var(--red)" />
-        <StatCard label="Saldo baixo" value={low} color="var(--amber)" />
+        <StatCard label="Prioridade" value={critical} color="var(--red)" />
+        <StatCard label="Atenção" value={low} color="var(--amber)" />
       </div>
 
       {/* Social Media Summary */}
