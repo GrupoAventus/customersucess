@@ -1,13 +1,15 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet } from '../lib/sheets'
+import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet } from './sheets'
 
 const AppContext = createContext(null)
 
+export const KANBAN_COLUMNS = ['Pegar acessos', 'Aguardando campanha', 'Campanha ativa', 'Anúncios pausados']
+
 // Fallback demo data when Sheets not configured
 const DEMO_CLIENTS = [
-  { id: 'c_1', name: 'Bella Store', drive: 'https://drive.google.com', instagram: 'https://instagram.com/bellastore', site: 'https://bellastore.com', entrou: '2024-09-10', destino: 'Squad 1', saldoMax: 500, saldo: 120, createdAt: '' },
-  { id: 'c_2', name: 'TechFlow', drive: 'https://drive.google.com', instagram: 'https://instagram.com/techflow', site: 'https://techflow.com', entrou: '2024-10-01', destino: 'Squad 2', saldoMax: 1000, saldo: 890, createdAt: '' },
-  { id: 'c_3', name: 'Casa & Cia', drive: 'https://drive.google.com', instagram: 'https://instagram.com/casaecia', site: 'https://casaecia.com', entrou: '2024-11-05', destino: 'Ecom', saldoMax: 400, saldo: 22, createdAt: '' },
+  { id: 'c_1', name: 'Bella Store', drive: 'https://drive.google.com', instagram: 'https://instagram.com/bellastore', site: 'https://bellastore.com', entrou: '2024-09-10', destino: 'Squad 1', saldoMax: 500, saldo: 120, createdAt: '', destinos: ['Squad 1','Social Media'], ccLP:'', ccEcom:'', ccSocial:'Centro criativo 1', socialPosts: 1, socialWeek: '', status: 'Campanha ativa', observacoes: '', cancelado: false },
+  { id: 'c_2', name: 'TechFlow', drive: 'https://drive.google.com', instagram: 'https://instagram.com/techflow', site: 'https://techflow.com', entrou: '2024-10-01', destino: 'Squad 2', saldoMax: 1000, saldo: 890, createdAt: '', destinos: ['Squad 2'], ccLP:'', ccEcom:'', ccSocial:'', socialPosts: 0, socialWeek: '', status: 'Aguardando campanha', observacoes: '', cancelado: false },
+  { id: 'c_3', name: 'Casa & Cia', drive: 'https://drive.google.com', instagram: 'https://instagram.com/casaecia', site: 'https://casaecia.com', entrou: '2024-11-05', destino: 'Ecom', saldoMax: 400, saldo: 22, createdAt: '', destinos: ['Ecom','Social Media'], ccLP:'', ccEcom:'Centro criativo 2', ccSocial:'Centro criativo 2', socialPosts: 0, socialWeek: '', status: 'Pegar acessos', observacoes: '', cancelado: false },
 ]
 const DEMO_DEMANDS = [
   { id: 'd_1', clientId: 'c_1', text: 'Criar campanha de remarketing', prazo: '2024-12-01', dest: 'Squad 1', done: true, createdAt: '' },
@@ -16,6 +18,13 @@ const DEMO_DEMANDS = [
 ]
 
 const useSheets = Boolean(import.meta.env.VITE_SCRIPT_URL)
+
+function getCurrentWeek() {
+  const now = new Date()
+  const onejan = new Date(now.getFullYear(), 0, 1)
+  const week = Math.ceil((((now - onejan) / 86400000) + onejan.getDay() + 1) / 7)
+  return `${now.getFullYear()}-W${week}`
+}
 
 export function AppProvider({ children }) {
   const [clients, setClients] = useState(useSheets ? [] : DEMO_CLIENTS)
@@ -39,12 +48,13 @@ export function AppProvider({ children }) {
   useEffect(() => { load() }, [load])
 
   const createClient = async (data) => {
+    const payload = { status: 'Pegar acessos', observacoes: '', cancelado: false, ...data }
     if (useSheets) {
-      const saved = await addClient(data)
+      const saved = await addClient(payload)
       setClients(prev => [...prev, saved])
       return saved
     } else {
-      const newC = { ...data, id: `c_${Date.now()}` }
+      const newC = { ...payload, id: `c_${Date.now()}`, socialPosts: 0, socialWeek: '' }
       setClients(prev => [...prev, newC])
       return newC
     }
@@ -66,11 +76,45 @@ export function AppProvider({ children }) {
     setDemands(prev => prev.map(d => {
       if (d.id !== demandId) return d
       const updated = { ...d, done: !d.done }
-      if (useSheets) {
-        toggleDemandSheet(updated).catch(console.error)
-      }
+      if (useSheets) toggleDemandSheet(updated).catch(console.error)
       return updated
     }))
+  }
+
+  const registerSocialPost = async (clientId) => {
+    const currentWeek = getCurrentWeek()
+    setClients(prev => prev.map(c => {
+      if (c.id !== clientId) return c
+      let posts = c.socialPosts || 0
+      let week = c.socialWeek || ''
+      if (week !== currentWeek) { posts = 0; week = currentWeek }
+      posts = posts + 1
+      return { ...c, socialPosts: posts, socialWeek: week }
+    }))
+    if (useSheets) {
+      try { await incrementSocialPost(clientId) } catch (e) { console.error(e) }
+    }
+  }
+
+  const setClientStatus = async (clientId, status) => {
+    setClients(prev => prev.map(c => c.id === clientId ? { ...c, status } : c))
+    if (useSheets) {
+      try { await updateClientStatus(clientId, status) } catch (e) { console.error(e) }
+    }
+  }
+
+  const setClientNotes = async (clientId, observacoes) => {
+    setClients(prev => prev.map(c => c.id === clientId ? { ...c, observacoes } : c))
+    if (useSheets) {
+      try { await updateClientNotes(clientId, observacoes) } catch (e) { console.error(e) }
+    }
+  }
+
+  const cancelClient = async (clientId, cancelado = true) => {
+    setClients(prev => prev.map(c => c.id === clientId ? { ...c, cancelado } : c))
+    if (useSheets) {
+      try { await cancelClientSheet(clientId, cancelado) } catch (e) { console.error(e) }
+    }
   }
 
   const login = (section, password) => {
@@ -97,12 +141,28 @@ export function AppProvider({ children }) {
     return 'critical'
   }
 
+  // Returns clients assigned to a given Social Media center (cc1 or cc2), excluding cancelled
+  const getSocialClients = (centroCriativo) => {
+    const currentWeek = getCurrentWeek()
+    return clients
+      .filter(c => !c.cancelado && (c.destinos || []).includes('Social Media') && c.ccSocial === centroCriativo)
+      .map(c => {
+        const posts = (c.socialWeek === currentWeek) ? (c.socialPosts || 0) : 0
+        return { ...c, currentWeekPosts: posts, postsRemaining: Math.max(0, 3 - posts) }
+      })
+  }
+
+  const activeClients = clients.filter(c => !c.cancelado)
+  const cancelledClients = clients.filter(c => c.cancelado)
+
   return (
     <AppContext.Provider value={{
-      clients, demands, loading, loggedIn,
-      createClient, createDemand, toggleDemand,
+      clients: activeClients, allClients: clients, cancelledClients,
+      demands, loading, loggedIn,
+      createClient, createDemand, toggleDemand, registerSocialPost,
+      setClientStatus, setClientNotes, cancelClient,
       login, logout,
-      getClientDemands, getSectionDemands, getSaldoStatus,
+      getClientDemands, getSectionDemands, getSaldoStatus, getSocialClients,
       reload: load,
       useSheets
     }}>
