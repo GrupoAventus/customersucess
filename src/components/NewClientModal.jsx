@@ -5,9 +5,16 @@ import { Modal, Btn, Field } from './UI'
 const DEST_OPTIONS = ['Ecom', 'LP', 'Social Media', 'Squad 1', 'Squad 2']
 const CC_OPTIONS = ['Centro criativo 1', 'Centro criativo 2']
 
-export default function NewClientModal({ onClose, prefillName }) {
-  const { createClient } = useApp()
-  const [form, setForm] = useState({
+export default function NewClientModal({ onClose, prefillName, editingClient }) {
+  const { createClient, editClient } = useApp()
+  const isEdit = Boolean(editingClient)
+  const [form, setForm] = useState(isEdit ? {
+    name: editingClient.name || '', drive: editingClient.drive || '', instagram: editingClient.instagram || '', site: editingClient.site || '',
+    entrou: editingClient.entrou || new Date().toISOString().slice(0, 10),
+    destino: editingClient.destino || '', rechargeAmount: '', dailySpend: '',
+    destinos: editingClient.destinos || [],
+    ccLP: editingClient.ccLP || '', ccEcom: editingClient.ccEcom || '', ccSocial: editingClient.ccSocial || ''
+  } : {
     name: prefillName || '', drive: '', instagram: '', site: '',
     entrou: new Date().toISOString().slice(0, 10),
     destino: '', rechargeAmount: '', dailySpend: '',
@@ -45,20 +52,28 @@ export default function NewClientModal({ onClose, prefillName }) {
     setSaving(true)
     // destino (legacy single field) = first destino selected, for backward compat with squads
     const primaryDestino = form.destinos.find(d => d === 'Squad 1' || d === 'Squad 2') || form.destinos[0]
-    await createClient({
-      ...form,
-      destino: primaryDestino,
-      rechargeAmount: parseFloat(form.rechargeAmount) || 0,
-      dailySpend: parseFloat(form.dailySpend) || 0,
-      lastRecharge: new Date().toISOString().slice(0,10),
-      priorityStatus: 'estavel',
-    })
+
+    if (isEdit) {
+      await editClient(editingClient.id, {
+        ...form,
+        destino: primaryDestino,
+      })
+    } else {
+      await createClient({
+        ...form,
+        destino: primaryDestino,
+        rechargeAmount: parseFloat(form.rechargeAmount) || 0,
+        dailySpend: parseFloat(form.dailySpend) || 0,
+        lastRecharge: new Date().toISOString().slice(0,10),
+        priorityStatus: 'estavel',
+      })
+    }
     setSaving(false)
     onClose()
   }
 
   return (
-    <Modal title="Novo cliente" onClose={onClose} width={620}>
+    <Modal title={isEdit ? `Editar cliente — ${editingClient.name}` : "Novo cliente"} onClose={onClose} width={620}>
       <Field label="Nome do cliente">
         <input placeholder="Ex: Bella Store" value={form.name} onChange={e => set('name', e.target.value)} autoFocus />
       </Field>
@@ -78,14 +93,16 @@ export default function NewClientModal({ onClose, prefillName }) {
           <input type="date" value={form.entrou} onChange={e => set('entrou', e.target.value)} />
         </Field>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <Field label="Reabastecimento inicial (R$)">
-          <input type="number" placeholder="500" value={form.rechargeAmount} onChange={e => set('rechargeAmount', e.target.value)} />
-        </Field>
-        <Field label="Gasto diário da campanha (R$)">
-          <input type="number" placeholder="25" value={form.dailySpend} onChange={e => set('dailySpend', e.target.value)} />
-        </Field>
-      </div>
+      {!isEdit && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <Field label="Reabastecimento inicial (R$)">
+            <input type="number" placeholder="500" value={form.rechargeAmount} onChange={e => set('rechargeAmount', e.target.value)} />
+          </Field>
+          <Field label="Gasto diário da campanha (R$)">
+            <input type="number" placeholder="25" value={form.dailySpend} onChange={e => set('dailySpend', e.target.value)} />
+          </Field>
+        </div>
+      )}
 
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 6 }}>Destino (selecione um ou mais)</div>
@@ -154,7 +171,7 @@ export default function NewClientModal({ onClose, prefillName }) {
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
         <Btn onClick={onClose} style={{ flex: 1 }}>Cancelar</Btn>
         <Btn primary onClick={save} disabled={saving} style={{ flex: 1 }}>
-          {saving ? 'Salvando...' : 'Cadastrar cliente'}
+          {saving ? 'Salvando...' : (isEdit ? 'Salvar alterações' : 'Cadastrar cliente')}
         </Btn>
       </div>
     </Modal>
