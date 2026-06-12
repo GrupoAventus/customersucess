@@ -20,6 +20,15 @@ const DEMO_DEMANDS = [
 const useSheets = Boolean(import.meta.env.VITE_SCRIPT_URL)
 const ADMIN_PASSWORD = '9912'
 
+const SECTION_PASSWORDS = {
+  ops: ['admbruno_'],
+  dash: ['headpaulo', 'admbruno_'],
+  squad1: ['squad1'],
+  squad2: ['squad2_'],
+  cc1: ['centro1'],
+  cc2: ['centro2_'],
+}
+
 function getCurrentWeek() {
   const now = new Date()
   const onejan = new Date(now.getFullYear(), 0, 1)
@@ -144,7 +153,8 @@ export function AppProvider({ children }) {
   }
 
   const login = (section, password) => {
-    if (password === '12') {
+    const valid = SECTION_PASSWORDS[section] || []
+    if (valid.includes(password)) {
       setLoggedIn(prev => ({ ...prev, [section]: true }))
       return true
     }
