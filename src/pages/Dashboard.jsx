@@ -1,12 +1,15 @@
+import { useState } from 'react'
 import { useApp, PRIORITY_COLORS, computeCurrentSaldo, getDaysInStatus } from '../lib/AppContext'
-import { StatCard, SectionHeader } from '../components/UI'
+import { StatCard, SectionHeader, Btn } from '../components/UI'
 import DemandTable from '../components/DemandTable'
+import ReportModal from '../components/ReportModal'
 
 const SECTIONS_LIST = ['Squad 1', 'Squad 2', 'Centro criativo 1', 'Centro criativo 2']
 const CC_LIST = ['Centro criativo 1', 'Centro criativo 2']
 
 export default function Dashboard() {
-  const { clients, demands, getSocialClients } = useApp()
+  const { clients, demands, getSocialClients, getMissingTimelineClients } = useApp()
+  const [showReports, setShowReports] = useState(false)
 
   const allDemands = demands.map(d => ({
     ...d,
@@ -26,9 +29,19 @@ export default function Dashboard() {
     ? Math.round(stuckClients.reduce((sum, c) => sum + c.days, 0) / stuckClients.length)
     : 0
 
+  const missingTimeline = getMissingTimelineClients()
+
   return (
     <div style={{ padding: '1.5rem' }}>
-      <SectionHeader title="Dashboard geral" subtitle="Visão consolidada — Squad 1, Squad 2 e Centros Criativos" />
+      <SectionHeader
+        title="Dashboard geral"
+        subtitle="Visão consolidada — Squad 1, Squad 2 e Centros Criativos"
+        action={
+          <Btn primary onClick={() => setShowReports(true)}>
+            <i className="ti ti-clipboard-text" /> Relatórios de acompanhamento
+          </Btn>
+        }
+      />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: '1.5rem' }}>
         <StatCard label="Total clientes" value={clients.length} />
@@ -37,6 +50,25 @@ export default function Dashboard() {
         <StatCard label="Prioridade" value={critical} color="var(--red)" />
         <StatCard label="Atenção" value={low} color="var(--amber)" />
       </div>
+
+      {/* Missing timeline warning */}
+      {missingTimeline.length > 0 && (
+        <div style={{
+          background: 'rgba(226,75,74,0.08)', border: '0.5px solid var(--red)',
+          borderRadius: 10, padding: '12px 16px', marginBottom: '1.5rem',
+          display: 'flex', alignItems: 'flex-start', gap: 10
+        }}>
+          <i className="ti ti-alert-triangle" style={{ color: 'var(--red)', fontSize: 18, marginTop: 2 }} />
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--red)', marginBottom: 4 }}>
+              Linha do tempo de ontem não preenchida ({missingTimeline.length})
+            </div>
+            <div style={{ fontSize: 12, color: '#aaa' }}>
+              {missingTimeline.map(c => c.name).join(', ')}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Pegar acessos - tempo parado */}
       <div style={{ marginBottom: '1.5rem' }}>
@@ -149,6 +181,8 @@ export default function Dashboard() {
           </div>
         )
       })}
+
+      {showReports && <ReportModal onClose={() => setShowReports(false)} />}
     </div>
   )
 }
