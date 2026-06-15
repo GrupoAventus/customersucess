@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { useApp } from '../lib/AppContext'
 import { Modal, Btn, Field } from './UI'
 
-export default function ReportModal({ onClose }) {
+export default function ReportModal({ onClose, filterClientId }) {
   const { clients, createReport, reports, deleteReport, isAdmin } = useApp()
   const [form, setForm] = useState({
-    clientId: clients[0]?.id || '',
+    clientId: filterClientId || clients[0]?.id || '',
     date: new Date().toISOString().slice(0, 10),
     time: new Date().toTimeString().slice(0, 5),
     notes: ''
@@ -22,22 +22,27 @@ export default function ReportModal({ onClose }) {
     setSaving(false)
   }
 
-  const sortedReports = [...reports].sort((a, b) => {
-    const da = `${a.date} ${a.time}`
-    const db = `${b.date} ${b.time}`
-    return db.localeCompare(da)
-  })
+  const allReports = [...reports].sort((a, b) =>
+    `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)
+  )
+  const sortedReports = filterClientId
+    ? allReports.filter(r => r.clientId === filterClientId)
+    : allReports
 
   const clientName = (id) => clients.find(c => c.id === id)?.name || '—'
 
+  const filteredClientName = filterClientId ? clients.find(c => c.id === filterClientId)?.name : null
+
   return (
-    <Modal title="Relatórios de acompanhamento" onClose={onClose} width={620}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <Field label="Cliente">
-          <select value={form.clientId} onChange={e => set('clientId', e.target.value)}>
-            {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </Field>
+    <Modal title={filteredClientName ? `Relatórios — ${filteredClientName}` : 'Relatórios de acompanhamento'} onClose={onClose} width={620}>
+      <div style={{ display: 'grid', gridTemplateColumns: filterClientId ? '1fr' : '1fr 1fr', gap: 10 }}>
+        {!filterClientId && (
+          <Field label="Cliente">
+            <select value={form.clientId} onChange={e => set('clientId', e.target.value)}>
+              {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </Field>
+        )}
         <Field label="Data">
           <input type="date" value={form.date} onChange={e => set('date', e.target.value)} />
         </Field>
