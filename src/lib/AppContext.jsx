@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet, setClientPrioritySheet, setClientFinanceSheet, fetchPendingSales, markPendingDoneSheet } from './sheets'
+import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet, setClientPrioritySheet, setClientFinanceSheet, fetchPendingSales, markPendingDoneSheet, fetchTimeline, setTimelineEntrySheet, fetchReports, addReportSheet, deleteReportSheet } from './sheets'
 
 const AppContext = createContext(null)
 
@@ -91,6 +91,8 @@ export function AppProvider({ children }) {
   const [loggedIn, setLoggedIn] = useState({})
   const [isAdmin, setIsAdmin] = useState(false)
   const [pendingSales, setPendingSales] = useState([])
+  const [timeline, setTimeline] = useState([])
+  const [reports, setReports] = useState([])
 
   const load = useCallback(async () => {
     if (!useSheets) return
@@ -106,6 +108,8 @@ export function AppProvider({ children }) {
         }
       }
       try { setPendingSales(await fetchPendingSales()) } catch (e) { console.error(e) }
+      try { setTimeline(await fetchTimeline()) } catch (e) { console.error(e) }
+      try { setReports(await fetchReports()) } catch (e) { console.error(e) }
     } catch (e) {
       console.error('Load error:', e)
     }
@@ -267,10 +271,56 @@ export function AppProvider({ children }) {
     return updated
   }
 
+  const setTimelineEntry = async (clientId, date, done, feedback) => {
+    setTimeline(prev => {
+      const exists = prev.find(t => t.clientId === clientId && t.date === date)
+      if (exists) {
+        return prev.map(t => (t.clientId === clientId && t.date === date) ? { ...t, done, feedback } : t)
+      }
+      return [...prev, { clientId, date, done, feedback }]
+    })
+    if (useSheets) {
+      try { await setTimelineEntrySheet(clientId, date, done, feedback) } catch (e) { console.error(e) }
+    }
+  }
+
+  const getClientTimeline = (clientId) => timeline.filter(t => t.clientId === clientId)
+  const getMissingTimelineClients = (date) => {
+    let targetDate = date
+    if (!targetDate) {
+      const yesterday = new Date()
+      yesterday.setDate(yesterday.getDate() - 1)
+      targetDate = yesterday.toISOString().slice(0,10)
+    }
+    return clients.filter(c => {
+      const entry = timeline.find(t => t.clientId === c.id && t.date === targetDate)
+      return !entry || (!entry.done?.trim() && !entry.feedback?.trim())
+    })
+  }
+
   const cancelClient = async (clientId, cancelado = true) => {
     setClients(prev => prev.map(c => c.id === clientId ? { ...c, cancelado } : c))
     if (useSheets) {
       try { await cancelClientSheet(clientId, cancelado) } catch (e) { console.error(e) }
+    }
+  }
+
+  const createReport = async (data) => {
+    if (useSheets) {
+      const saved = await addReportSheet(data)
+      setReports(prev => [...prev, saved])
+      return saved
+    } else {
+      const newR = { ...data, id: `r_${Date.now()}`, createdAt: new Date().toISOString() }
+      setReports(prev => [...prev, newR])
+      return newR
+    }
+  }
+
+  const deleteReport = async (reportId) => {
+    setReports(prev => prev.filter(r => r.id !== reportId))
+    if (useSheets) {
+      try { await deleteReportSheet(reportId) } catch (e) { console.error(e) }
     }
   }
 
@@ -338,12 +388,13 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider value={{
       clients: activeClients, allClients: clients, cancelledClients,
-      demands, loading, loggedIn, isAdmin, pendingSales,
-      createClient, createDemand, toggleDemand, registerSocialPost, editClient,
+      demands, loading, loggedIn, isAdmin, pendingSales, reports,
+      createClient, createDemand, toggleDemand, registerSocialPost, editClient, createReport, deleteReport,
       setClientStatus, setClientNotes, setClientPriority, setClientFinance, cancelClient,
       unlockAdmin, lockAdmin, deleteClient, deleteDemand, dismissPendingSale, backfillLpEcomDemands,
       login, logout,
       getClientDemands, getSectionDemands, getSocialClients,
+      getClientTimeline, setTimelineEntry, getMissingTimelineClients,
       reload: load,
       useSheets
     }}>
