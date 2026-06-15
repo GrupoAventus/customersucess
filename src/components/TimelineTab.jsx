@@ -35,7 +35,7 @@ export default function TimelineTab({ client }) {
   const firstWeekday = new Date(year, month, 1).getDay()
   const padding = Array.from({ length: firstWeekday }, () => null)
 
-  const entryFor = (date) => entries.find(e => e.date === date)
+  const entryFor = (date) => entries.find(e => String(e.date).slice(0, 10) === date)
   const isFilled = (date) => {
     const e = entryFor(date)
     return e && (e.done?.trim() || e.feedback?.trim())
