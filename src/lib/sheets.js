@@ -154,3 +154,54 @@ export async function fetchPendingSales() {
 export async function markPendingDoneSheet(id) {
   await callPost({ action: 'markPendingDone', id })
 }
+
+// ---- TIMELINE (daily log per client) ----
+
+export async function fetchTimeline() {
+  try {
+    const data = await callGet('getTimeline')
+    if (data.error) return []
+    return data.map(r => ({
+      clientId: r.clientId,
+      date: r.date,
+      done: r.done || '',
+      feedback: r.feedback || '',
+    }))
+  } catch (e) {
+    console.error('fetchTimeline error:', e)
+    return []
+  }
+}
+
+export async function setTimelineEntrySheet(clientId, date, done, feedback) {
+  await callPost({ action: 'setTimelineEntry', clientId, date, done, feedback })
+}
+
+// ---- FOLLOW-UP REPORTS (Relatórios de acompanhamento) ----
+
+export async function fetchReports() {
+  try {
+    const data = await callGet('getReports')
+    if (data.error) return []
+    return data.map(r => ({
+      id: r.id,
+      clientId: r.clientId,
+      date: r.date || '',
+      time: r.time || '',
+      notes: r.notes || '',
+      createdAt: r.createdAt || '',
+    }))
+  } catch (e) {
+    console.error('fetchReports error:', e)
+    return []
+  }
+}
+
+export async function addReportSheet(report) {
+  const result = await callPost({ action: 'addReport', ...report })
+  return { ...report, id: result.id }
+}
+
+export async function deleteReportSheet(id) {
+  await callPost({ action: 'deleteReport', id })
+}
