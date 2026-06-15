@@ -9,7 +9,7 @@ import { Btn, SectionHeader } from '../components/UI'
 const RECHARGE_THRESHOLD = 50
 
 export default function Squad({ label, title }) {
-  const { clients, demands, setClientStatus } = useApp()
+  const { clients, demands, setClientStatus, getMissingTimelineClients } = useApp()
   const [selected, setSelected] = useState(null)
   const [showDemand, setShowDemand] = useState(false)
   const [dragId, setDragId] = useState(null)
@@ -37,6 +37,9 @@ export default function Squad({ label, title }) {
     })
 
   const nextRecharge = needsRecharge[0]
+
+  const missingTimeline = getMissingTimelineClients()
+    .filter(c => (c.destinos || [c.destino]).includes(label))
 
   const sortByPriority = (list) => [...list].sort((a, b) => {
     return (PRIORITY_RANK[a.priorityStatus] ?? 2) - (PRIORITY_RANK[b.priorityStatus] ?? 2)
@@ -85,6 +88,25 @@ export default function Squad({ label, title }) {
               +{needsRecharge.length - 1} na fila
             </div>
           )}
+        </div>
+      )}
+
+      {/* Missing timeline warning */}
+      {missingTimeline.length > 0 && (
+        <div style={{
+          background: 'rgba(226,75,74,0.08)', border: '0.5px solid var(--red)',
+          borderRadius: 10, padding: '12px 16px', marginBottom: 16,
+          display: 'flex', alignItems: 'flex-start', gap: 10
+        }}>
+          <i className="ti ti-alert-triangle" style={{ color: 'var(--red)', fontSize: 18, marginTop: 2 }} />
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--red)', marginBottom: 4 }}>
+              Linha do tempo de ontem não preenchida
+            </div>
+            <div style={{ fontSize: 12, color: '#aaa' }}>
+              {missingTimeline.map(c => c.name).join(', ')}
+            </div>
+          </div>
         </div>
       )}
 
