@@ -3,12 +3,15 @@ import { useApp, PRIORITY_COLORS, PRIORITY_LEVELS, computeCurrentSaldo } from '.
 import { Modal, Btn, Field } from './UI'
 import NewClientModal from './NewClientModal'
 import TimelineTab from './TimelineTab'
+import ReportModal from './ReportModal'
 
 const DEST_OPTIONS = ['Squad 1', 'Squad 2', 'Centro criativo 1', 'Centro criativo 2']
 
 export default function ClientDetail({ client, onClose, hideFinance }) {
-  const { getClientDemands, toggleDemand, createDemand, setClientNotes, setClientPriority, setClientFinance, cancelClient, isAdmin, deleteClient } = useApp()
+  const { getClientDemands, toggleDemand, createDemand, setClientNotes, setClientPriority, setClientFinance, cancelClient, isAdmin, deleteClient, reports } = useApp()
   const demands = getClientDemands(client.id)
+  const clientReports = [...(reports || [])].filter(r => r.clientId === client.id)
+    .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`))
   const [showNewDemand, setShowNewDemand] = useState(false)
   const [demandForm, setDemandForm] = useState({ text: '', prazo: '', dest: 'Squad 1' })
   const [saving, setSaving] = useState(false)
@@ -18,6 +21,7 @@ export default function ClientDetail({ client, onClose, hideFinance }) {
   const [rechargeInput, setRechargeInput] = useState('')
   const [showEdit, setShowEdit] = useState(false)
   const [activeTab, setActiveTab] = useState('info')
+  const [showReportModal, setShowReportModal] = useState(false)
 
   const priority = client.priorityStatus || 'estavel'
   const colors = PRIORITY_COLORS[priority]
@@ -233,6 +237,36 @@ export default function ClientDetail({ client, onClose, hideFinance }) {
           </div>
         ))}
       </div>
+
+      {/* Relatórios de acompanhamento */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: 'var(--orange)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8, paddingBottom: 6, borderBottom: '0.5px solid #1f1f1f' }}>
+          Relatórios de acompanhamento
+          <Btn onClick={() => setShowReportModal(true)} style={{ fontSize: 11, padding: '3px 10px' }}>
+            <i className="ti ti-external-link" /> Ver todos
+          </Btn>
+        </div>
+        {clientReports.length === 0 ? (
+          <div style={{ fontSize: 13, color: '#333' }}>Nenhum relatório registrado</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {clientReports.slice(0, 2).map(r => (
+              <div key={r.id} style={{ background: '#1a1a1a', borderRadius: 8, padding: '8px 12px', border: '0.5px solid var(--border)' }}>
+                <div style={{ fontSize: 11, color: '#555', marginBottom: 3 }}>
+                  {new Date(r.date + 'T00:00:00').toLocaleDateString('pt-BR')} às {r.time}
+                </div>
+                <div style={{ fontSize: 13, color: '#ccc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.notes}</div>
+              </div>
+            ))}
+            {clientReports.length > 2 && (
+              <button onClick={() => setShowReportModal(true)} style={{ background: 'none', border: 'none', color: 'var(--orange)', fontSize: 12, cursor: 'pointer', textAlign: 'left', padding: '2px 0' }}>
+                +{clientReports.length - 2} relatório{clientReports.length - 2 !== 1 ? 's' : ''} anterior{clientReports.length - 2 !== 1 ? 'es' : ''}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      {showReportModal && <ReportModal onClose={() => setShowReportModal(false)} filterClientId={client.id} />}
 
       {/* Observações */}
       <div style={{ marginBottom: 20 }}>
