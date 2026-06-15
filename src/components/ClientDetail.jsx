@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useApp, PRIORITY_COLORS, PRIORITY_LEVELS, computeCurrentSaldo } from '../lib/AppContext'
 import { Modal, Btn, Field } from './UI'
 import NewClientModal from './NewClientModal'
+import TimelineTab from './TimelineTab'
 
 const DEST_OPTIONS = ['Squad 1', 'Squad 2', 'Centro criativo 1', 'Centro criativo 2']
 
@@ -16,6 +17,7 @@ export default function ClientDetail({ client, onClose, hideFinance }) {
   const [dailySpend, setDailySpend] = useState(client.dailySpend || 0)
   const [rechargeInput, setRechargeInput] = useState('')
   const [showEdit, setShowEdit] = useState(false)
+  const [activeTab, setActiveTab] = useState('info')
 
   const priority = client.priorityStatus || 'estavel'
   const colors = PRIORITY_COLORS[priority]
@@ -72,6 +74,32 @@ export default function ClientDetail({ client, onClose, hideFinance }) {
       </div>
 
       {showEdit && <NewClientModal editingClient={client} onClose={() => setShowEdit(false)} />}
+
+      {/* Tab bar */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '0.5px solid #1f1f1f' }}>
+        {[
+          { id: 'info', label: 'Informações' },
+          { id: 'timeline', label: 'Linha do tempo' },
+        ].map(t => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            style={{
+              padding: '8px 16px', background: 'none', border: 'none',
+              borderBottom: activeTab === t.id ? '2px solid var(--orange)' : '2px solid transparent',
+              color: activeTab === t.id ? 'var(--orange)' : '#666',
+              fontSize: 13, cursor: 'pointer'
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'timeline' && <TimelineTab client={client} />}
+
+      {activeTab === 'info' && (
+      <>
 
       {/* Priority buttons */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
@@ -260,6 +288,8 @@ export default function ClientDetail({ client, onClose, hideFinance }) {
             </Btn>
           )}
         </div>
+      )}
+      </>
       )}
     </Modal>
   )
