@@ -163,7 +163,7 @@ export async function fetchTimeline() {
     if (data.error) return []
     return data.map(r => ({
       clientId: r.clientId,
-      date: r.date,
+      date: String(r.date).slice(0, 10),
       done: r.done || '',
       feedback: r.feedback || '',
     }))
