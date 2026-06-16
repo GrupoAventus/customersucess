@@ -26,10 +26,10 @@ export default function Squad({ label, title }) {
     'Anúncios pausados': 'var(--red)',
   }
 
-  // Recharge queue: clients with current saldo <= threshold, sorted by priority (prioridade > atencao > estavel)
+  // Recharge queue: apenas clientes em "Campanha ativa", sem cartão, saldo <= threshold
   const needsRecharge = squadClients
     .map(c => ({ ...c, currentSaldo: computeCurrentSaldo(c) }))
-    .filter(c => c.currentSaldo <= RECHARGE_THRESHOLD)
+    .filter(c => c.status === 'Campanha ativa' && !c.hasCard && c.currentSaldo <= RECHARGE_THRESHOLD)
     .sort((a, b) => {
       const rankDiff = (PRIORITY_RANK[a.priorityStatus] ?? 2) - (PRIORITY_RANK[b.priorityStatus] ?? 2)
       if (rankDiff !== 0) return rankDiff
