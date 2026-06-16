@@ -8,7 +8,7 @@ import ReportModal from './ReportModal'
 const DEST_OPTIONS = ['Squad 1', 'Squad 2', 'Centro criativo 1', 'Centro criativo 2']
 
 export default function ClientDetail({ client, onClose, hideFinance }) {
-  const { getClientDemands, toggleDemand, createDemand, setClientNotes, setClientPriority, setClientFinance, cancelClient, isAdmin, deleteClient, reports } = useApp()
+  const { getClientDemands, toggleDemand, createDemand, setClientNotes, setClientPriority, setClientFinance, setClientCard, cancelClient, isAdmin, deleteClient, reports } = useApp()
   const demands = getClientDemands(client.id)
   const clientReports = [...(reports || [])].filter(r => r.clientId === client.id)
     .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`))
@@ -134,31 +134,66 @@ export default function ClientDetail({ client, onClose, hideFinance }) {
           <div style={{ fontSize: 11, color: 'var(--orange)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8, paddingBottom: 6, borderBottom: '0.5px solid #1f1f1f' }}>
             Saldo da campanha
           </div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <div style={{ background: '#1a1a1a', borderRadius: 8, padding: '10px 14px', flex: 1, border: '0.5px solid var(--border)' }}>
-              <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Saldo atual (estimado)</div>
-              <div style={{ fontSize: 20, fontWeight: 500, color: colors.border }}>
-                R${currentSaldo.toLocaleString('pt-BR')}
+
+          {/* Toggle cartão */}
+          <div
+            onClick={() => setClientCard(client.id, !client.hasCard)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12,
+              padding: '8px 12px', background: '#1a1a1a', borderRadius: 8,
+              border: `0.5px solid ${client.hasCard ? 'var(--green)' : 'var(--border)'}`,
+              cursor: 'pointer'
+            }}
+          >
+            <div style={{
+              width: 36, height: 20, borderRadius: 10, position: 'relative',
+              background: client.hasCard ? 'var(--green)' : '#333',
+              transition: 'background 0.2s', flexShrink: 0
+            }}>
+              <div style={{
+                position: 'absolute', top: 2, left: client.hasCard ? 18 : 2,
+                width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                transition: 'left 0.2s'
+              }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 13, color: client.hasCard ? 'var(--green)' : '#888' }}>
+                {client.hasCard ? 'Cartão cadastrado na conta' : 'Sem cartão cadastrado'}
               </div>
-              <div style={{ fontSize: 10, color: '#444', marginTop: 2 }}>
-                Reabastecido: R${(parseFloat(client.rechargeAmount)||0).toLocaleString('pt-BR')} em {client.lastRecharge || '—'}
+              <div style={{ fontSize: 11, color: '#444' }}>
+                {client.hasCard ? 'Reabastecimento automático' : 'Controle manual de saldo'}
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <Field label="Gasto diário da campanha (R$)">
-              <div style={{ display: 'flex', gap: 6 }}>
-                <input type="number" value={dailySpend} onChange={e => setDailySpend(e.target.value)} onBlur={saveDailySpend} />
+          {!client.hasCard && (
+            <>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <div style={{ background: '#1a1a1a', borderRadius: 8, padding: '10px 14px', flex: 1, border: '0.5px solid var(--border)' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Saldo atual (estimado)</div>
+                  <div style={{ fontSize: 20, fontWeight: 500, color: colors.border }}>
+                    R${currentSaldo.toLocaleString('pt-BR')}
+                  </div>
+                  <div style={{ fontSize: 10, color: '#444', marginTop: 2 }}>
+                    Reabastecido: R${(parseFloat(client.rechargeAmount)||0).toLocaleString('pt-BR')} em {client.lastRecharge || '—'}
+                  </div>
+                </div>
               </div>
-            </Field>
-            <Field label="Reabastecer (novo saldo R$)">
-              <div style={{ display: 'flex', gap: 6 }}>
-                <input type="number" placeholder="Ex: 500" value={rechargeInput} onChange={e => setRechargeInput(e.target.value)} />
-                <Btn primary onClick={doRecharge} style={{ flexShrink: 0 }}>Reabastecer</Btn>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <Field label="Gasto diário da campanha (R$)">
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input type="number" value={dailySpend} onChange={e => setDailySpend(e.target.value)} onBlur={saveDailySpend} />
+                  </div>
+                </Field>
+                <Field label="Reabastecer (novo saldo R$)">
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input type="number" placeholder="Ex: 500" value={rechargeInput} onChange={e => setRechargeInput(e.target.value)} />
+                    <Btn primary onClick={doRecharge} style={{ flexShrink: 0 }}>Reabastecer</Btn>
+                  </div>
+                </Field>
               </div>
-            </Field>
-          </div>
+            </>
+          )}
         </div>
       )}
 
