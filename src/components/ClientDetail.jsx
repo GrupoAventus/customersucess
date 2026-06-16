@@ -137,26 +137,26 @@ export default function ClientDetail({ client, onClose, hideFinance }) {
 
           {/* Toggle cartão */}
           <div
-            onClick={() => setClientCard(client.id, !client.hasCard)}
             style={{
               display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12,
               padding: '8px 12px', background: '#1a1a1a', borderRadius: 8,
               border: `0.5px solid ${client.hasCard ? 'var(--green)' : 'var(--border)'}`,
-              cursor: 'pointer'
+              cursor: 'pointer', userSelect: 'none'
             }}
+            onClick={() => setClientCard(client.id, !client.hasCard)}
           >
             <div style={{
               width: 36, height: 20, borderRadius: 10, position: 'relative',
               background: client.hasCard ? 'var(--green)' : '#333',
-              transition: 'background 0.2s', flexShrink: 0
+              transition: 'background 0.2s', flexShrink: 0, pointerEvents: 'none'
             }}>
               <div style={{
                 position: 'absolute', top: 2, left: client.hasCard ? 18 : 2,
                 width: 16, height: 16, borderRadius: '50%', background: '#fff',
-                transition: 'left 0.2s'
+                transition: 'left 0.2s', pointerEvents: 'none'
               }} />
             </div>
-            <div>
+            <div style={{ pointerEvents: 'none' }}>
               <div style={{ fontSize: 13, color: client.hasCard ? 'var(--green)' : '#888' }}>
                 {client.hasCard ? 'Cartão cadastrado na conta' : 'Sem cartão cadastrado'}
               </div>
