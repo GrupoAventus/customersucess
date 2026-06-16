@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet, setClientPrioritySheet, setClientFinanceSheet, fetchPendingSales, markPendingDoneSheet, fetchTimeline, setTimelineEntrySheet, fetchReports, addReportSheet, deleteReportSheet } from './sheets'
+import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet, setClientPrioritySheet, setClientFinanceSheet, setClientCardSheet, fetchPendingSales, markPendingDoneSheet, fetchTimeline, setTimelineEntrySheet, fetchReports, addReportSheet, deleteReportSheet } from './sheets'
 
 const AppContext = createContext(null)
 
@@ -298,6 +298,13 @@ export function AppProvider({ children }) {
     })
   }
 
+  const setClientCard = async (clientId, hasCard) => {
+    setClients(prev => prev.map(c => c.id === clientId ? { ...c, hasCard } : c))
+    if (useSheets) {
+      try { await setClientCardSheet(clientId, hasCard) } catch (e) { console.error(e) }
+    }
+  }
+
   const cancelClient = async (clientId, cancelado = true) => {
     setClients(prev => prev.map(c => c.id === clientId ? { ...c, cancelado } : c))
     if (useSheets) {
@@ -390,7 +397,7 @@ export function AppProvider({ children }) {
       clients: activeClients, allClients: clients, cancelledClients,
       demands, loading, loggedIn, isAdmin, pendingSales, reports,
       createClient, createDemand, toggleDemand, registerSocialPost, editClient, createReport, deleteReport,
-      setClientStatus, setClientNotes, setClientPriority, setClientFinance, cancelClient,
+      setClientStatus, setClientNotes, setClientPriority, setClientFinance, setClientCard, cancelClient,
       unlockAdmin, lockAdmin, deleteClient, deleteDemand, dismissPendingSale, backfillLpEcomDemands,
       login, logout,
       getClientDemands, getSectionDemands, getSocialClients,
