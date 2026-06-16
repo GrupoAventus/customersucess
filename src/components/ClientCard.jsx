@@ -11,6 +11,9 @@ export default function ClientCard({ client, onClick, hideFinance }) {
   const colors = PRIORITY_COLORS[priority]
   const saldo = computeCurrentSaldo(client)
 
+  // Mostra saldo apenas se: não hideFinance, não tem cartão e está em campanha ativa
+  const showFinance = !hideFinance && !client.hasCard && client.status === 'Campanha ativa'
+
   return (
     <div
       onClick={onClick}
@@ -29,7 +32,7 @@ export default function ClientCard({ client, onClick, hideFinance }) {
           <span key={d} style={{ fontSize: 10, color: 'var(--orange)', background: 'var(--orange-dim)', padding: '2px 8px', borderRadius: 20 }}>{d}</span>
         ))}
       </div>
-      {!hideFinance && (
+      {showFinance && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
           <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Saldo</span>
           <span style={{ fontSize: 12, fontWeight: 500, color: colors.border }}>
