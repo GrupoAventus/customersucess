@@ -60,6 +60,7 @@ export async function fetchClients() {
       lastRecharge: r.lastRecharge || '',
       priorityStatus: r.priorityStatus || 'estavel',
       statusChangedAt: r.statusChangedAt || r.createdAt || '',
+      hasCard: r.hasCard === 'TRUE' || r.hasCard === true,
     }))
   } catch (e) {
     console.error('fetchClients error:', e)
@@ -90,6 +91,10 @@ export async function setClientPrioritySheet(id, priorityStatus) {
 
 export async function setClientFinanceSheet(id, { rechargeAmount, dailySpend, lastRecharge }) {
   await callPost({ action: 'setClientFinance', id, rechargeAmount, dailySpend, lastRecharge })
+}
+
+export async function setClientCardSheet(id, hasCard) {
+  await callPost({ action: 'setClientCard', id, hasCard })
 }
 
 export async function cancelClientSheet(id, cancelado) {
