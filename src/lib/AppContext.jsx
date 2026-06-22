@@ -285,13 +285,19 @@ export function AppProvider({ children }) {
   }
 
   const getClientTimeline = (clientId) => timeline.filter(t => t.clientId === clientId)
-  const getMissingTimelineClients = (date) => {
-    let targetDate = date
-    if (!targetDate) {
-      const yesterday = new Date()
-      yesterday.setDate(yesterday.getDate() - 1)
-      targetDate = yesterday.toISOString().slice(0,10)
-    }
+  // Alerta apenas se ONTEM não foi preenchido,
+  // E ontem deve ser >= a data de hoje (no momento em que o sistema foi implantado).
+  // Dias anteriores a hoje são ignorados permanentemente.
+  const TIMELINE_START_DATE = '2026-06-22' // data de início do monitoramento
+
+  const getMissingTimelineClients = () => {
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const targetDate = yesterday.toISOString().slice(0, 10)
+
+    // Só alerta se ontem for >= data de início
+    if (targetDate < TIMELINE_START_DATE) return []
+
     return clients.filter(c => {
       const entry = timeline.find(t => t.clientId === c.id && t.date === targetDate)
       return !entry || (!entry.done?.trim() && !entry.feedback?.trim())
