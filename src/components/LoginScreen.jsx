@@ -26,7 +26,7 @@ export default function LoginScreen({ section, sectionName, onUnlock }) {
         padding: '2rem 2.5rem', width: 340, display: 'flex', flexDirection: 'column', gap: 16
       }}>
         <div style={{ fontSize: 22, fontWeight: 600, color: 'var(--orange)', letterSpacing: -0.5 }}>
-          ⬡ Grupo Aventus_
+          ⬡ AventusCS_
         </div>
         <div style={{ fontSize: 13, color: '#666' }}>{sectionName}</div>
         <input
