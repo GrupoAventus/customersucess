@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet, setClientPrioritySheet, setClientFinanceSheet, setClientCardSheet, fetchPendingSales, markPendingDoneSheet, fetchTimeline, setTimelineEntrySheet, fetchReports, addReportSheet, deleteReportSheet } from './sheets'
+import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet, setClientPrioritySheet, setClientFinanceSheet, setClientCardSheet, fetchPendingSales, markPendingDoneSheet, fetchTimeline, setTimelineEntrySheet, fetchReports, addReportSheet, deleteReportSheet , fetchAgenda, addAgendaSheet, toggleAgendaSheet, deleteAgendaSheet } from './sheets'
 
 const AppContext = createContext(null)
 
@@ -93,6 +93,7 @@ export function AppProvider({ children }) {
   const [pendingSales, setPendingSales] = useState([])
   const [timeline, setTimeline] = useState([])
   const [reports, setReports] = useState([])
+  const [agenda, setAgenda] = useState([])
 
   const load = useCallback(async () => {
     if (!useSheets) return
@@ -110,6 +111,7 @@ export function AppProvider({ children }) {
       try { setPendingSales(await fetchPendingSales()) } catch (e) { console.error(e) }
       try { setTimeline(await fetchTimeline()) } catch (e) { console.error(e) }
       try { setReports(await fetchReports()) } catch (e) { console.error(e) }
+      try { setAgenda(await fetchAgenda()) } catch (e) { console.error(e) }
     } catch (e) {
       console.error('Load error:', e)
     }
@@ -272,15 +274,16 @@ export function AppProvider({ children }) {
   }
 
   const setTimelineEntry = async (clientId, date, done, feedback) => {
+    const normalDate = String(date).slice(0, 10)
     setTimeline(prev => {
-      const exists = prev.find(t => t.clientId === clientId && t.date === date)
+      const exists = prev.find(t => t.clientId === clientId && String(t.date).slice(0,10) === normalDate)
       if (exists) {
-        return prev.map(t => (t.clientId === clientId && t.date === date) ? { ...t, done, feedback } : t)
+        return prev.map(t => (t.clientId === clientId && String(t.date).slice(0,10) === normalDate) ? { ...t, done, feedback, date: normalDate } : t)
       }
-      return [...prev, { clientId, date, done, feedback }]
+      return [...prev, { clientId, date: normalDate, done, feedback }]
     })
     if (useSheets) {
-      try { await setTimelineEntrySheet(clientId, date, done, feedback) } catch (e) { console.error(e) }
+      try { await setTimelineEntrySheet(clientId, normalDate, done, feedback) } catch (e) { console.error(e) }
     }
   }
 
@@ -334,6 +337,34 @@ export function AppProvider({ children }) {
     setReports(prev => prev.filter(r => r.id !== reportId))
     if (useSheets) {
       try { await deleteReportSheet(reportId) } catch (e) { console.error(e) }
+    }
+  }
+
+  const createAgendaItem = async (data) => {
+    if (useSheets) {
+      const saved = await addAgendaSheet(data)
+      setAgenda(prev => [...prev, saved])
+      return saved
+    } else {
+      const newA = { ...data, id: `a_${Date.now()}`, done: false, createdAt: new Date().toISOString() }
+      setAgenda(prev => [...prev, newA])
+      return newA
+    }
+  }
+
+  const toggleAgendaItem = async (itemId) => {
+    setAgenda(prev => prev.map(a => {
+      if (a.id !== itemId) return a
+      const updated = { ...a, done: !a.done }
+      if (useSheets) toggleAgendaSheet(itemId, updated.done).catch(console.error)
+      return updated
+    }))
+  }
+
+  const deleteAgendaItem = async (itemId) => {
+    setAgenda(prev => prev.filter(a => a.id !== itemId))
+    if (useSheets) {
+      try { await deleteAgendaSheet(itemId) } catch (e) { console.error(e) }
     }
   }
 
@@ -403,6 +434,7 @@ export function AppProvider({ children }) {
       clients: activeClients, allClients: clients, cancelledClients,
       demands, loading, loggedIn, isAdmin, pendingSales, reports,
       createClient, createDemand, toggleDemand, registerSocialPost, editClient, createReport, deleteReport,
+      agenda, createAgendaItem, toggleAgendaItem, deleteAgendaItem,
       setClientStatus, setClientNotes, setClientPriority, setClientFinance, setClientCard, cancelClient,
       unlockAdmin, lockAdmin, deleteClient, deleteDemand, dismissPendingSale, backfillLpEcomDemands,
       login, logout,
