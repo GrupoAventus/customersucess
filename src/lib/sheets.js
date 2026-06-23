@@ -210,3 +210,30 @@ export async function addReportSheet(report) {
 export async function deleteReportSheet(id) {
   await callPost({ action: 'deleteReport', id })
 }
+
+// ---- AGENDA ----
+
+export async function fetchAgenda() {
+  try {
+    const data = await callGet('getAgenda')
+    if (data.error) return []
+    return data.map(r => ({
+      id: r.id, text: r.text || '', prazo: r.prazo || '',
+      responsavel: r.responsavel || '', done: r.done === 'TRUE' || r.done === true,
+      createdAt: r.createdAt || '',
+    }))
+  } catch (e) { console.error('fetchAgenda error:', e); return [] }
+}
+
+export async function addAgendaSheet(item) {
+  const result = await callPost({ action: 'addAgenda', ...item })
+  return { ...item, id: result.id, done: false }
+}
+
+export async function toggleAgendaSheet(id, done) {
+  await callPost({ action: 'toggleAgenda', id, done })
+}
+
+export async function deleteAgendaSheet(id) {
+  await callPost({ action: 'deleteAgenda', id })
+}
