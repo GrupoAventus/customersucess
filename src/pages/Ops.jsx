@@ -4,6 +4,7 @@ import ClientCard from '../components/ClientCard'
 import ClientDetail from '../components/ClientDetail'
 import NewClientModal from '../components/NewClientModal'
 import { Btn, SectionHeader, EmptyState } from '../components/UI'
+import AgendaTab from '../components/AgendaTab'
 
 export default function Ops() {
   const { clients, cancelledClients, loading, pendingSales, dismissPendingSale, isAdmin, backfillLpEcomDemands } = useApp()
@@ -72,6 +73,7 @@ export default function Ops() {
         {[
           { id: 'clients', label: 'Clientes ativos' },
           { id: 'cancelled', label: `Cancelados (${cancelledClients.length})` },
+          { id: 'agenda', label: 'Agenda' },
         ].map(t => (
           <button
             key={t.id}
@@ -88,7 +90,7 @@ export default function Ops() {
         ))}
       </div>
 
-      {list.length === 0
+      {tab !== 'agenda' && list.length === 0
         ? <EmptyState icon="users" text={tab === 'clients' ? 'Nenhum cliente cadastrado ainda' : 'Nenhum cliente cancelado'} />
         : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
@@ -99,6 +101,7 @@ export default function Ops() {
         )
       }
 
+      {tab === 'agenda' && <AgendaTab />}
       {selected && <ClientDetail client={selected} onClose={() => setSelected(null)} />}
       {showNew && <NewClientModal onClose={() => setShowNew(false)} prefillName={prefillName} />}
     </div>
