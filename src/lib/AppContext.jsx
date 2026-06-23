@@ -109,7 +109,22 @@ export function AppProvider({ children }) {
         }
       }
       try { setPendingSales(await fetchPendingSales()) } catch (e) { console.error(e) }
-      try { setTimeline(await fetchTimeline()) } catch (e) { console.error(e) }
+      try {
+        const raw = await fetchTimeline()
+        // Deduplicate: for each clientId+date, keep the last entry with content
+        const map = new Map()
+        for (const entry of raw) {
+          const key = `${entry.clientId}__${String(entry.date).slice(0,10)}`
+          const existing = map.get(key)
+          const hasDone = entry.done?.trim()
+          const hasExistingDone = existing?.done?.trim()
+          // Prefer entries with content over empty ones
+          if (!existing || (hasDone && !hasExistingDone)) {
+            map.set(key, { ...entry, date: String(entry.date).slice(0,10) })
+          }
+        }
+        setTimeline(Array.from(map.values()))
+      } catch (e) { console.error(e) }
       try { setReports(await fetchReports()) } catch (e) { console.error(e) }
       try { setAgenda(await fetchAgenda()) } catch (e) { console.error(e) }
     } catch (e) {
