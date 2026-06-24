@@ -2,7 +2,16 @@ import { useApp } from '../lib/AppContext'
 
 export default function AlertBanner({ section }) {
   const { alerts, dismissAlert } = useApp()
-  const sectionAlerts = alerts.filter(a => a.sections.includes(section))
+
+  const sectionAlerts = alerts.filter(a => {
+    const secs = Array.isArray(a.sections)
+      ? a.sections
+      : typeof a.sections === 'string'
+        ? JSON.parse(a.sections)
+        : []
+    return secs.includes(section)
+  })
+
   if (sectionAlerts.length === 0) return null
 
   return (
