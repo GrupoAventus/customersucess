@@ -140,9 +140,18 @@ export function AppProvider({ children }) {
 
   const destinoToSection = (dest) => DESTINO_TO_SECTION[dest] || null
 
-  const addNotification = (notif) => {
+  const addNotification = async (notif) => {
     const id = `notif_${Date.now()}_${Math.random()}`
     setNotifications(prev => [...prev, { ...notif, id }])
+    // Also persist to sheets so other devices see it
+    if (useSheets) {
+      try {
+        const message = notif.type === 'new_client'
+          ? `Novo cliente: ${notif.clientName}`
+          : `Nova demanda: ${notif.text} — ${notif.clientName}`
+        await addAlertSheet(message, [notif.section], notif.type)
+      } catch (e) { console.error(e) }
+    }
   }
 
   const dismissNotification = (id) => {
