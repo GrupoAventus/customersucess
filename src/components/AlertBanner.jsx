@@ -3,27 +3,24 @@ import { useApp } from '../lib/AppContext'
 import { fetchAlerts, dismissAlertSheet } from '../lib/sheets'
 
 export default function AlertBanner({ section }) {
-  const { alerts, dismissAlert, useSheets } = useApp()
+  const { dismissAlert, useSheets } = useApp()
   const [localAlerts, setLocalAlerts] = useState([])
 
   useEffect(() => {
     if (!useSheets) return
     const load = () => fetchAlerts().then(setLocalAlerts).catch(console.error)
-    load() // load immediately
-    const interval = setInterval(load, 15000) // refresh every 15 seconds
+    load()
+    const interval = setInterval(load, 15000)
     return () => clearInterval(interval)
   }, [])
 
-  const source = localAlerts.length > 0 ? localAlerts : alerts
-
-  const sectionAlerts = source.filter(a => {
-    const secs = Array.isArray(a.sections) ? a.sections : []
-    return secs.includes(section)
-  })
+  const sectionAlerts = localAlerts.filter(a => a.sections.includes(section))
 
   const handleDismiss = async (id) => {
     setLocalAlerts(prev => prev.filter(a => a.id !== id))
-    dismissAlert(id)
+    if (useSheets) {
+      try { await dismissAlertSheet(id) } catch (e) { console.error(e) }
+    }
   }
 
   if (sectionAlerts.length === 0) return null
