@@ -248,15 +248,21 @@ export async function fetchAlerts() {
     const data = await callGet('getAlerts')
     if (data.error) return []
     return data
+      .filter(r => r.active === 'TRUE' || r.active === true)
+      .map(r => ({
+        id: r.id,
+        message: r.message || '',
+        sections: typeof r.sections === 'string' ? JSON.parse(r.sections) : (r.sections || [])
+      }))
   } catch (e) {
     console.error('fetchAlerts error:', e)
     return []
   }
 }
 
-export async function addAlertSheet(message, sections) {
-  const result = await callPost({ action: 'addAlert', message, sections })
-  return { id: result.id, message, sections }
+export async function addAlertSheet(message, sections, type = 'manual') {
+  const result = await callPost({ action: 'addAlert', message, sections, type })
+  return { id: result.id, message, sections, type }
 }
 
 export async function dismissAlertSheet(id) {
