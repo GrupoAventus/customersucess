@@ -3,6 +3,7 @@ import { useApp } from '../lib/AppContext'
 import NewDemandModal from '../components/NewDemandModal'
 import DemandTable from '../components/DemandTable'
 import SocialMediaTab from '../components/SocialMediaTab'
+import AlertBanner from '../components/AlertBanner'
 import NotificationBanner from '../components/NotificationBanner'
 import { Btn, SectionHeader, EmptyState } from '../components/UI'
 
@@ -20,43 +21,24 @@ export default function CentrosCriativos({ label, title, sectionId }) {
       <SectionHeader
         title={title}
         subtitle={`${ccDemands.filter(d => !d.done).length} demanda${ccDemands.filter(d => !d.done).length !== 1 ? 's' : ''} pendente${ccDemands.filter(d => !d.done).length !== 1 ? 's' : ''}`}
-        action={
-          tab === 'demands' ? (
-            <Btn primary onClick={() => setShowDemand(true)}>
-              <i className="ti ti-plus" /> Criar demanda
-            </Btn>
-          ) : null
-        }
+        action={tab === 'demands' ? <Btn primary onClick={() => setShowDemand(true)}><i className="ti ti-plus" /> Criar demanda</Btn> : null}
       />
 
-      {/* Notification banner */}
+      <AlertBanner section={sectionId} />
       <NotificationBanner section={sectionId} />
 
-      {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '0.5px solid #1f1f1f' }}>
-        {[
-          { id: 'demands', label: 'Demandas' },
-          { id: 'social', label: 'Social Media' },
-        ].map(t => (
+        {[{ id: 'demands', label: 'Demandas' }, { id: 'social', label: 'Social Media' }].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
             padding: '8px 16px', background: 'none', border: 'none',
             borderBottom: tab === t.id ? '2px solid var(--orange)' : '2px solid transparent',
-            color: tab === t.id ? 'var(--orange)' : '#666',
-            fontSize: 13, cursor: 'pointer'
-          }}>
-            {t.label}
-          </button>
+            color: tab === t.id ? 'var(--orange)' : '#666', fontSize: 13, cursor: 'pointer'
+          }}>{t.label}</button>
         ))}
       </div>
 
-      {tab === 'demands' && (
-        ccDemands.length === 0
-          ? <EmptyState icon="palette" text="Nenhuma demanda para este centro criativo" />
-          : <DemandTable demands={ccDemands} />
-      )}
-
+      {tab === 'demands' && (ccDemands.length === 0 ? <EmptyState icon="palette" text="Nenhuma demanda para este centro criativo" /> : <DemandTable demands={ccDemands} />)}
       {tab === 'social' && <SocialMediaTab centroCriativo={label} />}
-
       {showDemand && <NewDemandModal defaultDest={label} onClose={() => setShowDemand(false)} />}
     </div>
   )
