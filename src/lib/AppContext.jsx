@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet, setClientPrioritySheet, setClientFinanceSheet, setClientCardSheet, fetchPendingSales, markPendingDoneSheet, fetchTimeline, setTimelineEntrySheet, fetchReports, addReportSheet, deleteReportSheet, fetchAgenda, addAgendaSheet, toggleAgendaSheet, deleteAgendaSheet } from './sheets'
+import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet, setClientPrioritySheet, setClientFinanceSheet, setClientCardSheet, fetchPendingSales, markPendingDoneSheet, fetchTimeline, setTimelineEntrySheet, fetchReports, addReportSheet, deleteReportSheet, fetchAgenda, addAgendaSheet, toggleAgendaSheet, deleteAgendaSheet, fetchAlerts, addAlertSheet, dismissAlertSheet } from './sheets'
 
 const AppContext = createContext(null)
 
@@ -94,12 +94,7 @@ export function AppProvider({ children }) {
   const [reports, setReports] = useState([])
   const [agenda, setAgenda] = useState([])
   const [notifications, setNotifications] = useState([])
-  const [alerts, setAlerts] = useState(() => {
-    try {
-      const stored = localStorage.getItem('aventuscs_alerts')
-      return stored ? JSON.parse(stored) : []
-    } catch { return [] }
-  })
+  const [alerts, setAlerts] = useState([])
 
   const load = useCallback(async () => {
     if (!useSheets) return
@@ -109,10 +104,8 @@ export function AppProvider({ children }) {
       const escalated = applyAutoPriority(c)
       setClients(escalated.clients)
       setDemands(d)
-      if (useSheets) {
-        for (const upd of escalated.changes) {
-          setClientPrioritySheet(upd.id, upd.priorityStatus).catch(console.error)
-        }
+      for (const upd of escalated.changes) {
+        setClientPrioritySheet(upd.id, upd.priorityStatus).catch(console.error)
       }
       try { setPendingSales(await fetchPendingSales()) } catch (e) { console.error(e) }
       try {
@@ -131,13 +124,20 @@ export function AppProvider({ children }) {
       } catch (e) { console.error(e) }
       try { setReports(await fetchReports()) } catch (e) { console.error(e) }
       try { setAgenda(await fetchAgenda()) } catch (e) { console.error(e) }
+      try {
+        const rawAlerts = await fetchAlerts()
+        setAlerts(rawAlerts.map(a => ({
+          id: a.id,
+          message: a.message,
+          sections: typeof a.sections === 'string' ? JSON.parse(a.sections) : (a.sections || [])
+        })))
+      } catch (e) { console.error(e) }
     } catch (e) { console.error('Load error:', e) }
     setLoading(false)
   }, [])
 
   useEffect(() => { load() }, [load])
 
-  // ---- Notifications ----
   const destinoToSection = (dest) => DESTINO_TO_SECTION[dest] || null
 
   const addNotification = (notif) => {
@@ -149,24 +149,25 @@ export function AppProvider({ children }) {
     setNotifications(prev => prev.filter(n => n.id !== id))
   }
 
-  const broadcastAlert = (message, sections) => {
-    const id = `alert_${Date.now()}_${Math.random()}`
-    setAlerts(prev => {
-      const updated = [...prev, { id, message, sections }]
-      try { localStorage.setItem('aventuscs_alerts', JSON.stringify(updated)) } catch {}
-      return updated
-    })
+  const broadcastAlert = async (message, sections) => {
+    if (useSheets) {
+      try {
+        const saved = await addAlertSheet(message, sections)
+        setAlerts(prev => [...prev, { id: saved.id, message, sections }])
+      } catch (e) { console.error(e) }
+    } else {
+      const id = `alert_${Date.now()}`
+      setAlerts(prev => [...prev, { id, message, sections }])
+    }
   }
 
-  const dismissAlert = (id) => {
-    setAlerts(prev => {
-      const updated = prev.filter(a => a.id !== id)
-      try { localStorage.setItem('aventuscs_alerts', JSON.stringify(updated)) } catch {}
-      return updated
-    })
+  const dismissAlert = async (id) => {
+    setAlerts(prev => prev.filter(a => a.id !== id))
+    if (useSheets) {
+      try { await dismissAlertSheet(id) } catch (e) { console.error(e) }
+    }
   }
 
-  // ---- Clients ----
   const createClient = async (data) => {
     const payload = { status: 'Pegar acessos', observacoes: '', cancelado: false, priorityStatus: 'estavel', rechargeAmount: 0, dailySpend: 0, lastRecharge: new Date().toISOString().slice(0,10), statusChangedAt: new Date().toISOString().slice(0,10), hasCard: false, ...data }
     let saved
@@ -177,8 +178,6 @@ export function AppProvider({ children }) {
       saved = { ...payload, id: `c_${Date.now()}`, socialPosts: 0, socialWeek: '' }
       setClients(prev => [...prev, saved])
     }
-
-    // Notify each relevant section
     const destinos = saved.destinos || []
     const sections = new Set([
       ...destinos.map(d => destinoToSection(d)),
@@ -186,12 +185,9 @@ export function AppProvider({ children }) {
       saved.ccEcom ? destinoToSection(saved.ccEcom) : null,
       saved.ccSocial ? destinoToSection(saved.ccSocial) : null,
     ].filter(Boolean))
-
     for (const sec of sections) {
       addNotification({ type: 'new_client', section: sec, clientName: saved.name })
     }
-
-    // Auto-create LP/Ecom demands
     if (destinos.includes('LP') && saved.ccLP) {
       await createDemand({ clientId: saved.id, text: `Criar LP para ${saved.name}`, prazo: '', dest: saved.ccLP })
     }
@@ -228,12 +224,10 @@ export function AppProvider({ children }) {
     }
   }
 
-  // ---- Demands ----
   const createDemand = async (data) => {
     if (useSheets) {
       const saved = await addDemand(data)
       setDemands(prev => [...prev, saved])
-      // Notify destination section
       if (data.dest) {
         const sec = destinoToSection(data.dest)
         if (sec) {
@@ -272,8 +266,7 @@ export function AppProvider({ children }) {
       let posts = c.socialPosts || 0
       let week = c.socialWeek || ''
       if (week !== currentWeek) { posts = 0; week = currentWeek }
-      posts = posts + 1
-      return { ...c, socialPosts: posts, socialWeek: week }
+      return { ...c, socialPosts: posts + 1, socialWeek: week }
     }))
     if (useSheets) {
       try { await incrementSocialPost(clientId) } catch (e) { console.error(e) }
@@ -399,7 +392,6 @@ export function AppProvider({ children }) {
     else setLoggedIn({})
   }
 
-  // ---- Timeline ----
   const setTimelineEntry = async (clientId, date, done, feedback) => {
     const normalDate = String(date).slice(0, 10)
     setTimeline(prev => {
@@ -431,7 +423,6 @@ export function AppProvider({ children }) {
     })
   }
 
-  // ---- Reports ----
   const createReport = async (data) => {
     if (useSheets) {
       const saved = await addReportSheet(data)
@@ -451,7 +442,6 @@ export function AppProvider({ children }) {
     }
   }
 
-  // ---- Agenda ----
   const createAgendaItem = async (data) => {
     if (useSheets) {
       const saved = await addAgendaSheet(data)
@@ -480,7 +470,6 @@ export function AppProvider({ children }) {
     }
   }
 
-  // ---- Helpers ----
   const getClientDemands = (clientId) => demands.filter(d => d.clientId === clientId)
   const getSectionDemands = (dest) => demands.filter(d => d.dest === dest)
 
@@ -500,14 +489,13 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider value={{
       clients: activeClients, allClients: clients, cancelledClients,
-      demands, loading, loggedIn, isAdmin, pendingSales, reports, agenda, notifications,
+      demands, loading, loggedIn, isAdmin, pendingSales, reports, agenda, notifications, alerts,
       createClient, createDemand, toggleDemand, registerSocialPost, editClient,
       createReport, deleteReport,
-      agenda, createAgendaItem, toggleAgendaItem, deleteAgendaItem,
+      createAgendaItem, toggleAgendaItem, deleteAgendaItem,
       setClientStatus, setClientNotes, setClientPriority, setClientFinance, setClientCard, cancelClient,
       unlockAdmin, lockAdmin, deleteClient, deleteDemand, dismissPendingSale, backfillLpEcomDemands,
-      notifications, dismissNotification,
-      alerts, broadcastAlert, dismissAlert,
+      dismissNotification, broadcastAlert, dismissAlert,
       login, logout,
       getClientDemands, getSectionDemands, getSocialClients,
       getClientTimeline, setTimelineEntry, getMissingTimelineClients,
