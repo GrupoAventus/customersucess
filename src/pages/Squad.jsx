@@ -6,7 +6,6 @@ import NewDemandModal from '../components/NewDemandModal'
 import DemandTable from '../components/DemandTable'
 import NotificationBanner from '../components/NotificationBanner'
 import { Btn, SectionHeader } from '../components/UI'
-import NotificationBanner from '../components/NotificationBanner'
 
 const RECHARGE_THRESHOLD = 50
 
