@@ -7,33 +7,38 @@ export const KANBAN_COLUMNS = ['Pegar acessos', 'Aguardando campanha', 'Campanha
 export const PRIORITY_LEVELS = ['estavel', 'atencao', 'prioridade']
 export const PRIORITY_RANK = { prioridade: 0, atencao: 1, estavel: 2 }
 export const PRIORITY_COLORS = {
-  estavel:   { border: 'var(--green)', bg: 'rgba(99,153,34,0.08)',  label: 'Estável'    },
-  atencao:   { border: 'var(--amber)', bg: 'rgba(239,159,39,0.08)', label: 'Atenção'    },
+  estavel:   { border: 'var(--green)', bg: 'rgba(99,153,34,0.08)',  label: 'Estável' },
+  atencao:   { border: 'var(--amber)', bg: 'rgba(239,159,39,0.08)', label: 'Atenção' },
   prioridade:{ border: 'var(--red)',   bg: 'rgba(226,75,74,0.08)',  label: 'Prioridade' },
 }
 
-const DEMO_CLIENTS = []
-const DEMO_DEMANDS = []
+const DEMO_CLIENTS = [
+  { id:'c_1', name:'Bella Store', drive:'https://drive.google.com', instagram:'https://instagram.com/bellastore', site:'https://bellastore.com', entrou:'2024-09-10', destino:'Squad 1', createdAt:'', destinos:['Squad 1','Social Media'], ccLP:'', ccEcom:'', ccSocial:'Centro criativo 1', socialPosts:1, socialWeek:'', status:'Campanha ativa', observacoes:'', cancelado:false, rechargeAmount:500, dailySpend:25, lastRecharge:new Date().toISOString().slice(0,10), priorityStatus:'estavel', statusChangedAt:'', hasCard:false },
+  { id:'c_2', name:'TechFlow', drive:'https://drive.google.com', instagram:'https://instagram.com/techflow', site:'https://techflow.com', entrou:'2024-10-01', destino:'Squad 2', createdAt:'', destinos:['Squad 2'], ccLP:'', ccEcom:'', ccSocial:'', socialPosts:0, socialWeek:'', status:'Aguardando campanha', observacoes:'', cancelado:false, rechargeAmount:100, dailySpend:20, lastRecharge:new Date().toISOString().slice(0,10), priorityStatus:'atencao', statusChangedAt:'', hasCard:false },
+]
+const DEMO_DEMANDS = [
+  { id:'d_1', clientId:'c_1', text:'Criar campanha de remarketing', prazo:'2024-12-01', dest:'Squad 1', done:true, createdAt:'' },
+  { id:'d_2', clientId:'c_1', text:'Ajustar copy dos anúncios', prazo:'2024-12-15', dest:'Centro criativo 1', done:false, createdAt:'' },
+]
 
 const useSheets = Boolean(import.meta.env.VITE_SCRIPT_URL)
 const ADMIN_PASSWORD = '9912'
 
 const SECTION_PASSWORDS = {
-  ops:    ['admbruno_'],
-  dash:   ['headpaulo', 'admbruno_'],
-  squad1: ['squad1',   'headpaulo'],
-  squad2: ['squad2_',  'headpaulo'],
-  cc1:    ['centro1',  'headpaulo'],
-  cc2:    ['centro2_', 'headpaulo'],
+  ops:   ['admbruno_'],
+  dash:  ['headpaulo', 'admbruno_'],
+  squad1:['squad1', 'headpaulo'],
+  squad2:['squad2_', 'headpaulo'],
+  cc1:   ['centro1', 'headpaulo'],
+  cc2:   ['centro2_', 'headpaulo'],
 }
 
-// Map section labels to section IDs
 const DESTINO_TO_SECTION = {
-  'Squad 1': 'squad1', 'Squad 2': 'squad2',
-  'Centro criativo 1': 'cc1', 'Centro criativo 2': 'cc2',
+  'Squad 1': 'squad1',
+  'Squad 2': 'squad2',
+  'Centro criativo 1': 'cc1',
+  'Centro criativo 2': 'cc2',
 }
-
-const TIMELINE_START_DATE = '2026-06-22'
 
 function getCurrentWeek() {
   const now = new Date()
@@ -60,11 +65,8 @@ function applyAutoPriority(clients) {
     if (c.status !== 'Pegar acessos' || c.cancelado) return c
     const days = getDaysInStatus(c)
     let newPriority = c.priorityStatus
-    if (days >= 5 && (c.priorityStatus === 'estavel' || c.priorityStatus === 'atencao')) {
-      newPriority = 'prioridade'
-    } else if (days >= 3 && c.priorityStatus === 'estavel') {
-      newPriority = 'atencao'
-    }
+    if (days >= 5 && (c.priorityStatus === 'estavel' || c.priorityStatus === 'atencao')) newPriority = 'prioridade'
+    else if (days >= 3 && c.priorityStatus === 'estavel') newPriority = 'atencao'
     if (newPriority !== c.priorityStatus) {
       changes.push({ id: c.id, priorityStatus: newPriority })
       return { ...c, priorityStatus: newPriority }
@@ -88,10 +90,9 @@ export function AppProvider({ children }) {
   const [loggedIn, setLoggedIn] = useState({})
   const [isAdmin, setIsAdmin] = useState(false)
   const [pendingSales, setPendingSales] = useState([])
+  const [timeline, setTimeline] = useState([])
   const [reports, setReports] = useState([])
   const [agenda, setAgenda] = useState([])
-  const [notifications, setNotifications] = useState([])
-  const [timeline, setTimeline] = useState([])
   const [notifications, setNotifications] = useState([])
 
   const load = useCallback(async () => {
@@ -124,35 +125,14 @@ export function AppProvider({ children }) {
       } catch (e) { console.error(e) }
       try { setReports(await fetchReports()) } catch (e) { console.error(e) }
       try { setAgenda(await fetchAgenda()) } catch (e) { console.error(e) }
-    } catch (e) {
-      console.error('Load error:', e)
-    }
+    } catch (e) { console.error('Load error:', e) }
     setLoading(false)
   }, [])
 
   useEffect(() => { load() }, [load])
 
   // ---- Notifications ----
-  const pushNotification = useCallback((notif) => {
-    const id = `n_${Date.now()}_${Math.random()}`
-    setNotifications(prev => [...prev, { ...notif, id }])
-  }, [])
-
-  const dismissNotification = useCallback((id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id))
-  }, [])
-
-  const destinoToSection = (d) => DESTINO_TO_SECTION[d] || null
-
-  // ---- Clients ----
-
-  const destinoToSection = (dest) => {
-    if (dest === 'Squad 1') return 'squad1'
-    if (dest === 'Squad 2') return 'squad2'
-    if (dest === 'Centro criativo 1') return 'cc1'
-    if (dest === 'Centro criativo 2') return 'cc2'
-    return null
-  }
+  const destinoToSection = (dest) => DESTINO_TO_SECTION[dest] || null
 
   const addNotification = (notif) => {
     const id = `notif_${Date.now()}_${Math.random()}`
@@ -163,14 +143,9 @@ export function AppProvider({ children }) {
     setNotifications(prev => prev.filter(n => n.id !== id))
   }
 
+  // ---- Clients ----
   const createClient = async (data) => {
-    const payload = {
-      status: 'Pegar acessos', observacoes: '', cancelado: false,
-      priorityStatus: 'estavel', rechargeAmount: 0, dailySpend: 0,
-      lastRecharge: new Date().toISOString().slice(0,10),
-      statusChangedAt: new Date().toISOString().slice(0,10),
-      ...data
-    }
+    const payload = { status: 'Pegar acessos', observacoes: '', cancelado: false, priorityStatus: 'estavel', rechargeAmount: 0, dailySpend: 0, lastRecharge: new Date().toISOString().slice(0,10), statusChangedAt: new Date().toISOString().slice(0,10), hasCard: false, ...data }
     let saved
     if (useSheets) {
       saved = await addClient(payload)
@@ -180,19 +155,20 @@ export function AppProvider({ children }) {
       setClients(prev => [...prev, saved])
     }
 
-    // Notify relevant sections about new client
+    // Notify each relevant section
     const destinos = saved.destinos || []
-    const allSections = [
-      ...destinos.map(d => destinoToSection(d)).filter(Boolean),
-      saved.ccLP    ? destinoToSection(saved.ccLP)    : null,
-      saved.ccEcom  ? destinoToSection(saved.ccEcom)  : null,
-      saved.ccSocial? destinoToSection(saved.ccSocial): null,
-    ].filter(Boolean)
-    for (const section of [...new Set(allSections)]) {
-      pushNotification({ type: 'client', section, clientName: saved.name })
+    const sections = new Set([
+      ...destinos.map(d => destinoToSection(d)),
+      saved.ccLP ? destinoToSection(saved.ccLP) : null,
+      saved.ccEcom ? destinoToSection(saved.ccEcom) : null,
+      saved.ccSocial ? destinoToSection(saved.ccSocial) : null,
+    ].filter(Boolean))
+
+    for (const sec of sections) {
+      addNotification({ type: 'new_client', section: sec, clientName: saved.name })
     }
 
-    // Auto-create LP/Ecom demands for the respective creative center
+    // Auto-create LP/Ecom demands
     if (destinos.includes('LP') && saved.ccLP) {
       await createDemand({ clientId: saved.id, text: `Criar LP para ${saved.name}`, prazo: '', dest: saved.ccLP })
     }
@@ -202,28 +178,7 @@ export function AppProvider({ children }) {
     return saved
   }
 
-  const createDemand = async (data) => {
-    let saved
-    if (useSheets) {
-      saved = await addDemand(data)
-      setDemands(prev => [...prev, saved])
-    } else {
-      saved = { ...data, id: `d_${Date.now()}`, done: false }
-      setDemands(prev => [...prev, saved])
-    }
-    // Notify the destination section
-    if (data.dest) {
-      const section = destinoToSection(data.dest)
-      if (section) {
-        const clientName = clients.find(c => c.id === data.clientId)?.name || ''
-        pushNotification({ type: 'demand', section, text: data.text, clientName })
-      }
-    }
-    return saved
-  }
-
   const editClient = async (clientId, data) => {
-    const updated = { id: clientId, ...data }
     setClients(prev => prev.map(c => c.id === clientId ? { ...c, ...data } : c))
     if (useSheets) {
       const client = clients.find(c => c.id === clientId) || {}
@@ -248,24 +203,34 @@ export function AppProvider({ children }) {
         })
       } catch (e) { console.error(e) }
     }
-    return updated
   }
 
-  const createDemandWithNotif = async (data) => {
-    const saved = await createDemand(data)
-    if (saved && data.dest) {
-      const sec = destinoToSection(data.dest)
-      if (sec) {
-        const client = clients.find(c => c.id === data.clientId)
-        addNotification({
-          type: 'new_demand',
-          section: sec,
-          text: data.text,
-          clientName: client?.name || '—'
-        })
+  // ---- Demands ----
+  const createDemand = async (data) => {
+    if (useSheets) {
+      const saved = await addDemand(data)
+      setDemands(prev => [...prev, saved])
+      // Notify destination section
+      if (data.dest) {
+        const sec = destinoToSection(data.dest)
+        if (sec) {
+          const client = clients.find(c => c.id === data.clientId)
+          addNotification({ type: 'new_demand', section: sec, text: data.text, clientName: client?.name || '—' })
+        }
       }
+      return saved
+    } else {
+      const newD = { ...data, id: `d_${Date.now()}`, done: false }
+      setDemands(prev => [...prev, newD])
+      if (data.dest) {
+        const sec = destinoToSection(data.dest)
+        if (sec) {
+          const client = clients.find(c => c.id === data.clientId)
+          addNotification({ type: 'new_demand', section: sec, text: data.text, clientName: client?.name || '—' })
+        }
+      }
+      return newD
     }
-    return saved
   }
 
   const toggleDemand = async (demandId) => {
@@ -352,7 +317,6 @@ export function AppProvider({ children }) {
     if (password === ADMIN_PASSWORD) { setIsAdmin(true); return true }
     return false
   }
-
   const lockAdmin = () => setIsAdmin(false)
 
   const deleteClient = async (clientId) => {
@@ -367,6 +331,81 @@ export function AppProvider({ children }) {
     if (useSheets) {
       try { await deleteDemandSheet(demandId) } catch (e) { console.error(e) }
     }
+  }
+
+  const dismissPendingSale = async (id) => {
+    setPendingSales(prev => prev.filter(p => p.id !== id))
+    if (useSheets) {
+      try { await markPendingDoneSheet(id) } catch (e) { console.error(e) }
+    }
+  }
+
+  const backfillLpEcomDemands = async () => {
+    let created = 0
+    for (const c of clients) {
+      const destinos = c.destinos || []
+      if (destinos.includes('LP') && c.ccLP) {
+        const exists = demands.some(d => d.clientId === c.id && d.text === `Criar LP para ${c.name}`)
+        if (!exists) { await createDemand({ clientId: c.id, text: `Criar LP para ${c.name}`, prazo: '', dest: c.ccLP }); created++ }
+      }
+      if (destinos.includes('Ecom') && c.ccEcom) {
+        const exists = demands.some(d => d.clientId === c.id && d.text === `Criar Ecom para ${c.name}`)
+        if (!exists) { await createDemand({ clientId: c.id, text: `Criar Ecom para ${c.name}`, prazo: '', dest: c.ccEcom }); created++ }
+      }
+    }
+    return created
+  }
+
+  const login = (section, password) => {
+    const valid = SECTION_PASSWORDS[section] || []
+    if (password === 'admbruno_' || valid.includes(password)) {
+      setLoggedIn(prev => ({ ...prev, [section]: true }))
+      return section
+    }
+    for (const [sec, pwds] of Object.entries(SECTION_PASSWORDS)) {
+      if (pwds.includes(password)) {
+        setLoggedIn(prev => ({ ...prev, [sec]: true }))
+        return sec
+      }
+    }
+    return null
+  }
+
+  const logout = (section) => {
+    if (section) setLoggedIn(prev => ({ ...prev, [section]: false }))
+    else setLoggedIn({})
+  }
+
+  // ---- Timeline ----
+  const setTimelineEntry = async (clientId, date, done, feedback) => {
+    const normalDate = String(date).slice(0, 10)
+    setTimeline(prev => {
+      const exists = prev.find(t => t.clientId === clientId && String(t.date).slice(0,10) === normalDate)
+      if (exists) {
+        return prev.map(t => (t.clientId === clientId && String(t.date).slice(0,10) === normalDate) ? { ...t, done, feedback, date: normalDate } : t)
+      }
+      return [...prev, { clientId, date: normalDate, done, feedback }]
+    })
+    if (useSheets) {
+      try { await setTimelineEntrySheet(clientId, normalDate, done, feedback) } catch (e) { console.error(e) }
+    }
+  }
+
+  const getClientTimeline = (clientId) => timeline.filter(t => t.clientId === clientId)
+
+  const TIMELINE_START_DATE = '2026-06-22'
+  const getMissingTimelineClients = () => {
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const targetDate = yesterday.toISOString().slice(0, 10)
+    if (targetDate < TIMELINE_START_DATE) return []
+    return clients.filter(c => {
+      const createdAt = (c.createdAt || '').slice(0, 10)
+      const today = new Date().toISOString().slice(0, 10)
+      if (createdAt >= today) return false
+      const entry = timeline.find(t => t.clientId === c.id && t.date === targetDate)
+      return !entry || (!entry.done?.trim() && !entry.feedback?.trim())
+    })
   }
 
   // ---- Reports ----
@@ -418,83 +457,7 @@ export function AppProvider({ children }) {
     }
   }
 
-  // ---- Timeline ----
-  const setTimelineEntry = async (clientId, date, done, feedback) => {
-    const normalDate = String(date).slice(0, 10)
-    setTimeline(prev => {
-      const exists = prev.find(t => t.clientId === clientId && String(t.date).slice(0,10) === normalDate)
-      if (exists) {
-        return prev.map(t => (t.clientId === clientId && String(t.date).slice(0,10) === normalDate)
-          ? { ...t, done, feedback, date: normalDate } : t)
-      }
-      return [...prev, { clientId, date: normalDate, done, feedback }]
-    })
-    if (useSheets) {
-      try { await setTimelineEntrySheet(clientId, normalDate, done, feedback) } catch (e) { console.error(e) }
-    }
-  }
-
-  const getClientTimeline = (clientId) => timeline.filter(t => t.clientId === clientId)
-
-  const getMissingTimelineClients = () => {
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    const targetDate = yesterday.toISOString().slice(0, 10)
-    const today = new Date().toISOString().slice(0, 10)
-    if (targetDate < TIMELINE_START_DATE) return []
-    return clients.filter(c => {
-      const createdAt = (c.createdAt || '').slice(0, 10)
-      if (createdAt >= today) return false
-      const entry = timeline.find(t => t.clientId === c.id && t.date === targetDate)
-      return !entry || (!entry.done?.trim() && !entry.feedback?.trim())
-    })
-  }
-
-  // ---- Pending sales ----
-  const dismissPendingSale = async (id) => {
-    setPendingSales(prev => prev.filter(p => p.id !== id))
-    if (useSheets) {
-      try { await markPendingDoneSheet(id) } catch (e) { console.error(e) }
-    }
-  }
-
-  const backfillLpEcomDemands = async () => {
-    let created = 0
-    for (const c of clients) {
-      const destinos = c.destinos || []
-      if (destinos.includes('LP') && c.ccLP) {
-        const exists = demands.some(d => d.clientId === c.id && d.text === `Criar LP para ${c.name}`)
-        if (!exists) { await createDemand({ clientId: c.id, text: `Criar LP para ${c.name}`, prazo: '', dest: c.ccLP }); created++ }
-      }
-      if (destinos.includes('Ecom') && c.ccEcom) {
-        const exists = demands.some(d => d.clientId === c.id && d.text === `Criar Ecom para ${c.name}`)
-        if (!exists) { await createDemand({ clientId: c.id, text: `Criar Ecom para ${c.name}`, prazo: '', dest: c.ccEcom }); created++ }
-      }
-    }
-    return created
-  }
-
-  // ---- Auth ----
-  const login = (section, password) => {
-    const valid = SECTION_PASSWORDS[section] || []
-    if (password === 'admbruno_' || valid.includes(password)) {
-      setLoggedIn(prev => ({ ...prev, [section]: true }))
-      return section
-    }
-    for (const [sec, pwds] of Object.entries(SECTION_PASSWORDS)) {
-      if (pwds.includes(password)) {
-        setLoggedIn(prev => ({ ...prev, [sec]: true }))
-        return sec
-      }
-    }
-    return null
-  }
-
-  const logout = (section) => {
-    if (section) setLoggedIn(prev => ({ ...prev, [section]: false }))
-    else setLoggedIn({})
-  }
-
+  // ---- Helpers ----
   const getClientDemands = (clientId) => demands.filter(d => d.clientId === clientId)
   const getSectionDemands = (dest) => demands.filter(d => d.dest === dest)
 
@@ -514,10 +477,10 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider value={{
       clients: activeClients, allClients: clients, cancelledClients,
-      demands, loading, loggedIn, isAdmin, pendingSales, reports,
+      demands, loading, loggedIn, isAdmin, pendingSales, reports, agenda, notifications,
+      createClient, createDemand, toggleDemand, registerSocialPost, editClient,
+      createReport, deleteReport,
       agenda, createAgendaItem, toggleAgendaItem, deleteAgendaItem,
-      notifications, dismissNotification,
-      createClient, createDemand, toggleDemand, registerSocialPost, editClient, createReport, deleteReport,
       setClientStatus, setClientNotes, setClientPriority, setClientFinance, setClientCard, cancelClient,
       unlockAdmin, lockAdmin, deleteClient, deleteDemand, dismissPendingSale, backfillLpEcomDemands,
       notifications, dismissNotification,
