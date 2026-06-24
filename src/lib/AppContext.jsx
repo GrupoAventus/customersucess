@@ -94,7 +94,12 @@ export function AppProvider({ children }) {
   const [reports, setReports] = useState([])
   const [agenda, setAgenda] = useState([])
   const [notifications, setNotifications] = useState([])
-  const [alerts, setAlerts] = useState([])
+  const [alerts, setAlerts] = useState(() => {
+    try {
+      const stored = localStorage.getItem('aventuscs_alerts')
+      return stored ? JSON.parse(stored) : []
+    } catch { return [] }
+  })
 
   const load = useCallback(async () => {
     if (!useSheets) return
@@ -146,11 +151,19 @@ export function AppProvider({ children }) {
 
   const broadcastAlert = (message, sections) => {
     const id = `alert_${Date.now()}_${Math.random()}`
-    setAlerts(prev => [...prev, { id, message, sections }])
+    setAlerts(prev => {
+      const updated = [...prev, { id, message, sections }]
+      try { localStorage.setItem('aventuscs_alerts', JSON.stringify(updated)) } catch {}
+      return updated
+    })
   }
 
   const dismissAlert = (id) => {
-    setAlerts(prev => prev.filter(a => a.id !== id))
+    setAlerts(prev => {
+      const updated = prev.filter(a => a.id !== id)
+      try { localStorage.setItem('aventuscs_alerts', JSON.stringify(updated)) } catch {}
+      return updated
+    })
   }
 
   // ---- Clients ----
