@@ -8,7 +8,10 @@ export default function AlertBanner({ section }) {
 
   useEffect(() => {
     if (!useSheets) return
-    fetchAlerts().then(setLocalAlerts).catch(console.error)
+    const load = () => fetchAlerts().then(setLocalAlerts).catch(console.error)
+    load() // load immediately
+    const interval = setInterval(load, 15000) // refresh every 15 seconds
+    return () => clearInterval(interval)
   }, [])
 
   const source = localAlerts.length > 0 ? localAlerts : alerts
