@@ -8,12 +8,12 @@ import Squad from './pages/Squad'
 import CentrosCriativos from './pages/CentrosCriativos'
 
 const SECTIONS = {
-  ops:   { label: 'Centro de operações', component: () => <Ops /> },
-  dash:  { label: 'Dashboard', component: () => <Dashboard /> },
-  squad1:{ label: 'Squad 1', component: () => <Squad label="Squad 1" title="Squad 1" /> },
-  squad2:{ label: 'Squad 2', component: () => <Squad label="Squad 2" title="Squad 2" /> },
-  cc1:   { label: 'Centro criativo 1', component: () => <CentrosCriativos label="Centro criativo 1" title="Centro criativo 1" /> },
-  cc2:   { label: 'Centro criativo 2', component: () => <CentrosCriativos label="Centro criativo 2" title="Centro criativo 2" /> },
+  ops:    { label: 'Centro de operações',  component: () => <Ops /> },
+  dash:   { label: 'Dashboard',            component: () => <Dashboard /> },
+  squad1: { label: 'Squad 1',              component: () => <Squad label="Squad 1" title="Squad 1" sectionId="squad1" /> },
+  squad2: { label: 'Squad 2',              component: () => <Squad label="Squad 2" title="Squad 2" sectionId="squad2" /> },
+  cc1:    { label: 'Centro criativo 1',    component: () => <CentrosCriativos label="Centro criativo 1" title="Centro criativo 1" sectionId="cc1" /> },
+  cc2:    { label: 'Centro criativo 2',    component: () => <CentrosCriativos label="Centro criativo 2" title="Centro criativo 2" sectionId="cc2" /> },
 }
 
 function AppInner() {
