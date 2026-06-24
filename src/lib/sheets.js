@@ -248,11 +248,17 @@ export async function fetchAlerts() {
     const data = await callGet('getAlerts')
     if (data.error) return []
     return data
-      .filter(r => r.active === 'TRUE' || r.active === true)
+      .filter(r => r.active === true || r.active === 'TRUE')
       .map(r => ({
         id: r.id,
         message: r.message || '',
-        sections: typeof r.sections === 'string' ? JSON.parse(r.sections) : (r.sections || [])
+        type: r.type || 'manual',
+        sections: (() => {
+          try {
+            const s = typeof r.sections === 'string' ? JSON.parse(r.sections) : r.sections
+            return Array.isArray(s) ? s : []
+          } catch { return [] }
+        })()
       }))
   } catch (e) {
     console.error('fetchAlerts error:', e)
