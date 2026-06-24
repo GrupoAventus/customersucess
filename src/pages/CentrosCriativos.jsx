@@ -3,9 +3,10 @@ import { useApp } from '../lib/AppContext'
 import NewDemandModal from '../components/NewDemandModal'
 import DemandTable from '../components/DemandTable'
 import SocialMediaTab from '../components/SocialMediaTab'
+import NotificationBanner from '../components/NotificationBanner'
 import { Btn, SectionHeader, EmptyState } from '../components/UI'
 
-export default function CentrosCriativos({ label, title }) {
+export default function CentrosCriativos({ label, title, sectionId }) {
   const { clients, demands } = useApp()
   const [showDemand, setShowDemand] = useState(false)
   const [tab, setTab] = useState('demands')
@@ -28,22 +29,21 @@ export default function CentrosCriativos({ label, title }) {
         }
       />
 
+      {/* Notification banner */}
+      <NotificationBanner section={sectionId} />
+
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '0.5px solid #1f1f1f' }}>
         {[
           { id: 'demands', label: 'Demandas' },
           { id: 'social', label: 'Social Media' },
         ].map(t => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            style={{
-              padding: '8px 16px', background: 'none', border: 'none',
-              borderBottom: tab === t.id ? '2px solid var(--orange)' : '2px solid transparent',
-              color: tab === t.id ? 'var(--orange)' : '#666',
-              fontSize: 13, cursor: 'pointer'
-            }}
-          >
+          <button key={t.id} onClick={() => setTab(t.id)} style={{
+            padding: '8px 16px', background: 'none', border: 'none',
+            borderBottom: tab === t.id ? '2px solid var(--orange)' : '2px solid transparent',
+            color: tab === t.id ? 'var(--orange)' : '#666',
+            fontSize: 13, cursor: 'pointer'
+          }}>
             {t.label}
           </button>
         ))}
