@@ -94,6 +94,7 @@ export function AppProvider({ children }) {
   const [reports, setReports] = useState([])
   const [agenda, setAgenda] = useState([])
   const [notifications, setNotifications] = useState([])
+  const [alerts, setAlerts] = useState([])
 
   const load = useCallback(async () => {
     if (!useSheets) return
@@ -141,6 +142,15 @@ export function AppProvider({ children }) {
 
   const dismissNotification = (id) => {
     setNotifications(prev => prev.filter(n => n.id !== id))
+  }
+
+  const broadcastAlert = (message, sections) => {
+    const id = `alert_${Date.now()}_${Math.random()}`
+    setAlerts(prev => [...prev, { id, message, sections }])
+  }
+
+  const dismissAlert = (id) => {
+    setAlerts(prev => prev.filter(a => a.id !== id))
   }
 
   // ---- Clients ----
@@ -484,6 +494,7 @@ export function AppProvider({ children }) {
       setClientStatus, setClientNotes, setClientPriority, setClientFinance, setClientCard, cancelClient,
       unlockAdmin, lockAdmin, deleteClient, deleteDemand, dismissPendingSale, backfillLpEcomDemands,
       notifications, dismissNotification,
+      alerts, broadcastAlert, dismissAlert,
       login, logout,
       getClientDemands, getSectionDemands, getSocialClients,
       getClientTimeline, setTimelineEntry, getMissingTimelineClients,
