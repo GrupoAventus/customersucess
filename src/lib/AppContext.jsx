@@ -26,11 +26,11 @@ const ADMIN_PASSWORD = '9912'
 
 const SECTION_PASSWORDS = {
   ops:   ['admbruno_'],
-  dash:  ['headpaulo', 'admbruno_'],
-  squad1:['squad1', 'headpaulo'],
-  squad2:['squad2_', 'headpaulo'],
-  cc1:   ['centro1', 'headpaulo'],
-  cc2:   ['centro2_', 'headpaulo'],
+  dash:  ['gestorwil', 'admbruno_'],
+  squad1:['squad1', 'gestorwil'],
+  squad2:['squad2_', 'gestorwil'],
+  cc1:   ['centro1', 'gestorwil'],
+  cc2:   ['centro2_', 'gestorwil'],
 }
 
 const DESTINO_TO_SECTION = {
