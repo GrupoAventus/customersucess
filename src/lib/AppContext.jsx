@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet, setClientPrioritySheet, setClientFinanceSheet, setClientCardSheet, fetchPendingSales, markPendingDoneSheet, fetchTimeline, setTimelineEntrySheet, fetchReports, addReportSheet, deleteReportSheet, fetchAgenda, addAgendaSheet, toggleAgendaSheet, deleteAgendaSheet, fetchAlerts, addAlertSheet, dismissAlertSheet } from './sheets'
+import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet, setClientPrioritySheet, setClientFinanceSheet, setClientCardSheet, fetchPendingSales, markPendingDoneSheet, fetchTimeline, setTimelineEntrySheet, fetchReports, addReportSheet, deleteReportSheet, fetchAgenda, addAgendaSheet, toggleAgendaSheet, deleteAgendaSheet, fetchAlerts, addAlertSheet, dismissAlertSheet, fetchPipeline, setPipelineStepSheet } from './sheets'
 
 const AppContext = createContext(null)
 
@@ -14,12 +14,8 @@ export const PRIORITY_COLORS = {
 
 const DEMO_CLIENTS = [
   { id:'c_1', name:'Bella Store', drive:'https://drive.google.com', instagram:'https://instagram.com/bellastore', site:'https://bellastore.com', entrou:'2024-09-10', destino:'Squad 1', createdAt:'', destinos:['Squad 1','Social Media'], ccLP:'', ccEcom:'', ccSocial:'Centro criativo 1', socialPosts:1, socialWeek:'', status:'Campanha ativa', observacoes:'', cancelado:false, rechargeAmount:500, dailySpend:25, lastRecharge:new Date().toISOString().slice(0,10), priorityStatus:'estavel', statusChangedAt:'', hasCard:false },
-  { id:'c_2', name:'TechFlow', drive:'https://drive.google.com', instagram:'https://instagram.com/techflow', site:'https://techflow.com', entrou:'2024-10-01', destino:'Squad 2', createdAt:'', destinos:['Squad 2'], ccLP:'', ccEcom:'', ccSocial:'', socialPosts:0, socialWeek:'', status:'Aguardando campanha', observacoes:'', cancelado:false, rechargeAmount:100, dailySpend:20, lastRecharge:new Date().toISOString().slice(0,10), priorityStatus:'atencao', statusChangedAt:'', hasCard:false },
 ]
-const DEMO_DEMANDS = [
-  { id:'d_1', clientId:'c_1', text:'Criar campanha de remarketing', prazo:'2024-12-01', dest:'Squad 1', done:true, createdAt:'' },
-  { id:'d_2', clientId:'c_1', text:'Ajustar copy dos anúncios', prazo:'2024-12-15', dest:'Centro criativo 1', done:false, createdAt:'' },
-]
+const DEMO_DEMANDS = []
 
 const useSheets = Boolean(import.meta.env.VITE_SCRIPT_URL)
 const ADMIN_PASSWORD = '9912'
@@ -34,10 +30,8 @@ const SECTION_PASSWORDS = {
 }
 
 const DESTINO_TO_SECTION = {
-  'Squad 1': 'squad1',
-  'Squad 2': 'squad2',
-  'Centro criativo 1': 'cc1',
-  'Centro criativo 2': 'cc2',
+  'Squad 1': 'squad1', 'Squad 2': 'squad2',
+  'Centro criativo 1': 'cc1', 'Centro criativo 2': 'cc2',
 }
 
 function getCurrentWeek() {
@@ -95,6 +89,7 @@ export function AppProvider({ children }) {
   const [agenda, setAgenda] = useState([])
   const [notifications, setNotifications] = useState([])
   const [alerts, setAlerts] = useState([])
+  const [pipeline, setPipeline] = useState([])
 
   const load = useCallback(async () => {
     if (!useSheets) return
@@ -114,9 +109,7 @@ export function AppProvider({ children }) {
         for (const entry of raw) {
           const key = `${entry.clientId}__${String(entry.date).slice(0,10)}`
           const existing = map.get(key)
-          const hasDone = entry.done?.trim()
-          const hasExistingDone = existing?.done?.trim()
-          if (!existing || (hasDone && !hasExistingDone)) {
+          if (!existing || (entry.done?.trim() && !existing.done?.trim())) {
             map.set(key, { ...entry, date: String(entry.date).slice(0,10) })
           }
         }
@@ -124,14 +117,7 @@ export function AppProvider({ children }) {
       } catch (e) { console.error(e) }
       try { setReports(await fetchReports()) } catch (e) { console.error(e) }
       try { setAgenda(await fetchAgenda()) } catch (e) { console.error(e) }
-      try {
-        const rawAlerts = await fetchAlerts()
-        setAlerts(rawAlerts.map(a => ({
-          id: a.id,
-          message: a.message,
-          sections: typeof a.sections === 'string' ? JSON.parse(a.sections) : (a.sections || [])
-        })))
-      } catch (e) { console.error(e) }
+      try { setPipeline(await fetchPipeline()) } catch (e) { console.error(e) }
     } catch (e) { console.error('Load error:', e) }
     setLoading(false)
   }, [])
@@ -143,7 +129,6 @@ export function AppProvider({ children }) {
   const addNotification = async (notif) => {
     const id = `notif_${Date.now()}_${Math.random()}`
     setNotifications(prev => [...prev, { ...notif, id }])
-    // Also persist to sheets so other devices see it
     if (useSheets) {
       try {
         const message = notif.type === 'new_client'
@@ -161,12 +146,12 @@ export function AppProvider({ children }) {
   const broadcastAlert = async (message, sections) => {
     if (useSheets) {
       try {
-        const saved = await addAlertSheet(message, sections)
-        setAlerts(prev => [...prev, { id: saved.id, message, sections }])
+        const saved = await addAlertSheet(message, sections, 'manual')
+        setAlerts(prev => [...prev, { id: saved.id, message, sections, type: 'manual' }])
       } catch (e) { console.error(e) }
     } else {
       const id = `alert_${Date.now()}`
-      setAlerts(prev => [...prev, { id, message, sections }])
+      setAlerts(prev => [...prev, { id, message, sections, type: 'manual' }])
     }
   }
 
@@ -223,11 +208,8 @@ export function AppProvider({ children }) {
           ccLP: data.ccLP ?? client.ccLP,
           ccEcom: data.ccEcom ?? client.ccEcom,
           ccSocial: data.ccSocial ?? client.ccSocial,
-          status: client.status,
-          observacoes: client.observacoes,
-          cancelado: client.cancelado,
-          socialPosts: client.socialPosts,
-          socialWeek: client.socialWeek,
+          status: client.status, observacoes: client.observacoes,
+          cancelado: client.cancelado, socialPosts: client.socialPosts, socialWeek: client.socialWeek,
         })
       } catch (e) { console.error(e) }
     }
@@ -248,13 +230,6 @@ export function AppProvider({ children }) {
     } else {
       const newD = { ...data, id: `d_${Date.now()}`, done: false }
       setDemands(prev => [...prev, newD])
-      if (data.dest) {
-        const sec = destinoToSection(data.dest)
-        if (sec) {
-          const client = clients.find(c => c.id === data.clientId)
-          addNotification({ type: 'new_demand', section: sec, text: data.text, clientName: client?.name || '—' })
-        }
-      }
       return newD
     }
   }
@@ -383,7 +358,7 @@ export function AppProvider({ children }) {
 
   const login = (section, password) => {
     const valid = SECTION_PASSWORDS[section] || []
-    if (password === 'admbruno_' || valid.includes(password)) {
+    if (password === 'admbruno_' || password === 'gestorwil' || valid.includes(password)) {
       setLoggedIn(prev => ({ ...prev, [section]: true }))
       return section
     }
@@ -405,9 +380,7 @@ export function AppProvider({ children }) {
     const normalDate = String(date).slice(0, 10)
     setTimeline(prev => {
       const exists = prev.find(t => t.clientId === clientId && String(t.date).slice(0,10) === normalDate)
-      if (exists) {
-        return prev.map(t => (t.clientId === clientId && String(t.date).slice(0,10) === normalDate) ? { ...t, done, feedback, date: normalDate } : t)
-      }
+      if (exists) return prev.map(t => (t.clientId === clientId && String(t.date).slice(0,10) === normalDate) ? { ...t, done, feedback, date: normalDate } : t)
       return [...prev, { clientId, date: normalDate, done, feedback }]
     })
     if (useSheets) {
@@ -417,11 +390,11 @@ export function AppProvider({ children }) {
 
   const getClientTimeline = (clientId) => timeline.filter(t => t.clientId === clientId)
 
-  const TIMELINE_START_DATE = '2026-06-22'
   const getMissingTimelineClients = () => {
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
     const targetDate = yesterday.toISOString().slice(0, 10)
+    const TIMELINE_START_DATE = '2026-06-22'
     if (targetDate < TIMELINE_START_DATE) return []
     return clients.filter(c => {
       const createdAt = (c.createdAt || '').slice(0, 10)
@@ -446,9 +419,7 @@ export function AppProvider({ children }) {
 
   const deleteReport = async (reportId) => {
     setReports(prev => prev.filter(r => r.id !== reportId))
-    if (useSheets) {
-      try { await deleteReportSheet(reportId) } catch (e) { console.error(e) }
-    }
+    if (useSheets) { try { await deleteReportSheet(reportId) } catch (e) { console.error(e) } }
   }
 
   const createAgendaItem = async (data) => {
@@ -474,10 +445,21 @@ export function AppProvider({ children }) {
 
   const deleteAgendaItem = async (itemId) => {
     setAgenda(prev => prev.filter(a => a.id !== itemId))
+    if (useSheets) { try { await deleteAgendaSheet(itemId) } catch (e) { console.error(e) } }
+  }
+
+  const setPipelineStep = async (clientId, step, done, doneAt, note) => {
+    setPipeline(prev => {
+      const exists = prev.find(s => s.clientId === clientId && s.step === step)
+      if (exists) return prev.map(s => (s.clientId === clientId && s.step === step) ? { ...s, done, doneAt, note } : s)
+      return [...prev, { clientId, step, done, doneAt, note }]
+    })
     if (useSheets) {
-      try { await deleteAgendaSheet(itemId) } catch (e) { console.error(e) }
+      try { await setPipelineStepSheet(clientId, step, done, doneAt, note) } catch (e) { console.error(e) }
     }
   }
+
+  const getClientPipeline = (clientId) => pipeline.filter(s => s.clientId === clientId)
 
   const getClientDemands = (clientId) => demands.filter(d => d.clientId === clientId)
   const getSectionDemands = (dest) => demands.filter(d => d.dest === dest)
@@ -498,18 +480,18 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider value={{
       clients: activeClients, allClients: clients, cancelledClients,
-      demands, loading, loggedIn, isAdmin, pendingSales, reports, agenda, notifications, alerts,
+      demands, loading, loggedIn, isAdmin, pendingSales, reports, agenda, notifications, alerts, pipeline,
       createClient, createDemand, toggleDemand, registerSocialPost, editClient,
       createReport, deleteReport,
       createAgendaItem, toggleAgendaItem, deleteAgendaItem,
+      setPipelineStep, getClientPipeline,
       setClientStatus, setClientNotes, setClientPriority, setClientFinance, setClientCard, cancelClient,
       unlockAdmin, lockAdmin, deleteClient, deleteDemand, dismissPendingSale, backfillLpEcomDemands,
       dismissNotification, broadcastAlert, dismissAlert,
       login, logout,
       getClientDemands, getSectionDemands, getSocialClients,
       getClientTimeline, setTimelineEntry, getMissingTimelineClients,
-      reload: load,
-      useSheets
+      reload: load, useSheets
     }}>
       {children}
     </AppContext.Provider>
