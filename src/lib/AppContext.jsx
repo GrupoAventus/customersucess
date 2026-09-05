@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { notifyNewClient, notifyNewDemand, notifyAlert } from './whatsapp'
 import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet, setClientPrioritySheet, setClientFinanceSheet, setClientCardSheet, fetchPendingSales, markPendingDoneSheet, fetchTimeline, setTimelineEntrySheet, fetchReports, addReportSheet, deleteReportSheet, fetchAgenda, addAgendaSheet, toggleAgendaSheet, deleteAgendaSheet, fetchAlerts, addAlertSheet, dismissAlertSheet, fetchPipeline, setPipelineStepSheet } from './sheets'
 
 const AppContext = createContext(null)
@@ -148,6 +149,8 @@ export function AppProvider({ children }) {
       try {
         const saved = await addAlertSheet(message, sections, 'manual')
         setAlerts(prev => [...prev, { id: saved.id, message, sections, type: 'manual' }])
+        // WhatsApp notification
+        notifyAlert(message, sections).catch(console.error)
       } catch (e) { console.error(e) }
     } else {
       const id = `alert_${Date.now()}`
@@ -182,6 +185,8 @@ export function AppProvider({ children }) {
     for (const sec of sections) {
       addNotification({ type: 'new_client', section: sec, clientName: saved.name })
     }
+    // WhatsApp notification
+    notifyNewClient(saved.name, Array.from(sections)).catch(console.error)
     if (destinos.includes('LP') && saved.ccLP) {
       await createDemand({ clientId: saved.id, text: `Criar LP para ${saved.name}`, prazo: '', dest: saved.ccLP })
     }
@@ -224,6 +229,8 @@ export function AppProvider({ children }) {
         if (sec) {
           const client = clients.find(c => c.id === data.clientId)
           addNotification({ type: 'new_demand', section: sec, text: data.text, clientName: client?.name || '—' })
+          // WhatsApp notification
+          notifyNewDemand(client?.name || '—', data.text, sec).catch(console.error)
         }
       }
       return saved
