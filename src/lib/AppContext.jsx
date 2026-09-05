@@ -10,7 +10,7 @@ export const PRIORITY_RANK = { prioridade: 0, atencao: 1, estavel: 2 }
 export const PRIORITY_COLORS = {
   estavel:   { border: 'var(--green)', bg: 'rgba(99,153,34,0.08)',  label: 'Estável' },
   atencao:   { border: 'var(--amber)', bg: 'rgba(239,159,39,0.08)', label: 'Atenção' },
-  prioridade:{ border: 'var(--red)',   bg: 'rgba(226,75,74,0.08)',  label: 'Prioridade' },
+  prioridade:{ border: 'var(--red)',   bg: 'rgba(226,75,74,0.08)',  label: 'Prioridade' }
 }
 
 const DEMO_CLIENTS = [
