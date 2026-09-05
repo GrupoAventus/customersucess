@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useApp, PRIORITY_COLORS, computeCurrentSaldo, getDaysInStatus } from '../lib/AppContext'
+import { useApp, PRIORITY_COLORS, getDaysInStatus } from '../lib/AppContext'
 import { StatCard, SectionHeader, Btn } from '../components/UI'
 import DemandTable from '../components/DemandTable'
 import ReportModal from '../components/ReportModal'
@@ -10,7 +10,7 @@ const SECTIONS_LIST = ['Squad 1', 'Squad 2', 'Centro criativo 1', 'Centro criati
 const CC_LIST = ['Centro criativo 1', 'Centro criativo 2']
 
 export default function Dashboard() {
-  const { clients, demands, getSocialClients, getMissingTimelineClients } = useApp()
+  const { clients, demands, getSocialClients } = useApp()
   const [showReports, setShowReports] = useState(false)
   const [showAlert, setShowAlert] = useState(false)
 
@@ -31,8 +31,6 @@ export default function Dashboard() {
   const avgStuckDays = stuckClients.length
     ? Math.round(stuckClients.reduce((sum, c) => sum + c.days, 0) / stuckClients.length)
     : 0
-
-  const missingTimeline = getMissingTimelineClients()
 
   return (
     <div style={{ padding: '1.5rem' }}>
@@ -60,18 +58,6 @@ export default function Dashboard() {
         <StatCard label="Prioridade" value={critical} color="var(--red)" />
         <StatCard label="Atenção" value={low} color="var(--amber)" />
       </div>
-
-      {missingTimeline.length > 0 && (
-        <div style={{ background: 'rgba(226,75,74,0.08)', border: '0.5px solid var(--red)', borderRadius: 10, padding: '12px 16px', marginBottom: '1.5rem', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-          <i className="ti ti-alert-triangle" style={{ color: 'var(--red)', fontSize: 18, marginTop: 2 }} />
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--red)', marginBottom: 4 }}>
-              Linha do tempo de ontem não preenchida ({missingTimeline.length})
-            </div>
-            <div style={{ fontSize: 12, color: '#aaa' }}>{missingTimeline.map(c => c.name).join(', ')}</div>
-          </div>
-        </div>
-      )}
 
       {/* Pegar acessos - tempo parado */}
       <div style={{ marginBottom: '1.5rem' }}>
@@ -103,7 +89,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Social Media Summary */}
+      {/* Social Media */}
       <div style={{ marginBottom: '1.5rem' }}>
         <div style={{ padding: '6px 10px', background: '#1a0d04', borderRadius: 6, marginBottom: 8 }}>
           <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--orange)' }}>Resumo Social Media</span>
@@ -165,7 +151,7 @@ export default function Dashboard() {
           <div key={sq} style={{ marginBottom: '1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: '#1a0d04', borderRadius: 6, marginBottom: 8 }}>
               <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--orange)' }}>{sq}</span>
-              <span style={{ fontSize: 11, color: '#666' }}>{sqDemands.length} demanda{sqDemands.length !== 1 ? 's' : ''}</span>
+              <span style={{ fontSize: 11, color: '#666' }}>{sqDemands.filter(d => !d.done).length} demanda{sqDemands.filter(d => !d.done).length !== 1 ? 's' : ''} pendente{sqDemands.filter(d => !d.done).length !== 1 ? 's' : ''}</span>
             </div>
             <DemandTable demands={sqDemands} />
           </div>
