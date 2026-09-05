@@ -274,3 +274,26 @@ export async function addAlertSheet(message, sections, type = 'manual') {
 export async function dismissAlertSheet(id) {
   await callPost({ action: 'dismissAlert', id })
 }
+
+// ---- PIPELINE ----
+
+export async function fetchPipeline() {
+  try {
+    const data = await callGet('getPipeline')
+    if (data.error) return []
+    return data.map(r => ({
+      clientId: r.clientId,
+      step: r.step,
+      done: r.done === 'TRUE' || r.done === true,
+      doneAt: r.doneAt || '',
+      note: r.note || '',
+    }))
+  } catch (e) {
+    console.error('fetchPipeline error:', e)
+    return []
+  }
+}
+
+export async function setPipelineStepSheet(clientId, step, done, doneAt, note) {
+  await callPost({ action: 'setPipelineStep', clientId, step, done, doneAt, note })
+}
