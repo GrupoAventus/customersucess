@@ -11,7 +11,7 @@ import { Btn, SectionHeader } from '../components/UI'
 const RECHARGE_THRESHOLD = 50
 
 export default function Squad({ label, title, sectionId }) {
-  const { clients, demands, setClientStatus, getMissingTimelineClients } = useApp()
+  const { clients, demands, setClientStatus } = useApp()
   const [selected, setSelected] = useState(null)
   const [showDemand, setShowDemand] = useState(false)
   const [dragId, setDragId] = useState(null)
@@ -38,7 +38,6 @@ export default function Squad({ label, title, sectionId }) {
     })
 
   const nextRecharge = needsRecharge[0]
-  const missingTimeline = getMissingTimelineClients().filter(c => (c.destinos || [c.destino]).includes(label))
   const sortByPriority = (list) => [...list].sort((a, b) =>
     (PRIORITY_RANK[a.priorityStatus] ?? 2) - (PRIORITY_RANK[b.priorityStatus] ?? 2)
   )
@@ -56,16 +55,6 @@ export default function Squad({ label, title, sectionId }) {
 
       <AlertBanner section={sectionId} />
       <NotificationBanner section={sectionId} />
-
-      {missingTimeline.length > 0 && (
-        <div style={{ background: 'rgba(226,75,74,0.08)', border: '0.5px solid var(--red)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-          <i className="ti ti-alert-triangle" style={{ color: 'var(--red)', fontSize: 18, marginTop: 2 }} />
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--red)', marginBottom: 4 }}>Linha do tempo de ontem não preenchida</div>
-            <div style={{ fontSize: 12, color: '#aaa' }}>{missingTimeline.map(c => c.name).join(', ')}</div>
-          </div>
-        </div>
-      )}
 
       {nextRecharge && (
         <div style={{ background: PRIORITY_COLORS[nextRecharge.priorityStatus]?.bg || 'var(--orange-dim)', border: `0.5px solid ${PRIORITY_COLORS[nextRecharge.priorityStatus]?.border || 'var(--orange)'}`, borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
