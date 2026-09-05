@@ -1,8 +1,9 @@
 import { useApp, PRIORITY_COLORS, computeCurrentSaldo } from '../lib/AppContext'
+import { PIPELINE_STEPS } from './PipelineTab'
 import { DemandPill } from './UI'
 
 export default function ClientCard({ client, onClick, hideFinance }) {
-  const { getClientDemands } = useApp()
+  const { getClientDemands, getClientPipeline } = useApp()
   const demands = getClientDemands(client.id)
   const done = demands.filter(d => d.done).length
   const pending = demands.filter(d => !d.done).length
@@ -11,33 +12,44 @@ export default function ClientCard({ client, onClick, hideFinance }) {
   const colors = PRIORITY_COLORS[priority]
   const saldo = computeCurrentSaldo(client)
 
-  // Mostra saldo apenas se: não hideFinance, não tem cartão e está em campanha ativa
+  const pipelineSteps = getClientPipeline(client.id)
+  const pipelineDone = PIPELINE_STEPS.filter(s => pipelineSteps.find(p => p.step === s.id && p.done)).length
+  const pipelinePct = Math.round((pipelineDone / PIPELINE_STEPS.length) * 100)
+
   const showFinance = !hideFinance && !client.hasCard && client.status === 'Campanha ativa'
 
   return (
-    <div
-      onClick={onClick}
-      style={{
-        background: colors.bg, border: `0.5px solid ${colors.border}`,
-        borderRadius: 12, padding: '1rem 1.25rem', cursor: 'pointer',
-        transition: 'background 0.15s', position: 'relative'
-      }}
+    <div onClick={onClick} style={{
+      background: colors.bg, border: `0.5px solid ${colors.border}`,
+      borderRadius: 12, padding: '1rem 1.25rem', cursor: 'pointer',
+      transition: 'background 0.15s', position: 'relative'
+    }}
       onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)' }}
       onMouseLeave={e => { e.currentTarget.style.background = colors.bg }}
     >
       <div style={{ position: 'absolute', top: 12, right: 12, width: 10, height: 10, borderRadius: '50%', background: colors.border }} title={colors.label} />
       <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>{client.name}</div>
-      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 10 }}>
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
         {(client.destinos && client.destinos.length > 0 ? client.destinos : [client.destino]).filter(Boolean).map(d => (
           <span key={d} style={{ fontSize: 10, color: 'var(--orange)', background: 'var(--orange-dim)', padding: '2px 8px', borderRadius: 20 }}>{d}</span>
         ))}
       </div>
+
+      {/* Pipeline progress */}
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#555', marginBottom: 3 }}>
+          <span>Esteira</span>
+          <span>{pipelineDone}/{PIPELINE_STEPS.length}</span>
+        </div>
+        <div style={{ height: 3, borderRadius: 2, background: '#1f1f1f', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${pipelinePct}%`, background: pipelinePct === 100 ? 'var(--green)' : 'var(--orange)' }} />
+        </div>
+      </div>
+
       {showFinance && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
           <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Saldo</span>
-          <span style={{ fontSize: 12, fontWeight: 500, color: colors.border }}>
-            R${saldo.toLocaleString('pt-BR')}
-          </span>
+          <span style={{ fontSize: 12, fontWeight: 500, color: colors.border }}>R${saldo.toLocaleString('pt-BR')}</span>
           <span style={{ fontSize: 10, color: '#333' }}>· R${(parseFloat(client.dailySpend)||0).toLocaleString('pt-BR')}/dia</span>
         </div>
       )}
