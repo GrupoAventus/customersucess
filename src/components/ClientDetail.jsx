@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useApp, PRIORITY_COLORS, PRIORITY_LEVELS, computeCurrentSaldo } from '../lib/AppContext'
+import { useApp, PRIORITY_COLORS, PRIORITY_LEVELS } from '../lib/AppContext'
 import { Modal, Btn, Field } from './UI'
 import NewClientModal from './NewClientModal'
 import TimelineTab from './TimelineTab'
@@ -8,8 +8,8 @@ import ReportModal from './ReportModal'
 
 const DEST_OPTIONS = ['Squad 1', 'Squad 2', 'Centro criativo 1', 'Centro criativo 2']
 
-export default function ClientDetail({ client, onClose, hideFinance }) {
-  const { getClientDemands, toggleDemand, createDemand, setClientNotes, setClientPriority, setClientFinance, setClientCard, cancelClient, isAdmin, deleteClient, reports } = useApp()
+export default function ClientDetail({ client, onClose }) {
+  const { getClientDemands, toggleDemand, createDemand, setClientNotes, setClientPriority, cancelClient, isAdmin, deleteClient, reports } = useApp()
   const demands = getClientDemands(client.id)
   const clientReports = [...(reports || [])].filter(r => r.clientId === client.id)
     .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`))
@@ -19,15 +19,11 @@ export default function ClientDetail({ client, onClose, hideFinance }) {
   const [saving, setSaving] = useState(false)
   const [notes, setNotes] = useState(client.observacoes || '')
   const [notesSaved, setNotesSaved] = useState(true)
-  const [dailySpend, setDailySpend] = useState(client.dailySpend || 0)
-  const [rechargeInput, setRechargeInput] = useState('')
   const [showEdit, setShowEdit] = useState(false)
   const [activeTab, setActiveTab] = useState('info')
   const [showReportModal, setShowReportModal] = useState(false)
 
   const priority = client.priorityStatus || 'estavel'
-  const colors = PRIORITY_COLORS[priority]
-  const currentSaldo = computeCurrentSaldo(client)
 
   const saveDemand = async () => {
     if (!demandForm.text.trim()) return
@@ -41,17 +37,6 @@ export default function ClientDetail({ client, onClose, hideFinance }) {
   const saveNotes = async () => {
     await setClientNotes(client.id, notes)
     setNotesSaved(true)
-  }
-
-  const saveDailySpend = async () => {
-    await setClientFinance(client.id, { dailySpend: parseFloat(dailySpend) || 0 })
-  }
-
-  const doRecharge = async () => {
-    const val = parseFloat(rechargeInput)
-    if (!val || val <= 0) return
-    await setClientFinance(client.id, { rechargeAmount: val, recharged: true })
-    setRechargeInput('')
   }
 
   const handleCancel = async () => {
@@ -122,51 +107,6 @@ export default function ClientDetail({ client, onClose, hideFinance }) {
             })}
           </div>
 
-          {/* Finance */}
-          {!hideFinance && (
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, color: 'var(--orange)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8, paddingBottom: 6, borderBottom: '0.5px solid #1f1f1f' }}>
-                Saldo da campanha
-              </div>
-              {/* Card toggle */}
-              <div onClick={() => setClientCard(client.id, !client.hasCard)} style={{
-                display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12,
-                padding: '8px 12px', background: '#1a1a1a', borderRadius: 8,
-                border: `0.5px solid ${client.hasCard ? 'var(--green)' : 'var(--border)'}`,
-                cursor: 'pointer', userSelect: 'none'
-              }}>
-                <div style={{ width: 36, height: 20, borderRadius: 10, position: 'relative', background: client.hasCard ? 'var(--green)' : '#333', transition: 'background 0.2s', flexShrink: 0, pointerEvents: 'none' }}>
-                  <div style={{ position: 'absolute', top: 2, left: client.hasCard ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', pointerEvents: 'none' }} />
-                </div>
-                <div style={{ pointerEvents: 'none' }}>
-                  <div style={{ fontSize: 13, color: client.hasCard ? 'var(--green)' : '#888' }}>{client.hasCard ? 'Cartão cadastrado na conta' : 'Sem cartão cadastrado'}</div>
-                  <div style={{ fontSize: 11, color: '#444' }}>{client.hasCard ? 'Reabastecimento automático' : 'Controle manual de saldo'}</div>
-                </div>
-              </div>
-
-              {!client.hasCard && (
-                <>
-                  <div style={{ background: '#1a1a1a', borderRadius: 8, padding: '10px 14px', marginBottom: 12, border: '0.5px solid var(--border)' }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Saldo atual (estimado)</div>
-                    <div style={{ fontSize: 20, fontWeight: 500, color: colors.border }}>R${currentSaldo.toLocaleString('pt-BR')}</div>
-                    <div style={{ fontSize: 10, color: '#444', marginTop: 2 }}>Reabastecido: R${(parseFloat(client.rechargeAmount)||0).toLocaleString('pt-BR')} em {client.lastRecharge || '—'}</div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <Field label="Gasto diário (R$)">
-                      <input type="number" value={dailySpend} onChange={e => setDailySpend(e.target.value)} onBlur={saveDailySpend} />
-                    </Field>
-                    <Field label="Reabastecer (R$)">
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <input type="number" placeholder="Ex: 500" value={rechargeInput} onChange={e => setRechargeInput(e.target.value)} />
-                        <Btn primary onClick={doRecharge} style={{ flexShrink: 0 }}>OK</Btn>
-                      </div>
-                    </Field>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
           {/* Links */}
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 11, color: 'var(--orange)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8, paddingBottom: 6, borderBottom: '0.5px solid #1f1f1f' }}>Links</div>
@@ -186,7 +126,7 @@ export default function ClientDetail({ client, onClose, hideFinance }) {
           {/* Relatórios */}
           <div style={{ marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: 'var(--orange)', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8, paddingBottom: 6, borderBottom: '0.5px solid #1f1f1f' }}>
-              Relatórios de acompanhamento
+              Relatórios
               <Btn onClick={() => setShowReportModal(true)} style={{ fontSize: 11, padding: '3px 10px' }}>
                 <i className="ti ti-external-link" /> Ver todos
               </Btn>
@@ -203,7 +143,7 @@ export default function ClientDetail({ client, onClose, hideFinance }) {
                 ))}
                 {clientReports.length > 2 && (
                   <button onClick={() => setShowReportModal(true)} style={{ background: 'none', border: 'none', color: 'var(--orange)', fontSize: 12, cursor: 'pointer', textAlign: 'left', padding: '2px 0' }}>
-                    +{clientReports.length - 2} relatório{clientReports.length - 2 !== 1 ? 's' : ''} anterior{clientReports.length - 2 !== 1 ? 'es' : ''}
+                    +{clientReports.length - 2} anterior{clientReports.length - 2 !== 1 ? 'es' : ''}
                   </button>
                 )}
               </div>
