@@ -1,8 +1,8 @@
-import { useApp, PRIORITY_COLORS, computeCurrentSaldo } from '../lib/AppContext'
+import { useApp, PRIORITY_COLORS } from '../lib/AppContext'
 import { PIPELINE_STEPS } from './PipelineTab'
 import { DemandPill } from './UI'
 
-export default function ClientCard({ client, onClick, hideFinance }) {
+export default function ClientCard({ client, onClick }) {
   const { getClientDemands, getClientPipeline } = useApp()
   const demands = getClientDemands(client.id)
   const done = demands.filter(d => d.done).length
@@ -10,13 +10,10 @@ export default function ClientCard({ client, onClick, hideFinance }) {
 
   const priority = client.priorityStatus || 'estavel'
   const colors = PRIORITY_COLORS[priority]
-  const saldo = computeCurrentSaldo(client)
 
   const pipelineSteps = getClientPipeline(client.id)
   const pipelineDone = PIPELINE_STEPS.filter(s => pipelineSteps.find(p => p.step === s.id && p.done)).length
   const pipelinePct = Math.round((pipelineDone / PIPELINE_STEPS.length) * 100)
-
-  const showFinance = !hideFinance && !client.hasCard && client.status === 'Campanha ativa'
 
   return (
     <div onClick={onClick} style={{
@@ -46,13 +43,6 @@ export default function ClientCard({ client, onClick, hideFinance }) {
         </div>
       </div>
 
-      {showFinance && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Saldo</span>
-          <span style={{ fontSize: 12, fontWeight: 500, color: colors.border }}>R${saldo.toLocaleString('pt-BR')}</span>
-          <span style={{ fontSize: 10, color: '#333' }}>· R${(parseFloat(client.dailySpend)||0).toLocaleString('pt-BR')}/dia</span>
-        </div>
-      )}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
         {done > 0 && <DemandPill done text={`${done} feita${done > 1 ? 's' : ''}`} />}
         {pending > 0 && <DemandPill done={false} text={`${pending} pendente${pending > 1 ? 's' : ''}`} />}
