@@ -165,7 +165,7 @@ export default function ClientDetail({ client, onClose }) {
                   <textarea rows={2} placeholder="Descreva a demanda..." value={demandForm.text} onChange={e => setDemandForm(p => ({ ...p, text: e.target.value }))} />
                 </Field>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <Field label="Prazo"><input type="date" value={demandForm.prazo} onChange={e => setDemandForm(p => ({ ...p, prazo: e.target.value }))} /></Field>
+                  <Field label="Prazo *"><input type="date" value={demandForm.prazo} onChange={e => setDemandForm(p => ({ ...p, prazo: e.target.value }))} required /></Field>
                   <Field label="Para">
                     <select value={demandForm.dest} onChange={e => setDemandForm(p => ({ ...p, dest: e.target.value }))}>
                       {DEST_OPTIONS.map(o => <option key={o}>{o}</option>)}
@@ -174,7 +174,7 @@ export default function ClientDetail({ client, onClose }) {
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <Btn onClick={() => setShowNewDemand(false)} style={{ flex: 1 }}>Cancelar</Btn>
-                  <Btn primary onClick={saveDemand} disabled={saving} style={{ flex: 1 }}>{saving ? 'Salvando...' : 'Criar'}</Btn>
+                  <Btn primary onClick={saveDemand} disabled={saving || !demandForm.text.trim() || !demandForm.prazo} style={{ flex: 1 }}>{saving ? 'Salvando...' : 'Criar'}</Btn>
                 </div>
               </div>
             )}
