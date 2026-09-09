@@ -44,10 +44,11 @@ export async function notifyNewClient(clientName, sections) {
   }
 }
 
-export async function notifyNewDemand(clientName, demandText, section) {
+export async function notifyNewDemand(clientName, demandText, section, prazo) {
   const groupId = GROUP_IDS[section]
   if (!groupId) return
-  const message = `📋 *Nova demanda!*\n\n*Cliente:* ${clientName}\n*Demanda:* ${demandText}\n\n_AventusCS_`
+  const prazoStr = prazo ? `\n*Prazo:* ${prazo}` : ''
+  const message = `📋 *Nova demanda!*\n\n*Cliente:* ${clientName}\n*Demanda:* ${demandText}${prazoStr}\n\n_AventusCS_`
   await sendMessage(groupId, message)
 }
 
