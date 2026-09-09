@@ -230,7 +230,7 @@ export function AppProvider({ children }) {
           const client = clients.find(c => c.id === data.clientId)
           addNotification({ type: 'new_demand', section: sec, text: data.text, clientName: client?.name || '—' })
           // WhatsApp notification
-          notifyNewDemand(client?.name || '—', data.text, sec).catch(console.error)
+          notifyNewDemand(client?.name || '—', data.text, sec, data.prazo).catch(console.error)
         }
       }
       return saved
