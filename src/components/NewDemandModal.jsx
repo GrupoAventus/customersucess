@@ -16,7 +16,7 @@ export default function NewDemandModal({ defaultClientId, defaultDest, onClose }
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
   const save = async () => {
-    if (!form.text.trim() || !form.clientId) return
+    if (!form.text.trim() || !form.clientId || !form.prazo) return
     setSaving(true)
     await createDemand(form)
     setSaving(false)
@@ -34,7 +34,7 @@ export default function NewDemandModal({ defaultClientId, defaultDest, onClose }
         <textarea rows={3} placeholder="Descreva a demanda..." value={form.text} onChange={e => set('text', e.target.value)} autoFocus />
       </Field>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <Field label="Prazo">
+        <Field label="Prazo *">
           <input type="date" value={form.prazo} onChange={e => set('prazo', e.target.value)} />
         </Field>
         <Field label="Para quem">
@@ -43,9 +43,15 @@ export default function NewDemandModal({ defaultClientId, defaultDest, onClose }
           </select>
         </Field>
       </div>
+      {!form.prazo && form.text.trim() && (
+        <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>
+          <i className="ti ti-alert-triangle" style={{ marginRight: 4 }} />
+          Prazo é obrigatório
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
         <Btn onClick={onClose} style={{ flex: 1 }}>Cancelar</Btn>
-        <Btn primary onClick={save} disabled={saving || !form.text.trim()} style={{ flex: 1 }}>
+        <Btn primary onClick={save} disabled={saving || !form.text.trim() || !form.prazo} style={{ flex: 1 }}>
           {saving ? 'Salvando...' : 'Criar demanda'}
         </Btn>
       </div>
