@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useApp } from '../lib/AppContext'
+import CalendarModal from './CalendarModal'
 
 const SECTIONS = [
   { id: 'ops', label: 'Centro de operações' },
@@ -11,6 +13,7 @@ const SECTIONS = [
 
 export default function Nav({ current, onChange }) {
   const { logout, isAdmin, unlockAdmin, lockAdmin } = useApp()
+  const [showCalendar, setShowCalendar] = useState(false)
 
   const toggleAdmin = () => {
     if (isAdmin) {
@@ -23,57 +26,77 @@ export default function Nav({ current, onChange }) {
   }
 
   return (
-    <nav style={{
-      background: '#0f0f0f', borderBottom: '0.5px solid #1f1f1f',
-      display: 'flex', alignItems: 'center', height: 52,
-      padding: '0 1.5rem', position: 'sticky', top: 0, zIndex: 100,
-      gap: 0, overflowX: 'auto'
-    }}>
-      <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--orange)', marginRight: '2rem', flexShrink: 0 }}>
-        ⬡ AventusCS_
-      </span>
-      {SECTIONS.map(s => (
+    <>
+      <nav style={{
+        background: '#0f0f0f', borderBottom: '0.5px solid #1f1f1f',
+        display: 'flex', alignItems: 'center', height: 52,
+        padding: '0 1.5rem', position: 'sticky', top: 0, zIndex: 100,
+        gap: 0, overflowX: 'auto'
+      }}>
+        <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--orange)', marginRight: '2rem', flexShrink: 0 }}>
+          ⬡ AventusCS_
+        </span>
+        {SECTIONS.map(s => (
+          <button
+            key={s.id}
+            onClick={() => onChange(s.id)}
+            style={{
+              padding: '0 1rem', height: 52, background: 'none', border: 'none',
+              borderBottom: current === s.id ? '2px solid var(--orange)' : '2px solid transparent',
+              color: current === s.id ? 'var(--orange)' : '#666',
+              fontSize: 13, cursor: 'pointer', transition: 'color 0.15s',
+              whiteSpace: 'nowrap', flexShrink: 0
+            }}
+          >
+            {s.label}
+          </button>
+        ))}
+
+        {/* Calendário */}
         <button
-          key={s.id}
-          onClick={() => onChange(s.id)}
+          onClick={() => setShowCalendar(true)}
+          title="Calendário comemorativo"
           style={{
-            padding: '0 1rem', height: 52, background: 'none', border: 'none',
-            borderBottom: current === s.id ? '2px solid var(--orange)' : '2px solid transparent',
-            color: current === s.id ? 'var(--orange)' : '#666',
-            fontSize: 13, cursor: 'pointer', transition: 'color 0.15s',
-            whiteSpace: 'nowrap', flexShrink: 0
+            marginLeft: 'auto', fontSize: 12, color: '#666', cursor: 'pointer',
+            padding: '6px 10px', background: 'none',
+            border: '0.5px solid #2a2a2a', borderRadius: 6,
+            flexShrink: 0, marginRight: 8,
+            display: 'flex', alignItems: 'center', gap: 4
           }}
         >
-          {s.label}
+          <i className="ti ti-calendar-event" />
+          Calendário
         </button>
-      ))}
 
-      <button
-        onClick={toggleAdmin}
-        title={isAdmin ? 'Modo admin ativo — clique para sair' : 'Ativar modo admin'}
-        style={{
-          marginLeft: 'auto', fontSize: 12,
-          color: isAdmin ? 'var(--orange)' : '#444',
-          cursor: 'pointer', padding: '6px 10px', background: 'none',
-          border: `0.5px solid ${isAdmin ? 'var(--orange)' : '#2a2a2a'}`,
-          borderRadius: 6, flexShrink: 0, marginRight: 8,
-          display: 'flex', alignItems: 'center', gap: 4
-        }}
-      >
-        <i className={`ti ti-${isAdmin ? 'lock-open' : 'lock'}`} />
-        {isAdmin ? 'Admin' : ''}
-      </button>
+        <button
+          onClick={toggleAdmin}
+          title={isAdmin ? 'Modo admin ativo — clique para sair' : 'Ativar modo admin'}
+          style={{
+            fontSize: 12,
+            color: isAdmin ? 'var(--orange)' : '#444',
+            cursor: 'pointer', padding: '6px 10px', background: 'none',
+            border: `0.5px solid ${isAdmin ? 'var(--orange)' : '#2a2a2a'}`,
+            borderRadius: 6, flexShrink: 0, marginRight: 8,
+            display: 'flex', alignItems: 'center', gap: 4
+          }}
+        >
+          <i className={`ti ti-${isAdmin ? 'lock-open' : 'lock'}`} />
+          {isAdmin ? 'Admin' : ''}
+        </button>
 
-      <button
-        onClick={() => logout()}
-        style={{
-          fontSize: 12, color: '#444', cursor: 'pointer',
-          padding: '6px 12px', background: 'none',
-          border: '0.5px solid #2a2a2a', borderRadius: 6, flexShrink: 0
-        }}
-      >
-        Sair
-      </button>
-    </nav>
+        <button
+          onClick={() => logout()}
+          style={{
+            fontSize: 12, color: '#444', cursor: 'pointer',
+            padding: '6px 12px', background: 'none',
+            border: '0.5px solid #2a2a2a', borderRadius: 6, flexShrink: 0
+          }}
+        >
+          Sair
+        </button>
+      </nav>
+
+      {showCalendar && <CalendarModal onClose={() => setShowCalendar(false)} />}
+    </>
   )
 }
