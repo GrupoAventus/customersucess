@@ -58,6 +58,8 @@ export async function fetchClients() {
       priorityStatus: r.priorityStatus || 'estavel',
       statusChangedAt: r.statusChangedAt || r.createdAt || '',
       hasCard: r.hasCard === 'TRUE' || r.hasCard === true,
+      whatsappGroup: r.whatsappGroup || '',
+      whatsappGroupName: r.whatsappGroupName || '',
     }))
   } catch (e) {
     console.error('fetchClients error:', e)
