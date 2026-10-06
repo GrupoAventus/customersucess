@@ -14,7 +14,7 @@ export const PRIORITY_COLORS = {
 }
 
 const DEMO_CLIENTS = [
-  { id:'c_1', name:'Bella Store', drive:'https://drive.google.com', instagram:'https://instagram.com/bellastore', site:'https://bellastore.com', entrou:'2024-09-10', destino:'Squad 1', createdAt:'', destinos:['Squad 1','Social Media'], ccLP:'', ccEcom:'', ccSocial:'Centro criativo 1', socialPosts:1, socialWeek:'', status:'Campanha ativa', observacoes:'', cancelado:false, rechargeAmount:500, dailySpend:25, lastRecharge:new Date().toISOString().slice(0,10), priorityStatus:'estavel', statusChangedAt:'', hasCard:false },
+  { id:'c_1', name:'Bella Store', drive:'https://drive.google.com', instagram:'https://instagram.com/bellastore', site:'https://bellastore.com', entrou:'2024-09-10', destino:'Squad 1', createdAt:'', destinos:['Squad 1','Social Media'], ccLP:'', ccEcom:'', ccSocial:'Centro criativo 1', socialPosts:1, socialWeek:'', status:'Campanha ativa', observacoes:'', cancelado:false, rechargeAmount:500, dailySpend:25, lastRecharge:new Date().toISOString().slice(0,10), priorityStatus:'estavel', statusChangedAt:'', hasCard:false, whatsappGroup:'', whatsappGroupName:'' },
 ]
 const DEMO_DEMANDS = []
 
@@ -149,7 +149,6 @@ export function AppProvider({ children }) {
       try {
         const saved = await addAlertSheet(message, sections, 'manual')
         setAlerts(prev => [...prev, { id: saved.id, message, sections, type: 'manual' }])
-        // WhatsApp notification
         notifyAlert(message, sections).catch(console.error)
       } catch (e) { console.error(e) }
     } else {
@@ -166,7 +165,7 @@ export function AppProvider({ children }) {
   }
 
   const createClient = async (data) => {
-    const payload = { status: 'Pegar acessos', observacoes: '', cancelado: false, priorityStatus: 'estavel', rechargeAmount: 0, dailySpend: 0, lastRecharge: new Date().toISOString().slice(0,10), statusChangedAt: new Date().toISOString().slice(0,10), hasCard: false, ...data }
+    const payload = { status: 'Pegar acessos', observacoes: '', cancelado: false, priorityStatus: 'estavel', rechargeAmount: 0, dailySpend: 0, lastRecharge: new Date().toISOString().slice(0,10), statusChangedAt: new Date().toISOString().slice(0,10), hasCard: false, whatsappGroup: '', whatsappGroupName: '', ...data }
     let saved
     if (useSheets) {
       saved = await addClient(payload)
@@ -185,7 +184,6 @@ export function AppProvider({ children }) {
     for (const sec of sections) {
       addNotification({ type: 'new_client', section: sec, clientName: saved.name })
     }
-    // WhatsApp notification
     notifyNewClient(saved.name, Array.from(sections)).catch(console.error)
     if (destinos.includes('LP') && saved.ccLP) {
       await createDemand({ clientId: saved.id, text: `Criar LP para ${saved.name}`, prazo: '', dest: saved.ccLP })
@@ -213,6 +211,8 @@ export function AppProvider({ children }) {
           ccLP: data.ccLP ?? client.ccLP,
           ccEcom: data.ccEcom ?? client.ccEcom,
           ccSocial: data.ccSocial ?? client.ccSocial,
+          whatsappGroup: data.whatsappGroup ?? client.whatsappGroup,
+          whatsappGroupName: data.whatsappGroupName ?? client.whatsappGroupName,
           status: client.status, observacoes: client.observacoes,
           cancelado: client.cancelado, socialPosts: client.socialPosts, socialWeek: client.socialWeek,
         })
@@ -229,7 +229,6 @@ export function AppProvider({ children }) {
         if (sec) {
           const client = clients.find(c => c.id === data.clientId)
           addNotification({ type: 'new_demand', section: sec, text: data.text, clientName: client?.name || '—' })
-          // WhatsApp notification
           notifyNewDemand(client?.name || '—', data.text, sec, data.prazo).catch(console.error)
         }
       }
@@ -467,7 +466,6 @@ export function AppProvider({ children }) {
   }
 
   const getClientPipeline = (clientId) => pipeline.filter(s => s.clientId === clientId)
-
   const getClientDemands = (clientId) => demands.filter(d => d.clientId === clientId)
   const getSectionDemands = (dest) => demands.filter(d => d.dest === dest)
 
