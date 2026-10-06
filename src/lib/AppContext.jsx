@@ -23,11 +23,11 @@ const ADMIN_PASSWORD = '9912'
 
 const SECTION_PASSWORDS = {
   ops:   ['admbruno_'],
-  dash:  ['gestorwil', 'admbruno_'],
-  squad1:['squad1', 'gestorwil'],
-  squad2:['squad2_', 'gestorwil'],
-  cc1:   ['centro1', 'gestorwil'],
-  cc2:   ['centro2_', 'gestorwil'],
+  dash:  ['gestorth', 'admbruno_'],
+  squad1:['gestorth', 'admbruno_'],
+  squad2:['gestorth', 'admbruno_'],
+  cc1:   ['designereric', 'gestorth', 'admbruno_'],
+  cc2:   ['gestorth', 'admbruno_'],
 }
 
 const DESTINO_TO_SECTION = {
@@ -364,7 +364,7 @@ export function AppProvider({ children }) {
 
   const login = (section, password) => {
     const valid = SECTION_PASSWORDS[section] || []
-    if (password === 'admbruno_' || password === 'gestorwil' || valid.includes(password)) {
+    if (password === 'admbruno_' || password === 'gestorth' || valid.includes(password)) {
       setLoggedIn(prev => ({ ...prev, [section]: true }))
       return section
     }
