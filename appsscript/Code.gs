@@ -399,23 +399,95 @@ function setPipelineStep(body) {
 // Aba metrics_history: id, clientId, accountId, date, campaigns_json, insights_json, createdAt
 
 function getMetrics(accountId, startDate, endDate) {
-  // Busca via Criativivo API — esta função é chamada direto do Apps Script
-  // O frontend chama SCRIPT_URL?action=getMetrics e o Apps Script chama a Criativivo API
+  // Busca métricas do histórico salvo na planilha (metrics_history)
+  // O collectDailyMetrics roda todo dia e salva os dados lá
   if (!accountId) return { error: 'accountId required' };
 
-  var criativoToken = PropertiesService.getScriptProperties().getProperty('CRIATIVIVO_TOKEN');
-  if (!criativoToken) return { error: 'CRIATIVIVO_TOKEN não configurado nas propriedades do script' };
-
-  var url = 'https://criativivo.com.br/api/meta/campaigns?account_id=' + accountId +
-            '&since=' + startDate + '&until=' + endDate;
-
   try {
-    var resp = UrlFetchApp.fetch(url, {
-      headers: { 'Authorization': 'Bearer ' + criativoToken },
-      muteHttpExceptions: true
+    var sh = getSheet('metrics_history');
+    var data = sh.getDataRange().getValues();
+    if (data.length < 2) return { campaigns: [], insights: [], daily: [], info: 'Sem dados históricos ainda. Os dados são coletados diariamente.' };
+
+    var headers = data[0];
+    var rows = data.slice(1).filter(function(row) {
+      var rowAccountId = String(row[headers.indexOf('accountId')] || '');
+      var rowDate = String(row[headers.indexOf('date')] || '').slice(0, 10);
+      return rowAccountId === String(accountId) &&
+             (!startDate || rowDate >= startDate) &&
+             (!endDate || rowDate <= endDate);
     });
-    var json = JSON.parse(resp.getContentText());
-    return json;
+
+    if (rows.length === 0) return { campaigns: [], insights: [], daily: [], info: 'Nenhum dado no período. Os dados são coletados diariamente pelo trigger automático.' };
+
+    // Agregar campanhas e insights de todos os dias do período
+    var campaignMap = {};
+    var dailyTotals = [];
+
+    rows.forEach(function(row) {
+      var obj = {};
+      headers.forEach(function(h, i) { obj[h] = row[i]; });
+
+      var date = String(obj.date || '').slice(0, 10);
+      var campaignsJson = obj.campaigns_json || '[]';
+      var insightsJson = obj.insights_json || '[]';
+
+      var campaigns = [];
+      var insights = [];
+      try { campaigns = JSON.parse(campaignsJson); } catch(e) {}
+      try { insights = JSON.parse(insightsJson); } catch(e) {}
+
+      // Agregar por campanha
+      campaigns.forEach(function(c) {
+        if (!campaignMap[c.id]) {
+          campaignMap[c.id] = { id: c.id, name: c.name, status: c.status, spend: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0 };
+        }
+        var ins = insights.find(function(i) { return i.campaign_id === c.id; }) || {};
+        campaignMap[c.id].spend       += parseFloat(ins.spend || 0);
+        campaignMap[c.id].impressions += parseInt(ins.impressions || 0);
+        campaignMap[c.id].clicks      += parseInt(ins.clicks || 0);
+        campaignMap[c.id].leads       += parseInt(ins.leads || 0);
+        campaignMap[c.id].purchases   += parseInt(ins.purchases || 0);
+      });
+
+      // Totais diários para gráfico
+      var dayTotal = { date: date, spend: 0, impressions: 0, clicks: 0 };
+      insights.forEach(function(ins) {
+        dayTotal.spend       += parseFloat(ins.spend || 0);
+        dayTotal.impressions += parseInt(ins.impressions || 0);
+        dayTotal.clicks      += parseInt(ins.clicks || 0);
+      });
+      dailyTotals.push(dayTotal);
+    });
+
+    var campaignsList = Object.values(campaignMap);
+
+    // Montar insights agregados
+    var aggregatedInsights = campaignsList.map(function(c) {
+      var totalSpend = c.spend || 0;
+      var totalClicks = c.clicks || 0;
+      var totalImpressions = c.impressions || 0;
+      return {
+        campaign_id: c.id,
+        spend: totalSpend.toFixed(2),
+        impressions: String(totalImpressions),
+        clicks: String(totalClicks),
+        ctr: totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0',
+        cpm: totalImpressions > 0 ? ((totalSpend / totalImpressions) * 1000).toFixed(2) : '0',
+        cpc: totalClicks > 0 ? (totalSpend / totalClicks).toFixed(2) : '0',
+        leads: String(c.leads || 0),
+        purchases: String(c.purchases || 0),
+        roas: '0',
+        cpa: (c.leads + c.purchases) > 0 ? (totalSpend / (c.leads + c.purchases)).toFixed(2) : '0'
+      };
+    });
+
+    return {
+      campaigns: campaignsList,
+      insights: aggregatedInsights,
+      daily: dailyTotals.sort(function(a, b) { return a.date.localeCompare(b.date); }),
+      period: { start: startDate, end: endDate, days: rows.length }
+    };
+
   } catch(err) {
     return { error: err.message };
   }
