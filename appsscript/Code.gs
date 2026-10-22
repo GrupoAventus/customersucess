@@ -508,37 +508,32 @@ function sendWhatsApp(number, message) {
 function sendDailyReport() {
   var clients = sheetToObjects(getSheet('clients'));
   var today = new Date();
-  var dateStr = today.toISOString().slice(0, 10);
   var dateDisplay = today.toLocaleDateString('pt-BR');
-
-  // Clientes com campanha ativa e conta criativivo
-  var activeClients = clients.filter(function(c) {
-    return c.status === 'Campanha ativa' &&
-           c.criativoAccountId &&
-           c.cancelado !== true && c.cancelado !== 'TRUE';
-  });
-
-  if (activeClients.length === 0) {
-    Logger.log('Nenhum cliente ativo com conta Criativivo');
-    return;
-  }
+  var yesterday = new Date(today.getTime() - 86400000);
+  var yesterdayStr = yesterday.toISOString().slice(0, 10);
 
   var criativoToken = PropertiesService.getScriptProperties().getProperty('CRIATIVIVO_TOKEN');
-  var managerNumber = PropertiesService.getScriptProperties().getProperty('WHATSAPP_MANAGER') || WHATSAPP_MANAGER;
-
   if (!criativoToken) {
     Logger.log('CRIATIVIVO_TOKEN não configurado');
     return;
   }
 
-  var lines = ['📊 *Relatório Diário — ' + dateDisplay + '*\n'];
-  var totalSpend = 0;
+  // Para cada cliente ativo com criativoAccountId E whatsappGroup, envia relatório individual no grupo dele
+  var activeClients = clients.filter(function(c) {
+    return c.status === 'Campanha ativa' &&
+           c.criativoAccountId &&
+           c.whatsappGroup &&
+           c.cancelado !== true && c.cancelado !== 'TRUE';
+  });
 
+  if (activeClients.length === 0) {
+    Logger.log('Nenhum cliente ativo com conta Criativivo e grupo WhatsApp configurados');
+    return;
+  }
+
+  var sent = 0;
   activeClients.forEach(function(client) {
     try {
-      var yesterday = new Date(today.getTime() - 86400000);
-      var yesterdayStr = yesterday.toISOString().slice(0, 10);
-
       var url = 'https://criativivo.com.br/api/meta/campaigns?account_id=' + client.criativoAccountId +
                 '&since=' + yesterdayStr + '&until=' + yesterdayStr;
       var resp = UrlFetchApp.fetch(url, {
@@ -546,13 +541,11 @@ function sendDailyReport() {
         muteHttpExceptions: true
       });
       var data = JSON.parse(resp.getContentText());
-
       var insights = data.insights || [];
+
       var spend = insights.reduce(function(s, i) { return s + (parseFloat(i.spend) || 0); }, 0);
       var impressions = insights.reduce(function(s, i) { return s + (parseInt(i.impressions) || 0); }, 0);
       var clicks = insights.reduce(function(s, i) { return s + (parseInt(i.clicks) || 0); }, 0);
-
-      totalSpend += spend;
 
       var clientType = client.clientType || 'lead';
       var extraLine = '';
@@ -569,7 +562,7 @@ function sendDailyReport() {
           return s + (r ? parseFloat(r.value) : 0);
         }, 0);
         var roas = spend > 0 ? (revenue / spend).toFixed(2) : '0';
-        extraLine = '   🛒 Compras: ' + purchases + ' | ROAS: ' + roas + 'x';
+        extraLine = '🛒 Compras: ' + purchases + ' | ROAS: ' + roas + 'x';
       } else {
         var leads = insights.reduce(function(s, i) {
           var acts = i.actions || [];
@@ -577,29 +570,28 @@ function sendDailyReport() {
           return s + (l ? parseInt(l.value) : 0);
         }, 0);
         var cpl = leads > 0 ? 'R$' + (spend / leads).toFixed(2) : '—';
-        extraLine = '   📲 Leads: ' + leads + ' | CPL: ' + cpl;
+        extraLine = '📲 Leads: ' + leads + ' | CPL: ' + cpl;
       }
 
-      lines.push('*' + client.name + '*');
-      lines.push('   💰 Gasto: R$' + spend.toFixed(2));
-      lines.push('   👁 Impressões: ' + impressions.toLocaleString('pt-BR'));
-      lines.push('   🖱 Cliques: ' + clicks);
+      var lines = [
+        '📊 *Relatório Diário — ' + dateDisplay + '*',
+        '',
+        '💰 Gasto ontem: *R$' + spend.toFixed(2) + '*',
+        '👁 Impressões: ' + impressions.toLocaleString('pt-BR'),
+        '🖱 Cliques: ' + clicks
+      ];
       if (extraLine) lines.push(extraLine);
       lines.push('');
+      lines.push('_AventusCS_ · relatório automático_');
 
+      sendWhatsApp(client.whatsappGroup, lines.join('\n'));
+      sent++;
     } catch(err) {
-      Logger.log('Erro relatório ' + client.name + ': ' + err.message);
-      lines.push('*' + client.name + '* — ⚠️ erro ao buscar dados');
-      lines.push('');
+      Logger.log('Erro relatório diário ' + client.name + ': ' + err.message);
     }
   });
 
-  lines.push('💼 *Total gasto ontem: R$' + totalSpend.toFixed(2) + '*');
-  lines.push('_AventusCS_ · ' + activeClients.length + ' clientes ativos_');
-
-  var message = lines.join('\n');
-  sendWhatsApp(managerNumber, message);
-  Logger.log('Relatório diário enviado para ' + managerNumber);
+  Logger.log('Relatório diário enviado para ' + sent + ' grupos de clientes');
 }
 
 function sendWeeklyReport() {
@@ -612,8 +604,6 @@ function sendWeeklyReport() {
 
   var clients = sheetToObjects(getSheet('clients'));
   var criativoToken = PropertiesService.getScriptProperties().getProperty('CRIATIVIVO_TOKEN');
-  var managerNumber = PropertiesService.getScriptProperties().getProperty('WHATSAPP_MANAGER') || WHATSAPP_MANAGER;
-
   if (!criativoToken) return;
 
   // Última semana: segunda passada a domingo passado
@@ -621,18 +611,21 @@ function sendWeeklyReport() {
   var lastSunday = new Date(today.getTime() - 1 * 86400000);
   var sinceStr = lastMonday.toISOString().slice(0, 10);
   var untilStr = lastSunday.toISOString().slice(0, 10);
+  var periodLabel = lastMonday.toLocaleDateString('pt-BR') + ' a ' + lastSunday.toLocaleDateString('pt-BR');
 
+  // Para cada cliente com criativoAccountId E whatsappGroup, envia relatório semanal individual no grupo dele
   var activeClients = clients.filter(function(c) {
     return c.criativoAccountId &&
+           c.whatsappGroup &&
            c.cancelado !== true && c.cancelado !== 'TRUE';
   });
 
-  var lines = [
-    '📈 *Relatório Semanal — ' + lastMonday.toLocaleDateString('pt-BR') + ' a ' + lastSunday.toLocaleDateString('pt-BR') + '*\n'
-  ];
+  if (activeClients.length === 0) {
+    Logger.log('Nenhum cliente com conta Criativivo e grupo WhatsApp configurados');
+    return;
+  }
 
-  var totalSpend = 0;
-
+  var sent = 0;
   activeClients.forEach(function(client) {
     try {
       var url = 'https://criativivo.com.br/api/meta/campaigns?account_id=' + client.criativoAccountId +
@@ -648,25 +641,56 @@ function sendWeeklyReport() {
       var impressions = insights.reduce(function(s, i) { return s + (parseInt(i.impressions) || 0); }, 0);
       var clicks = insights.reduce(function(s, i) { return s + (parseInt(i.clicks) || 0); }, 0);
       var reach = insights.reduce(function(s, i) { return s + (parseInt(i.reach) || 0); }, 0);
+      var ctr = impressions > 0 ? ((clicks / impressions) * 100).toFixed(2) + '%' : '—';
 
-      totalSpend += spend;
+      var clientType = client.clientType || 'lead';
+      var extraLine = '';
 
-      lines.push('*' + client.name + '* (' + (client.status || '—') + ')');
-      lines.push('   💰 Gasto: R$' + spend.toFixed(2));
-      lines.push('   👥 Alcance: ' + reach.toLocaleString('pt-BR'));
-      lines.push('   👁 Impressões: ' + impressions.toLocaleString('pt-BR'));
-      lines.push('   🖱 Cliques: ' + clicks + ' | CTR: ' + (impressions > 0 ? ((clicks/impressions)*100).toFixed(2) + '%' : '—'));
+      if (clientType === 'ecommerce') {
+        var purchases = insights.reduce(function(s, i) {
+          var acts = i.actions || [];
+          var p = acts.find(function(a) { return a.action_type === 'offsite_conversion.fb_pixel_purchase'; });
+          return s + (p ? parseFloat(p.value) : 0);
+        }, 0);
+        var revenue = insights.reduce(function(s, i) {
+          var vals = i.action_values || [];
+          var r = vals.find(function(a) { return a.action_type === 'offsite_conversion.fb_pixel_purchase'; });
+          return s + (r ? parseFloat(r.value) : 0);
+        }, 0);
+        var roas = spend > 0 ? (revenue / spend).toFixed(2) : '0';
+        extraLine = '🛒 Compras: ' + purchases + ' | ROAS: ' + roas + 'x';
+      } else {
+        var leads = insights.reduce(function(s, i) {
+          var acts = i.actions || [];
+          var l = acts.find(function(a) { return a.action_type === 'lead' || a.action_type === 'onsite_conversion.messaging_conversation_started_7d'; });
+          return s + (l ? parseInt(l.value) : 0);
+        }, 0);
+        var cpl = leads > 0 ? 'R$' + (spend / leads).toFixed(2) : '—';
+        extraLine = '📲 Leads: ' + leads + ' | CPL: ' + cpl;
+      }
+
+      var lines = [
+        '📈 *Relatório Semanal*',
+        '_' + periodLabel + '_',
+        '',
+        '💰 Investimento: *R$' + spend.toFixed(2) + '*',
+        '👥 Alcance: ' + reach.toLocaleString('pt-BR'),
+        '👁 Impressões: ' + impressions.toLocaleString('pt-BR'),
+        '🖱 Cliques: ' + clicks + ' | CTR: ' + ctr
+      ];
+      if (extraLine) lines.push(extraLine);
       lines.push('');
+      lines.push('Status: ' + (client.status || '—'));
+      lines.push('_AventusCS_ · relatório automático_');
+
+      sendWhatsApp(client.whatsappGroup, lines.join('\n'));
+      sent++;
     } catch(err) {
-      Logger.log('Erro semana ' + client.name + ': ' + err.message);
+      Logger.log('Erro relatório semanal ' + client.name + ': ' + err.message);
     }
   });
 
-  lines.push('💼 *Total semanal: R$' + totalSpend.toFixed(2) + '*');
-  lines.push('_AventusCS_ · relatório automático_');
-
-  sendWhatsApp(managerNumber, lines.join('\n'));
-  Logger.log('Relatório semanal enviado');
+  Logger.log('Relatório semanal enviado para ' + sent + ' grupos de clientes');
 }
 
 function sendSnapshotNoon() {
@@ -680,22 +704,23 @@ function sendSnapshotEvening() {
 function sendSnapshot(period) {
   var clients = sheetToObjects(getSheet('clients'));
   var criativoToken = PropertiesService.getScriptProperties().getProperty('CRIATIVIVO_TOKEN');
-  var managerNumber = PropertiesService.getScriptProperties().getProperty('WHATSAPP_MANAGER') || WHATSAPP_MANAGER;
 
   if (!criativoToken) return;
 
   var today = new Date().toISOString().slice(0, 10);
+
+  // Para cada cliente ativo com criativoAccountId E whatsappGroup, envia snapshot individual no grupo dele
   var activeClients = clients.filter(function(c) {
-    return c.status === 'Campanha ativa' && c.criativoAccountId &&
+    return c.status === 'Campanha ativa' &&
+           c.criativoAccountId &&
+           c.whatsappGroup &&
            c.cancelado !== true && c.cancelado !== 'TRUE';
   });
 
   if (activeClients.length === 0) return;
 
-  var lines = ['⚡ *Snapshot ' + period + '*\n'];
-  var totalSpend = 0;
-
-  activeClients.slice(0, 8).forEach(function(client) { // Max 8 para não estourar limite
+  var sent = 0;
+  activeClients.forEach(function(client) {
     try {
       var url = 'https://criativivo.com.br/api/meta/campaigns?account_id=' + client.criativoAccountId +
                 '&since=' + today + '&until=' + today;
@@ -705,28 +730,64 @@ function sendSnapshot(period) {
       });
       var data = JSON.parse(resp.getContentText());
       var insights = data.insights || [];
+
       var spend = insights.reduce(function(s, i) { return s + (parseFloat(i.spend) || 0); }, 0);
-      totalSpend += spend;
-      lines.push('• ' + client.name + ': R$' + spend.toFixed(2));
+      var impressions = insights.reduce(function(s, i) { return s + (parseInt(i.impressions) || 0); }, 0);
+      var clicks = insights.reduce(function(s, i) { return s + (parseInt(i.clicks) || 0); }, 0);
+
+      var clientType = client.clientType || 'lead';
+      var extraLine = '';
+
+      if (clientType === 'ecommerce') {
+        var purchases = insights.reduce(function(s, i) {
+          var acts = i.actions || [];
+          var p = acts.find(function(a) { return a.action_type === 'offsite_conversion.fb_pixel_purchase'; });
+          return s + (p ? parseFloat(p.value) : 0);
+        }, 0);
+        var revenue = insights.reduce(function(s, i) {
+          var vals = i.action_values || [];
+          var r = vals.find(function(a) { return a.action_type === 'offsite_conversion.fb_pixel_purchase'; });
+          return s + (r ? parseFloat(r.value) : 0);
+        }, 0);
+        var roas = spend > 0 ? (revenue / spend).toFixed(2) : '0';
+        extraLine = '🛒 Compras: ' + purchases + ' | ROAS: ' + roas + 'x';
+      } else {
+        var leads = insights.reduce(function(s, i) {
+          var acts = i.actions || [];
+          var l = acts.find(function(a) { return a.action_type === 'lead' || a.action_type === 'onsite_conversion.messaging_conversation_started_7d'; });
+          return s + (l ? parseInt(l.value) : 0);
+        }, 0);
+        var cpl = leads > 0 ? 'R$' + (spend / leads).toFixed(2) : '—';
+        extraLine = '📲 Leads: ' + leads + ' | CPL: ' + cpl;
+      }
+
+      var message = '⚡ *Snapshot ' + period + '*\n\n' +
+        '💰 Gasto hoje: *R$' + spend.toFixed(2) + '*\n' +
+        '👁 Impressões: ' + impressions.toLocaleString('pt-BR') + '\n' +
+        '🖱 Cliques: ' + clicks +
+        (extraLine ? '\n' + extraLine : '') + '\n\n' +
+        '_AventusCS_ · atualização automática_';
+
+      sendWhatsApp(client.whatsappGroup, message);
+      sent++;
     } catch(err) {
-      lines.push('• ' + client.name + ': ⚠️');
+      Logger.log('Erro snapshot ' + period + ' ' + client.name + ': ' + err.message);
     }
   });
 
-  lines.push('\n💰 Total hoje: R$' + totalSpend.toFixed(2));
-  sendWhatsApp(managerNumber, lines.join('\n'));
+  Logger.log('Snapshot ' + period + ' enviado para ' + sent + ' grupos de clientes');
 }
 
 function checkBalanceAndStatus() {
   var clients = sheetToObjects(getSheet('clients'));
   var today = new Date();
-  var managerNumber = PropertiesService.getScriptProperties().getProperty('WHATSAPP_MANAGER') || WHATSAPP_MANAGER;
+  var sent = 0;
 
-  var alerts = [];
-
+  // Para cada cliente ativo com whatsappGroup, verifica saldo e envia alerta diretamente no grupo dele
   clients.forEach(function(client) {
     if (client.cancelado === true || client.cancelado === 'TRUE') return;
     if (client.status !== 'Campanha ativa') return;
+    if (!client.whatsappGroup) return;
 
     var recharge = parseFloat(client.rechargeAmount) || 0;
     var daily = parseFloat(client.dailySpend) || 0;
@@ -737,17 +798,18 @@ function checkBalanceAndStatus() {
 
     // Alerta: saldo vai acabar em menos de 3 dias
     if (daily > 0 && saldo < daily * 3) {
-      alerts.push('⚠️ *' + client.name + '* — saldo R$' + saldo.toFixed(2) + ' (estimativa ' + Math.floor(saldo/daily) + ' dias restantes)');
+      var diasRestantes = Math.floor(saldo / daily);
+      var message = '🚨 *Alerta de Saldo — AventusCS_*\n\n' +
+        '⚠️ Saldo estimado: *R$' + saldo.toFixed(2) + '*\n' +
+        '📅 Dias restantes: *' + diasRestantes + ' dia' + (diasRestantes !== 1 ? 's' : '') + '*\n\n' +
+        '_Verifique e solicite recarga se necessário._';
+      sendWhatsApp(client.whatsappGroup, message);
+      sent++;
+      Logger.log('Alerta de saldo enviado para grupo de ' + client.name);
     }
   });
 
-  if (alerts.length > 0) {
-    var message = '🚨 *Alertas de Saldo — AventusCS_*\n\n' + alerts.join('\n') + '\n\n_Verifique e recarregue se necessário_';
-    sendWhatsApp(managerNumber, message);
-    Logger.log('Alertas enviados: ' + alerts.length);
-  } else {
-    Logger.log('Nenhum alerta de saldo');
-  }
+  Logger.log('Alertas de saldo enviados: ' + sent);
 }
 
 // ===================== FEEDBACK (trigger existente) =====================
