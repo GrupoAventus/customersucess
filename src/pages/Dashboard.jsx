@@ -5,14 +5,21 @@ import DemandTable from '../components/DemandTable'
 import ReportModal from '../components/ReportModal'
 import AlertModal from '../components/AlertModal'
 import AlertBanner from '../components/AlertBanner'
+import MetricsTab from '../components/MetricsTab'
 
 const SECTIONS_LIST = ['Squad 1', 'Squad 2', 'Centro criativo 1', 'Centro criativo 2']
 const CC_LIST = ['Centro criativo 1', 'Centro criativo 2']
+
+const TABS = [
+  { id: 'overview', label: 'Visão geral', icon: 'ti-layout-dashboard' },
+  { id: 'metrics', label: 'Métricas', icon: 'ti-chart-bar' },
+]
 
 export default function Dashboard() {
   const { clients, demands, getSocialClients } = useApp()
   const [showReports, setShowReports] = useState(false)
   const [showAlert, setShowAlert] = useState(false)
+  const [activeTab, setActiveTab] = useState('overview')
 
   const allDemands = demands.map(d => ({
     ...d, clientName: clients.find(c => c.id === d.clientId)?.name || '—'
@@ -50,6 +57,25 @@ export default function Dashboard() {
       />
 
       <AlertBanner section="dash" />
+
+      {/* Tab switcher */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: '1.5rem', borderBottom: '0.5px solid #1f1f1f', paddingBottom: 0 }}>
+        {TABS.map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+            style={{
+              padding: '8px 16px', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+              background: 'transparent', border: 'none', color: activeTab === tab.id ? 'var(--orange)' : '#555',
+              borderBottom: `2px solid ${activeTab === tab.id ? 'var(--orange)' : 'transparent'}`,
+              transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+            <i className={`ti ${tab.icon}`} style={{ fontSize: 14 }} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'metrics' && <MetricsTab />}
+      {activeTab === 'overview' && (<>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: '1.5rem' }}>
         <StatCard label="Total clientes" value={clients.length} />
@@ -160,6 +186,7 @@ export default function Dashboard() {
 
       {showReports && <ReportModal onClose={() => setShowReports(false)} />}
       {showAlert && <AlertModal onClose={() => setShowAlert(false)} />}
+      </>)}
     </div>
   )
 }

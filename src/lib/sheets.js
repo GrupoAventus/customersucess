@@ -60,6 +60,8 @@ export async function fetchClients() {
       hasCard: r.hasCard === 'TRUE' || r.hasCard === true,
       whatsappGroup: r.whatsappGroup || '',
       whatsappGroupName: r.whatsappGroupName || '',
+      criativoAccountId: r.criativoAccountId || '',
+      clientType: r.clientType || '',
     }))
   } catch (e) {
     console.error('fetchClients error:', e)
@@ -298,4 +300,36 @@ export async function fetchPipeline() {
 
 export async function setPipelineStepSheet(clientId, step, done, doneAt, note) {
   await callPost({ action: 'setPipelineStep', clientId, step, done, doneAt, note })
+}
+
+// ---- METRICS ----
+
+export async function fetchMetrics(accountId, startDate, endDate) {
+  try {
+    const url = `${SCRIPT_URL}?action=getMetrics&accountId=${encodeURIComponent(accountId)}&startDate=${startDate}&endDate=${endDate}`
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`Script error: ${res.status}`)
+    return res.json()
+  } catch (e) {
+    console.error('fetchMetrics error:', e)
+    return { campaigns: [], insights: [] }
+  }
+}
+
+export async function fetchMetricsHistory(clientId) {
+  try {
+    const url = `${SCRIPT_URL}?action=getMetricsHistory&clientId=${encodeURIComponent(clientId)}`
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`Script error: ${res.status}`)
+    return res.json()
+  } catch (e) {
+    console.error('fetchMetricsHistory error:', e)
+    return []
+  }
+}
+
+// ---- AI INSIGHTS ----
+
+export async function saveAiInsight(clientId, insight, period) {
+  return callPost({ action: 'saveAiInsight', clientId, insight, period, createdAt: new Date().toISOString() })
 }

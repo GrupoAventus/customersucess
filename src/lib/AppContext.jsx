@@ -14,7 +14,7 @@ export const PRIORITY_COLORS = {
 }
 
 const DEMO_CLIENTS = [
-  { id:'c_1', name:'Bella Store', drive:'https://drive.google.com', instagram:'https://instagram.com/bellastore', site:'https://bellastore.com', entrou:'2024-09-10', destino:'Squad 1', createdAt:'', destinos:['Squad 1','Social Media'], ccLP:'', ccEcom:'', ccSocial:'Centro criativo 1', socialPosts:1, socialWeek:'', status:'Campanha ativa', observacoes:'', cancelado:false, rechargeAmount:500, dailySpend:25, lastRecharge:new Date().toISOString().slice(0,10), priorityStatus:'estavel', statusChangedAt:'', hasCard:false, whatsappGroup:'', whatsappGroupName:'' },
+  { id:'c_1', name:'Bella Store', drive:'https://drive.google.com', instagram:'https://instagram.com/bellastore', site:'https://bellastore.com', entrou:'2024-09-10', destino:'Squad 1', createdAt:'', destinos:['Squad 1','Social Media'], ccLP:'', ccEcom:'', ccSocial:'Centro criativo 1', socialPosts:1, socialWeek:'', status:'Campanha ativa', observacoes:'', cancelado:false, rechargeAmount:500, dailySpend:25, lastRecharge:new Date().toISOString().slice(0,10), priorityStatus:'estavel', statusChangedAt:'', hasCard:false, whatsappGroup:'', whatsappGroupName:'', criativoAccountId:'', clientType:'' },
 ]
 const DEMO_DEMANDS = []
 
@@ -91,6 +91,7 @@ export function AppProvider({ children }) {
   const [notifications, setNotifications] = useState([])
   const [alerts, setAlerts] = useState([])
   const [pipeline, setPipeline] = useState([])
+  const [aiInsights, setAiInsights] = useState([])
 
   const load = useCallback(async () => {
     if (!useSheets) return
@@ -119,6 +120,12 @@ export function AppProvider({ children }) {
       try { setReports(await fetchReports()) } catch (e) { console.error(e) }
       try { setAgenda(await fetchAgenda()) } catch (e) { console.error(e) }
       try { setPipeline(await fetchPipeline()) } catch (e) { console.error(e) }
+      try {
+        const url = import.meta.env.VITE_SCRIPT_URL
+        const res = await fetch(`${url}?action=getAiInsights`)
+        const json = await res.json()
+        if (Array.isArray(json)) setAiInsights(json)
+      } catch (e) { console.error(e) }
     } catch (e) { console.error('Load error:', e) }
     setLoading(false)
   }, [])
@@ -165,7 +172,7 @@ export function AppProvider({ children }) {
   }
 
   const createClient = async (data) => {
-    const payload = { status: 'Pegar acessos', observacoes: '', cancelado: false, priorityStatus: 'estavel', rechargeAmount: 0, dailySpend: 0, lastRecharge: new Date().toISOString().slice(0,10), statusChangedAt: new Date().toISOString().slice(0,10), hasCard: false, whatsappGroup: '', whatsappGroupName: '', ...data }
+    const payload = { status: 'Pegar acessos', observacoes: '', cancelado: false, priorityStatus: 'estavel', rechargeAmount: 0, dailySpend: 0, lastRecharge: new Date().toISOString().slice(0,10), statusChangedAt: new Date().toISOString().slice(0,10), hasCard: false, whatsappGroup: '', whatsappGroupName: '', criativoAccountId: '', clientType: '', ...data }
     let saved
     if (useSheets) {
       saved = await addClient(payload)
@@ -213,6 +220,8 @@ export function AppProvider({ children }) {
           ccSocial: data.ccSocial ?? client.ccSocial,
           whatsappGroup: data.whatsappGroup ?? client.whatsappGroup,
           whatsappGroupName: data.whatsappGroupName ?? client.whatsappGroupName,
+          criativoAccountId: data.criativoAccountId ?? client.criativoAccountId,
+          clientType: data.clientType ?? client.clientType,
           status: client.status, observacoes: client.observacoes,
           cancelado: client.cancelado, socialPosts: client.socialPosts, socialWeek: client.socialWeek,
         })
@@ -469,6 +478,12 @@ export function AppProvider({ children }) {
   const getClientDemands = (clientId) => demands.filter(d => d.clientId === clientId)
   const getSectionDemands = (dest) => demands.filter(d => d.dest === dest)
 
+  const getClientAiInsight = (clientId) => {
+    return aiInsights
+      .filter(i => i.clientId === clientId)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] || null
+  }
+
   const getSocialClients = (centroCriativo) => {
     const currentWeek = getCurrentWeek()
     return clients
@@ -485,7 +500,7 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider value={{
       clients: activeClients, allClients: clients, cancelledClients,
-      demands, loading, loggedIn, isAdmin, pendingSales, reports, agenda, notifications, alerts, pipeline,
+      demands, loading, loggedIn, isAdmin, pendingSales, reports, agenda, notifications, alerts, pipeline, aiInsights, setAiInsights,
       createClient, createDemand, toggleDemand, registerSocialPost, editClient,
       createReport, deleteReport,
       createAgendaItem, toggleAgendaItem, deleteAgendaItem,
@@ -496,6 +511,7 @@ export function AppProvider({ children }) {
       login, logout,
       getClientDemands, getSectionDemands, getSocialClients,
       getClientTimeline, setTimelineEntry, getMissingTimelineClients,
+      getClientAiInsight,
       reload: load, useSheets
     }}>
       {children}

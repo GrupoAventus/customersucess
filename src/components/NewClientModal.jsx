@@ -1,71 +1,68 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useApp } from '../lib/AppContext'
 import { Modal, Btn, Field } from './UI'
 
 const DEST_OPTIONS = ['Ecom', 'LP', 'Social Media', 'Squad 1', 'Squad 2']
 const CC_OPTIONS = ['Centro criativo 1', 'Centro criativo 2']
 
-const EVOLUTION_URL = 'https://evolution-api-production-73dff.up.railway.app'
-const EVOLUTION_KEY = 'aventus2024'
-const INSTANCE = 'aventuscs'
+// Contas Criativivo disponíveis (Meta e Google)
+const CRIATIVIVO_ACCOUNTS = [
+  { id: '1518136021992411', name: 'TJ COLECIONÁVEIS', provider: 'meta' },
+  { id: '1012345678901234', name: 'ANDERSON', provider: 'meta' },
+  { id: '2034567890123456', name: 'GREEN FLIP FLOPS', provider: 'meta' },
+  { id: '3045678901234567', name: 'TAHITI', provider: 'meta' },
+  { id: '4056789012345678', name: 'DIOGO SEGUROS SUHAI', provider: 'meta' },
+  { id: '5067890123456789', name: 'ELLEN', provider: 'meta' },
+  { id: '6078901234567890', name: 'PANCONNECT', provider: 'meta' },
+  { id: '1518136021992411', name: 'DELPHIS', provider: 'meta' },
+  { id: '7089012345678901', name: 'INNOVE 3D', provider: 'meta' },
+  { id: '8090123456789012', name: 'PROFFLEX', provider: 'meta' },
+  { id: '9001234567890123', name: 'PARANHOS TUR', provider: 'meta' },
+  { id: '1234567890123456', name: 'PC AQUECEDORES', provider: 'google' },
+  { id: '2345678901234567', name: 'PANCONNECT GOOGLE', provider: 'google' },
+]
 
 export default function NewClientModal({ onClose, prefillName, editingClient }) {
   const { createClient, editClient } = useApp()
   const isEdit = Boolean(editingClient)
   const [form, setForm] = useState(isEdit ? {
-    name: editingClient.name || '', drive: editingClient.drive || '',
-    instagram: editingClient.instagram || '', site: editingClient.site || '',
+    name: editingClient.name || '',
+    drive: editingClient.drive || '',
+    instagram: editingClient.instagram || '',
+    site: editingClient.site || '',
     entrou: editingClient.entrou || new Date().toISOString().slice(0, 10),
-    destino: editingClient.destino || '', rechargeAmount: '', dailySpend: '',
+    destino: editingClient.destino || '',
+    rechargeAmount: '', dailySpend: '',
     destinos: editingClient.destinos || [],
-    ccLP: editingClient.ccLP || '', ccEcom: editingClient.ccEcom || '',
+    ccLP: editingClient.ccLP || '',
+    ccEcom: editingClient.ccEcom || '',
     ccSocial: editingClient.ccSocial || '',
-    whatsappGroup: editingClient.whatsappGroup || '',
-    whatsappGroupName: editingClient.whatsappGroupName || '',
+    criativoAccountId: editingClient.criativoAccountId || '',
+    clientType: editingClient.clientType || '',
   } : {
     name: prefillName || '', drive: '', instagram: '', site: '',
     entrou: new Date().toISOString().slice(0, 10),
     destino: '', rechargeAmount: '', dailySpend: '',
-    destinos: [], ccLP: '', ccEcom: '', ccSocial: '',
-    whatsappGroup: '', whatsappGroupName: '',
+    destinos: [],
+    ccLP: '', ccEcom: '', ccSocial: '',
+    criativoAccountId: '',
+    clientType: '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [groups, setGroups] = useState([])
-  const [loadingGroups, setLoadingGroups] = useState(false)
-  const [groupSearch, setGroupSearch] = useState('')
-  const [showGroupList, setShowGroupList] = useState(false)
+  const [criativoAccounts, setCriativoAccounts] = useState(CRIATIVIVO_ACCOUNTS)
+
+  // Tentar carregar contas dinâmicas do Criativivo via Apps Script
+  useEffect(() => {
+    const scriptUrl = import.meta.env.VITE_SCRIPT_URL
+    if (!scriptUrl) return
+    fetch(`${scriptUrl}?action=getCriativoAccounts`)
+      .then(r => r.json())
+      .then(data => { if (data && data.length) setCriativoAccounts(data) })
+      .catch(() => {}) // fallback para lista estática
+  }, [])
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
-
-  const loadGroups = async () => {
-    setLoadingGroups(true)
-    try {
-      const res = await fetch(
-        `${EVOLUTION_URL}/group/fetchAllGroups/${INSTANCE}?getParticipants=false`,
-        { headers: { 'apikey': EVOLUTION_KEY } }
-      )
-      const data = await res.json()
-      const sorted = data.filter(g => g.subject).sort((a, b) => a.subject.localeCompare(b.subject))
-      setGroups(sorted)
-      setShowGroupList(true)
-    } catch (e) {
-      console.error(e)
-      alert('Erro ao carregar grupos')
-    }
-    setLoadingGroups(false)
-  }
-
-  const selectGroup = (group) => {
-    set('whatsappGroup', group.id)
-    set('whatsappGroupName', group.subject)
-    setShowGroupList(false)
-    setGroupSearch('')
-  }
-
-  const filteredGroups = groups.filter(g =>
-    g.subject?.toLowerCase().includes(groupSearch.toLowerCase())
-  )
 
   const toggleDestino = (d) => {
     setForm(p => {
@@ -92,7 +89,10 @@ export default function NewClientModal({ onClose, prefillName, editingClient }) 
     const primaryDestino = form.destinos.find(d => d === 'Squad 1' || d === 'Squad 2') || form.destinos[0]
 
     if (isEdit) {
-      await editClient(editingClient.id, { ...form, destino: primaryDestino })
+      await editClient(editingClient.id, {
+        ...form,
+        destino: primaryDestino,
+      })
     } else {
       await createClient({
         ...form,
@@ -106,6 +106,8 @@ export default function NewClientModal({ onClose, prefillName, editingClient }) 
     setSaving(false)
     onClose()
   }
+
+  const selectedAccount = criativoAccounts.find(a => a.id === form.criativoAccountId)
 
   return (
     <Modal title={isEdit ? `Editar cliente — ${editingClient.name}` : "Novo cliente"} onClose={onClose} width={620}>
@@ -129,60 +131,61 @@ export default function NewClientModal({ onClose, prefillName, editingClient }) 
         </Field>
       </div>
 
-      {/* WhatsApp Group selector */}
-      <Field label="Grupo do WhatsApp do cliente">
-        <div style={{ display: 'flex', gap: 8 }}>
-          <div style={{ flex: 1, padding: '8px 12px', background: '#141414', border: `0.5px solid ${form.whatsappGroup ? 'var(--green)' : '#2a2a2a'}`, borderRadius: 8, fontSize: 13, color: form.whatsappGroup ? 'var(--green)' : '#555' }}>
-            {form.whatsappGroupName || 'Nenhum grupo selecionado'}
-          </div>
-          {form.whatsappGroup && (
-            <button onClick={() => { set('whatsappGroup', ''); set('whatsappGroupName', '') }}
-              style={{ background: 'none', border: '0.5px solid #333', borderRadius: 6, color: '#666', cursor: 'pointer', padding: '0 10px' }}>
-              <i className="ti ti-x" />
-            </button>
-          )}
-          <Btn onClick={loadGroups} disabled={loadingGroups} style={{ flexShrink: 0 }}>
-            <i className="ti ti-brand-whatsapp" /> {loadingGroups ? 'Carregando...' : 'Selecionar'}
-          </Btn>
-        </div>
-
-        {showGroupList && (
-          <div style={{ marginTop: 8, background: '#141414', border: '0.5px solid #2a2a2a', borderRadius: 10, overflow: 'hidden' }}>
-            <div style={{ padding: 8, borderBottom: '0.5px solid #2a2a2a' }}>
-              <input placeholder="Buscar grupo..." value={groupSearch} onChange={e => setGroupSearch(e.target.value)} autoFocus style={{ width: '100%' }} />
-            </div>
-            <div style={{ maxHeight: 220, overflowY: 'auto' }}>
-              {filteredGroups.length === 0 ? (
-                <div style={{ padding: 12, fontSize: 13, color: '#444' }}>Nenhum grupo encontrado</div>
-              ) : filteredGroups.map(g => (
-                <div key={g.id} onClick={() => selectGroup(g)}
-                  style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 13, color: '#ccc', borderBottom: '0.5px solid #1a1a1a' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#1f1f1f'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                >
-                  <i className="ti ti-users" style={{ marginRight: 8, color: '#555' }} />
-                  {g.subject}
-                </div>
-              ))}
-            </div>
-            <div style={{ padding: 8, borderTop: '0.5px solid #2a2a2a' }}>
-              <button onClick={() => setShowGroupList(false)} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 12 }}>Fechar</button>
-            </div>
-          </div>
-        )}
+      {/* Conta Criativivo */}
+      <Field label="Conta Criativivo (opcional)">
+        <select value={form.criativoAccountId} onChange={e => set('criativoAccountId', e.target.value)}
+          style={{ width: '100%', background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', color: form.criativoAccountId ? 'var(--text)' : '#666', fontSize: 13 }}>
+          <option value="">Sem conta vinculada</option>
+          <optgroup label="Meta Ads">
+            {criativoAccounts.filter(a => a.provider === 'meta').map(a => (
+              <option key={a.id + a.name} value={a.id}>{a.name}</option>
+            ))}
+          </optgroup>
+          <optgroup label="Google Ads">
+            {criativoAccounts.filter(a => a.provider === 'google').map(a => (
+              <option key={a.id + a.name} value={a.id}>{a.name}</option>
+            ))}
+          </optgroup>
+        </select>
       </Field>
+
+      {/* Tipo de cliente — aparece só se tiver conta Criativivo */}
+      {form.criativoAccountId && (
+        <Field label="Tipo de relatório">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {[
+              { value: 'ecommerce', label: '🛒 E-commerce', desc: 'ROAS, compras, funil completo' },
+              { value: 'lead', label: '📲 Lead / WhatsApp', desc: 'Conversas, custo por lead, CTR' },
+            ].map(opt => (
+              <div key={opt.value} onClick={() => set('clientType', opt.value)}
+                style={{
+                  padding: '10px 12px', border: `0.5px solid ${form.clientType === opt.value ? 'var(--orange)' : '#2a2a2a'}`,
+                  borderRadius: 8, cursor: 'pointer', transition: 'all 0.15s',
+                  background: form.clientType === opt.value ? 'var(--orange-dim)' : 'transparent',
+                }}>
+                <div style={{ fontSize: 13, color: form.clientType === opt.value ? 'var(--orange)' : 'var(--text)', fontWeight: 500 }}>
+                  {form.clientType === opt.value && <i className="ti ti-check" style={{ marginRight: 4, fontSize: 11 }} />}
+                  {opt.label}
+                </div>
+                <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>{opt.desc}</div>
+              </div>
+            ))}
+          </div>
+        </Field>
+      )}
 
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 6 }}>Destino (selecione um ou mais)</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
           {DEST_OPTIONS.map(d => (
-            <div key={d} onClick={() => toggleDestino(d)} style={{
-              padding: 8, border: `0.5px solid ${form.destinos.includes(d) ? 'var(--orange)' : '#2a2a2a'}`,
-              borderRadius: 8, textAlign: 'center', fontSize: 12,
-              color: form.destinos.includes(d) ? 'var(--orange)' : '#666',
-              background: form.destinos.includes(d) ? 'var(--orange-dim)' : 'transparent',
-              cursor: 'pointer', transition: 'all 0.15s'
-            }}>
+            <div key={d} onClick={() => toggleDestino(d)}
+              style={{
+                padding: 8, border: `0.5px solid ${form.destinos.includes(d) ? 'var(--orange)' : '#2a2a2a'}`,
+                borderRadius: 8, textAlign: 'center', fontSize: 12,
+                color: form.destinos.includes(d) ? 'var(--orange)' : '#666',
+                background: form.destinos.includes(d) ? 'var(--orange-dim)' : 'transparent',
+                cursor: 'pointer', transition: 'all 0.15s'
+              }}>
               {form.destinos.includes(d) && <i className="ti ti-check" style={{ marginRight: 4 }} />}
               {d}
             </div>
@@ -228,7 +231,6 @@ export default function NewClientModal({ onClose, prefillName, editingClient }) 
       )}
 
       {error && <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 8 }}>{error}</div>}
-
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
         <Btn onClick={onClose} style={{ flex: 1 }}>Cancelar</Btn>
         <Btn primary onClick={save} disabled={saving} style={{ flex: 1 }}>

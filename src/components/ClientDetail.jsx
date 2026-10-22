@@ -5,6 +5,7 @@ import NewClientModal from './NewClientModal'
 import TimelineTab from './TimelineTab'
 import PipelineTab from './PipelineTab'
 import ReportModal from './ReportModal'
+import AiInsightPanel from './AiInsightPanel'
 
 const DEST_OPTIONS = ['Squad 1', 'Squad 2', 'Centro criativo 1', 'Centro criativo 2']
 
@@ -191,6 +192,9 @@ export default function ClientDetail({ client, onClose }) {
               </div>
             ))}
           </div>
+
+          {/* IA — Análise preditiva */}
+          <AiInsightPanel client={client} />
 
           {/* Observações */}
           <div style={{ marginBottom: 20 }}>
