@@ -812,23 +812,6 @@ function checkBalanceAndStatus() {
   Logger.log('Alertas de saldo enviados: ' + sent);
 }
 
-// ===================== FEEDBACK (trigger existente) =====================
-function runClientFeedback() {
-  var clients = sheetToObjects(getSheet('clients'));
-  var today = new Date().toISOString().slice(0,10);
-
-  clients.forEach(function(client) {
-    if (client.cancelado === true || client.cancelado === 'TRUE') return;
-    if (!client.whatsappGroup) return;
-
-    var createdAt = (client.createdAt || '').slice(0, 10);
-    if (!createdAt || createdAt >= today) return;
-
-    var message = '📋 *Feedback diário — ' + client.name + '*\n\nComo estão os resultados hoje?\n\n_AventusCS_ · ' + today;
-    sendWhatsApp(client.whatsappGroup, message);
-  });
-}
-
 // ===================== AI INSIGHTS (Fase C) =====================
 // Aba ai_insights: id, clientId, period, insight, createdAt
 
