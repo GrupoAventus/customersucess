@@ -80,19 +80,25 @@ function MiniChart({ data, metric, color = 'var(--orange)' }) {
 
 // ─── Gráfico de linha interativo com tooltip ─────────────────────────────────
 function LineChart({ daily, metrics, fmtFn }) {
-  const [tooltip, setTooltip] = useState(null)
-  if (!daily || daily.length < 2) return (
-    <div style={{ textAlign: 'center', padding: 24, color: '#555', fontSize: 13 }}>
-      Dados diários insuficientes para exibir gráfico
-    </div>
-  )
+  // Hooks SEMPRE no topo — nunca depois de return condicional
+  const [hoverIdx, setHoverIdx] = useState(null)
 
   const COLORS = ['#FF6B35', '#4ECDC4', '#A8E6CF', '#FFD93D', '#C3B1E1', '#FF8B94']
   const W = 700, H = 200, PAD = { top: 16, right: 16, bottom: 32, left: 52 }
   const innerW = W - PAD.left - PAD.right
   const innerH = H - PAD.top - PAD.bottom
 
-  // Normaliza cada métrica para 0-1 para multi-linha no mesmo eixo
+  // Sem dados suficientes → mostra estado vazio
+  if (!daily || daily.length < 2) {
+    return (
+      <div style={{ textAlign: 'center', padding: 24, color: '#555', fontSize: 13 }}>
+        {!daily || daily.length === 0
+          ? '⚠️ Sem dados diários — verifique se o MetaAPI.gs foi reimplantado no Apps Script'
+          : 'Dados diários insuficientes para exibir gráfico (mínimo 2 dias)'}
+      </div>
+    )
+  }
+
   const series = metrics.map((m, mi) => {
     const vals = daily.map(d => parseFloat(d[m.key]) || 0)
     const max = Math.max(...vals, 0.01)
@@ -101,7 +107,6 @@ function LineChart({ daily, metrics, fmtFn }) {
     return { ...m, vals, max, min, range, color: COLORS[mi % COLORS.length] }
   })
 
-  // Eixo Y: baseado na primeira métrica
   const primarySeries = series[0]
   const yTicks = 4
   const yLabels = Array.from({ length: yTicks + 1 }, (_, i) => {
@@ -109,35 +114,15 @@ function LineChart({ daily, metrics, fmtFn }) {
     return { v, y: PAD.top + innerH - (i / yTicks) * innerH }
   })
 
-  const xToIdx = (clientX, svgRef) => {
-    if (!svgRef) return -1
-    const rect = svgRef.getBoundingClientRect()
-    const xRel = clientX - rect.left - (rect.width * PAD.left / W)
-    const innerPxW = rect.width * innerW / W
-    const idx = Math.round((xRel / innerPxW) * (daily.length - 1))
-    return Math.max(0, Math.min(daily.length - 1, idx))
-  }
-
-  const svgRef = { current: null }
-  const [hoverIdx, setHoverIdx] = useState(null)
-
-  const handleMove = (e) => {
-    const idx = xToIdx(e.clientX, e.currentTarget)
-    setHoverIdx(idx)
-    setTooltip({ idx })
-  }
-
   const getX = (i) => PAD.left + (i / (daily.length - 1)) * innerW
   const getY = (s, v) => PAD.top + innerH - ((v - s.min) / s.range) * innerH
 
-  // Formata data YYYY-MM-DD → DD/MM
   const fmtDate = (d) => {
     if (!d) return ''
-    const [, m, day] = d.split('-')
-    return `${day}/${m}`
+    const parts = d.split('-')
+    return `${parts[2]}/${parts[1]}`
   }
 
-  // Datas do eixo X (máx 8 labels)
   const xLabels = daily.map((d, i) => ({ i, label: fmtDate(d.date) }))
     .filter((_, i) => {
       if (daily.length <= 8) return true
@@ -145,21 +130,29 @@ function LineChart({ daily, metrics, fmtFn }) {
       return i % step === 0 || i === daily.length - 1
     })
 
+  const handleMouseMove = (e) => {
+    const svg = e.currentTarget
+    const rect = svg.getBoundingClientRect()
+    const xRel = e.clientX - rect.left - (rect.width * PAD.left / W)
+    const innerPxW = rect.width * innerW / W
+    const idx = Math.round((xRel / innerPxW) * (daily.length - 1))
+    setHoverIdx(Math.max(0, Math.min(daily.length - 1, idx)))
+  }
+
   return (
     <div style={{ position: 'relative', userSelect: 'none' }}>
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        style={{ width: '100%', height: 'auto', cursor: 'crosshair' }}
-        onMouseMove={handleMove}
-        onMouseLeave={() => { setHoverIdx(null); setTooltip(null) }}
+        style={{ width: '100%', height: 'auto', cursor: 'crosshair', display: 'block' }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setHoverIdx(null)}
       >
         {/* Grid horizontal */}
         {yLabels.map((yl, i) => (
           <g key={i}>
             <line x1={PAD.left} y1={yl.y} x2={W - PAD.right} y2={yl.y}
               stroke="#1e1e1e" strokeWidth="1" />
-            <text x={PAD.left - 6} y={yl.y + 4} textAnchor="end"
-              style={{ fontSize: 10, fill: '#555' }}>
+            <text x={PAD.left - 6} y={yl.y + 4} textAnchor="end" fontSize="10" fill="#555">
               {fmtFn ? fmtFn(yl.v, primarySeries.format) : Math.round(yl.v)}
             </text>
           </g>
@@ -167,14 +160,13 @@ function LineChart({ daily, metrics, fmtFn }) {
 
         {/* Labels eixo X */}
         {xLabels.map(({ i, label }) => (
-          <text key={i} x={getX(i)} y={H - 6} textAnchor="middle"
-            style={{ fontSize: 10, fill: '#555' }}>
+          <text key={i} x={getX(i)} y={H - 6} textAnchor="middle" fontSize="10" fill="#555">
             {label}
           </text>
         ))}
 
-        {/* Área preenchida da primeira série */}
-        {series[0] && (() => {
+        {/* Área preenchida + linha da primeira série */}
+        {(() => {
           const s = series[0]
           const pts = daily.map((_, i) => `${getX(i)},${getY(s, s.vals[i])}`).join(' ')
           const areaPath = `M${getX(0)},${PAD.top + innerH} ` +
@@ -182,16 +174,19 @@ function LineChart({ daily, metrics, fmtFn }) {
             ` L${getX(daily.length - 1)},${PAD.top + innerH} Z`
           return (
             <>
-              <path d={areaPath} fill={s.color} opacity="0.07" />
-              <polyline fill="none" stroke={s.color} strokeWidth="2" points={pts} />
+              <path d={areaPath} fill={s.color} opacity="0.08" />
+              <polyline fill="none" stroke={s.color} strokeWidth="2.5" points={pts} />
             </>
           )
         })()}
 
-        {/* Linhas das demais séries */}
+        {/* Linhas das demais séries (tracejado) */}
         {series.slice(1).map((s) => {
           const pts = daily.map((_, i) => `${getX(i)},${getY(s, s.vals[i])}`).join(' ')
-          return <polyline key={s.key} fill="none" stroke={s.color} strokeWidth="1.5" strokeDasharray="4,2" points={pts} />
+          return (
+            <polyline key={s.key} fill="none" stroke={s.color}
+              strokeWidth="1.5" strokeDasharray="4,2" points={pts} />
+          )
         })}
 
         {/* Linha vertical de hover */}
@@ -199,11 +194,11 @@ function LineChart({ daily, metrics, fmtFn }) {
           <line
             x1={getX(hoverIdx)} y1={PAD.top}
             x2={getX(hoverIdx)} y2={PAD.top + innerH}
-            stroke="#333" strokeWidth="1" strokeDasharray="3,3"
+            stroke="#444" strokeWidth="1" strokeDasharray="3,3"
           />
         )}
 
-        {/* Pontos de hover */}
+        {/* Pontos no hover */}
         {hoverIdx !== null && series.map(s => (
           <circle key={s.key}
             cx={getX(hoverIdx)} cy={getY(s, s.vals[hoverIdx])}
@@ -212,22 +207,22 @@ function LineChart({ daily, metrics, fmtFn }) {
         ))}
       </svg>
 
-      {/* Tooltip */}
-      {tooltip && hoverIdx !== null && (
+      {/* Tooltip inline (acima do gráfico, posição fixa no topo) */}
+      {hoverIdx !== null && (
         <div style={{
-          position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)',
+          position: 'absolute', top: 4, right: 8,
           background: '#141414', border: '0.5px solid #2a2a2a',
           borderRadius: 8, padding: '8px 12px', fontSize: 12,
-          pointerEvents: 'none', zIndex: 10, minWidth: 140,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
+          pointerEvents: 'none', zIndex: 10, minWidth: 150,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.5)'
         }}>
-          <div style={{ color: '#666', marginBottom: 6, fontSize: 11 }}>
-            {daily[hoverIdx]?.date ? fmtDate(daily[hoverIdx].date) : ''}
+          <div style={{ color: '#666', marginBottom: 6, fontSize: 11, fontWeight: 600 }}>
+            {fmtDate(daily[hoverIdx]?.date)}
           </div>
           {series.map(s => (
             <div key={s.key} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 3 }}>
               <span style={{ color: s.color }}>{s.label}</span>
-              <span style={{ fontWeight: 600 }}>
+              <span style={{ fontWeight: 600, color: '#fff' }}>
                 {fmtFn ? fmtFn(s.vals[hoverIdx], s.format) : s.vals[hoverIdx]}
               </span>
             </div>
@@ -239,7 +234,7 @@ function LineChart({ daily, metrics, fmtFn }) {
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 8 }}>
         {series.map(s => (
           <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11 }}>
-            <div style={{ width: 16, height: 2, background: s.color, borderRadius: 2 }} />
+            <div style={{ width: 16, height: 2.5, background: s.color, borderRadius: 2 }} />
             <span style={{ color: '#888' }}>{s.label}</span>
           </div>
         ))}
