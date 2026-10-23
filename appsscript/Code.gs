@@ -435,131 +435,155 @@ function setPipelineStep(body) {
 // ===================== METRICS (Fase B) =====================
 // Aba metrics_history: id, clientId, accountId, date, campaigns_json, insights_json, createdAt
 
+// ===================== DETRICS CONFIG =====================
+var DETRICS_SHEET_ID   = '1BfgMq89t7_4INsNzkSZZk2UZvK2ndjRQyC90aw_ipqo';
+var DETRICS_SHEET_NAME = 'Meta Ads - Last 12 Months';
+// Colunas Detrics (índice 0-based):
+// 0=Date Start, 1=Date Stop, 2=Account Name, 3=Campaign Name,
+// 4=Amount Spent, 5=Impressions, 6=Clicks, 7=CTR, 8=CPC, 9=CPM
+
+function parseMoney(val) {
+  // Remove "$", "R$", vírgulas, espaços; converte para float
+  if (val === null || val === undefined || val === '') return 0;
+  var s = String(val).replace(/[^0-9.\-]/g, '');
+  return parseFloat(s) || 0;
+}
+
+function parsePercent(val) {
+  // Valores como "352.00%" ou "3.52" → retorna número puro (ex: 3.52 = 3.52%)
+  if (val === null || val === undefined || val === '') return 0;
+  var s = String(val).replace('%', '').trim();
+  return parseFloat(s) || 0;
+}
+
 function getMetrics(accountId, startDate, endDate) {
-  // Busca métricas em tempo real via Criativivo API
+  // Lê métricas da planilha Detrics (Meta Ads - Last 12 Months)
   if (!accountId) return { error: 'accountId required' };
 
-  var criativoToken = PropertiesService.getScriptProperties().getProperty('CRIATIVIVO_TOKEN');
-  if (!criativoToken) return { error: 'CRIATIVIVO_TOKEN não configurado' };
-
   try {
-    var url = 'https://criativivo.com.br/api/meta/campaigns?account_id=' + accountId +
-              '&since=' + (startDate || '') + '&until=' + (endDate || '');
-    var resp = UrlFetchApp.fetch(url, {
-      headers: { 'Authorization': 'Bearer ' + criativoToken },
-      muteHttpExceptions: true
-    });
+    var ss   = SpreadsheetApp.openById(DETRICS_SHEET_ID);
+    var sh   = ss.getSheetByName(DETRICS_SHEET_NAME);
+    if (!sh) return { error: 'Aba "' + DETRICS_SHEET_NAME + '" não encontrada na planilha Detrics.' };
 
-    var text = resp.getContentText();
-    var json;
-    try {
-      json = JSON.parse(text);
-    } catch(e) {
-      return { error: 'Resposta inválida da Criativivo: ' + text.slice(0, 200) };
-    }
+    var data    = sh.getDataRange().getValues();
+    if (data.length < 2) return { error: 'Planilha Detrics vazia.' };
 
-    if (json.error) return { error: json.error };
+    // Normaliza accountId para comparação (sem "act_", lowercase, trim)
+    var normalizeId = function(s) {
+      return String(s || '').replace(/^act_/i, '').toLowerCase().trim();
+    };
+    var needle = normalizeId(accountId);
 
-    var campaigns = json.campaigns || [];
-    var insights  = json.insights  || [];
-
-    // Montar daily totals a partir dos insights (cada insight já tem date_start/date_stop)
-    // Como é período agregado, retornamos um único ponto
+    // Itera linhas (pula cabeçalho)
     var totalSpend       = 0;
     var totalImpressions = 0;
     var totalClicks      = 0;
-    var totalLeads       = 0;
-    var totalPurchases   = 0;
-    var totalPurchaseValue = 0;
-    var totalMessages    = 0;
-    var totalReach       = 0;
+    var campaigns        = {};  // Campaign Name → {spend, impressions, clicks}
+    var matchedRows      = 0;
 
-    insights.forEach(function(ins) {
-      totalSpend       += parseFloat(ins.spend || 0);
-      totalImpressions += parseInt(ins.impressions || 0);
-      totalClicks      += parseInt(ins.clicks || 0);
-      totalReach       += parseInt(ins.reach || 0);
+    for (var i = 1; i < data.length; i++) {
+      var row         = data[i];
+      var dateStart   = String(row[0] || '').trim();  // "2026-10-01" ou Date object
+      var dateStop    = String(row[1] || '').trim();
+      var accountName = String(row[2] || '').trim();
+      var campaignName = String(row[3] || '').trim();
+      var amountSpent  = parseMoney(row[4]);
+      var impressions  = parseInt(row[5]) || 0;
+      var clicks       = parseInt(row[6]) || 0;
 
-      var actions = ins.actions || [];
-      actions.forEach(function(a) {
-        if (a.action_type === 'lead') totalLeads += parseInt(a.value || 0);
-        if (a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase') {
-          totalPurchases += parseInt(a.value || 0);
+      // Match: accountId pode ser o Account Name (ex: "INNOVE 3D") ou parte dele
+      var nameNorm = normalizeId(accountName);
+      var isMatch  = (nameNorm === needle) ||
+                     (nameNorm.indexOf(needle) !== -1 && needle.length > 3) ||
+                     (needle.indexOf(nameNorm) !== -1 && nameNorm.length > 3);
+      if (!isMatch) continue;
+
+      // Filtro de data: a linha cobre [dateStart, dateStop]
+      // Queremos linhas que se sobrepõem com [startDate, endDate]
+      if (startDate && endDate) {
+        // Normaliza datas para string YYYY-MM-DD
+        var ds = dateStart.slice(0, 10);
+        var de = dateStop.slice(0, 10);
+        // Sem sobreposição se: linha termina antes do início OU linha começa depois do fim
+        if (de < startDate || ds > endDate) continue;
+      }
+
+      matchedRows++;
+      totalSpend       += amountSpent;
+      totalImpressions += impressions;
+      totalClicks      += clicks;
+
+      if (campaignName) {
+        if (!campaigns[campaignName]) {
+          campaigns[campaignName] = { spend: 0, impressions: 0, clicks: 0 };
         }
-        if (a.action_type === 'onsite_conversion.messaging_conversation_started_7d') {
-          totalMessages += parseInt(a.value || 0);
-        }
-      });
+        campaigns[campaignName].spend       += amountSpent;
+        campaigns[campaignName].impressions += impressions;
+        campaigns[campaignName].clicks      += clicks;
+      }
+    }
 
-      var actionValues = ins.action_values || [];
-      actionValues.forEach(function(av) {
-        if (av.action_type === 'purchase') totalPurchaseValue += parseFloat(av.value || 0);
-      });
-    });
+    if (matchedRows === 0) {
+      return { error: 'Nenhum dado encontrado para "' + accountId + '" no período ' + startDate + ' a ' + endDate + '. Verifique se o nome da conta no campo "Conta Criativivo" corresponde ao Account Name no Detrics.' };
+    }
 
-    // Insights agregados por campanha (formato compatível com o frontend)
-    var aggregatedInsights = insights.map(function(ins) {
-      var spend       = parseFloat(ins.spend || 0);
-      var impressions = parseInt(ins.impressions || 0);
-      var clicks      = parseInt(ins.clicks || 0);
-      var reach       = parseInt(ins.reach || 0);
-      var actions     = ins.actions || [];
-      var actionValues = ins.action_values || [];
-
-      var leads     = 0, purchases = 0, messages = 0, purchaseValue = 0;
-      actions.forEach(function(a) {
-        if (a.action_type === 'lead') leads += parseInt(a.value || 0);
-        if (a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase') purchases += parseInt(a.value || 0);
-        if (a.action_type === 'onsite_conversion.messaging_conversation_started_7d') messages += parseInt(a.value || 0);
-      });
-      actionValues.forEach(function(av) {
-        if (av.action_type === 'purchase') purchaseValue += parseFloat(av.value || 0);
-      });
-
+    // Monta lista de insights por campanha (compatível com MetricsTab.jsx)
+    var aggregatedInsights = Object.keys(campaigns).map(function(campName) {
+      var c   = campaigns[campName];
+      var ctr = c.impressions > 0 ? ((c.clicks / c.impressions) * 100) : 0;
+      var cpm = c.impressions > 0 ? ((c.spend / c.impressions) * 1000) : 0;
+      var cpc = c.clicks > 0      ? (c.spend / c.clicks)                : 0;
       return {
-        campaign_id:  ins.campaign_id,
-        spend:        spend.toFixed(2),
-        impressions:  String(impressions),
-        clicks:       String(clicks),
-        reach:        String(reach),
-        ctr:          impressions > 0 ? ((clicks / impressions) * 100).toFixed(2) : '0',
-        cpm:          impressions > 0 ? ((spend / impressions) * 1000).toFixed(2) : '0',
-        cpc:          clicks > 0 ? (spend / clicks).toFixed(2) : '0',
-        leads:        String(leads),
-        purchases:    String(purchases),
-        messages:     String(messages),
-        purchaseValue: purchaseValue.toFixed(2),
-        roas:         spend > 0 && purchaseValue > 0 ? (purchaseValue / spend).toFixed(2) : '0',
-        cpa:          (leads + purchases) > 0 ? (spend / (leads + purchases)).toFixed(2) : '0',
-        actions:      actions,
-        action_values: actionValues
+        campaign_id:   campName,
+        campaign_name: campName,
+        spend:         c.spend.toFixed(2),
+        impressions:   String(c.impressions),
+        clicks:        String(c.clicks),
+        reach:         '0',
+        ctr:           ctr.toFixed(2),
+        cpm:           cpm.toFixed(2),
+        cpc:           cpc.toFixed(2),
+        leads:         '0',
+        purchases:     '0',
+        messages:      '0',
+        purchaseValue: '0',
+        roas:          '0',
+        cpa:           '0'
       };
     });
 
+    // Totais globais
+    var totalCTR = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100) : 0;
+    var totalCPM = totalImpressions > 0 ? ((totalSpend / totalImpressions) * 1000) : 0;
+    var totalCPC = totalClicks > 0      ? (totalSpend / totalClicks)                : 0;
+
     return {
-      campaigns: campaigns,
+      campaigns: aggregatedInsights.map(function(ins) {
+        return { id: ins.campaign_id, name: ins.campaign_name };
+      }),
       insights:  aggregatedInsights,
       daily:     [],
       totals: {
         spend:         totalSpend.toFixed(2),
         impressions:   totalImpressions,
         clicks:        totalClicks,
-        reach:         totalReach,
-        leads:         totalLeads,
-        purchases:     totalPurchases,
-        messages:      totalMessages,
-        purchaseValue: totalPurchaseValue.toFixed(2),
-        roas:          totalSpend > 0 && totalPurchaseValue > 0 ? (totalPurchaseValue / totalSpend).toFixed(2) : '0',
-        cpa:           (totalLeads + totalPurchases) > 0 ? (totalSpend / (totalLeads + totalPurchases)).toFixed(2) : '0',
-        ctr:           totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0',
-        cpm:           totalImpressions > 0 ? ((totalSpend / totalImpressions) * 1000).toFixed(2) : '0',
-        cpc:           totalClicks > 0 ? (totalSpend / totalClicks).toFixed(2) : '0'
+        reach:         0,
+        leads:         0,
+        purchases:     0,
+        messages:      0,
+        purchaseValue: '0',
+        roas:          '0',
+        cpa:           '0',
+        ctr:           totalCTR.toFixed(2),
+        cpm:           totalCPM.toFixed(2),
+        cpc:           totalCPC.toFixed(2)
       },
-      period: { start: startDate, end: endDate }
+      period:   { start: startDate, end: endDate },
+      source:   'detrics'
     };
 
   } catch(err) {
-    return { error: err.message };
+    return { error: 'Erro ao ler planilha Detrics: ' + err.message };
   }
 }
 

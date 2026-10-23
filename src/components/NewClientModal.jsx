@@ -10,19 +10,21 @@ const EVOLUTION_KEY = 'aventus2024'
 const INSTANCE = 'aventuscs'
 
 // Contas Criativivo disponíveis (fallback estático)
+// Contas Meta Ads — value = Account Name exato no Detrics (para matching de métricas)
 const CRIATIVIVO_ACCOUNTS_FALLBACK = [
-  { id: '1518136021992411', name: 'TJ COLECIONÁVEIS', provider: 'meta' },
-  { id: '1012345678901234', name: 'ANDERSON', provider: 'meta' },
-  { id: '2034567890123456', name: 'GREEN FLIP FLOPS', provider: 'meta' },
-  { id: '3045678901234567', name: 'TAHITI', provider: 'meta' },
-  { id: '4056789012345678', name: 'DIOGO SEGUROS SUHAI', provider: 'meta' },
-  { id: '5067890123456789', name: 'ELLEN', provider: 'meta' },
-  { id: '6078901234567890', name: 'PANCONNECT', provider: 'meta' },
-  { id: '7089012345678901', name: 'INNOVE 3D', provider: 'meta' },
-  { id: '8090123456789012', name: 'PROFFLEX', provider: 'meta' },
-  { id: '9001234567890123', name: 'PARANHOS TUR', provider: 'meta' },
-  { id: '1234567890123456', name: 'PC AQUECEDORES', provider: 'google' },
-  { id: '2345678901234567', name: 'PANCONNECT GOOGLE', provider: 'google' },
+  { id: 'ATITUDE GESTOR ANDERSON', name: 'ATITUDE GESTOR ANDERSON', provider: 'meta' },
+  { id: 'CA2 - TJ Colecionáveis', name: 'CA2 - TJ Colecionáveis', provider: 'meta' },
+  { id: 'CA - Dan Indiana', name: 'CA - Dan Indiana', provider: 'meta' },
+  { id: 'CA - Diogo Seguro Rápido', name: 'CA - Diogo Seguro Rápido', provider: 'meta' },
+  { id: 'CA - Ellen Moura', name: 'CA - Ellen Moura', provider: 'meta' },
+  { id: 'Construart', name: 'Construart', provider: 'meta' },
+  { id: 'DelphisADS', name: 'DelphisADS', provider: 'meta' },
+  { id: 'ELLEN ALVES', name: 'ELLEN ALVES', provider: 'meta' },
+  { id: 'Green Flip Flops', name: 'Green Flip Flops', provider: 'meta' },
+  { id: 'INNOVE 3D', name: 'INNOVE 3D', provider: 'meta' },
+  { id: 'Panconnect 01', name: 'Panconnect 01', provider: 'meta' },
+  { id: 'PROFFLEX', name: 'PROFFLEX', provider: 'meta' },
+  { id: 'TAHITI', name: 'TAHITI', provider: 'meta' },
 ]
 
 export default function NewClientModal({ onClose, prefillName, editingClient }) {
@@ -223,18 +225,13 @@ export default function NewClientModal({ onClose, prefillName, editingClient }) 
         )}
       </Field>
 
-      {/* Conta Criativivo */}
-      <Field label="Conta Criativivo (opcional)">
+      {/* Conta Meta Ads (Detrics) */}
+      <Field label="Conta Meta Ads (opcional)">
         <select value={form.criativoAccountId} onChange={e => set('criativoAccountId', e.target.value)}
           style={{ width: '100%', background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', color: form.criativoAccountId ? 'var(--text)' : '#666', fontSize: 13 }}>
           <option value="">Sem conta vinculada</option>
           <optgroup label="Meta Ads">
             {criativoAccounts.filter(a => a.provider === 'meta').map(a => (
-              <option key={a.id + a.name} value={a.id}>{a.name}</option>
-            ))}
-          </optgroup>
-          <optgroup label="Google Ads">
-            {criativoAccounts.filter(a => a.provider === 'google').map(a => (
               <option key={a.id + a.name} value={a.id}>{a.name}</option>
             ))}
           </optgroup>
