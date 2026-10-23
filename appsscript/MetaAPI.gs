@@ -231,10 +231,43 @@ function getMetricsMeta(accountId, startDate, endDate) {
     var gtCpa  = (gt.leads + gt.purchases) > 0 ? (gt.spend / (gt.leads + gt.purchases)).toFixed(2) : '0';
     var gtFreq = gt.freqCount > 0 ? (gt.freqSum / gt.freqCount).toFixed(2) : '0';
 
+    // 5. Breakdown diário (time_increment=1) — para gráficos
+    var dailyUrl = META_API_BASE + '/' + acctParam + '/insights'
+      + '?level=account'
+      + '&fields=spend,impressions,clicks,inline_link_clicks,reach,actions,action_values,website_purchase_roas,purchase_roas'
+      + '&time_increment=1'
+      + '&time_range=' + encodeURIComponent(JSON.stringify({ since: startDate, until: endDate }))
+      + '&limit=100'
+      + '&access_token=' + META_TOKEN;
+
+    var dailyRaw = [];
+    try { dailyRaw = fetchAllPages_(dailyUrl); } catch(e) { /* falha silenciosa, gráfico fica vazio */ }
+
+    var daily = dailyRaw.map(function(ins) {
+      var m = parseInsight_(ins);
+      return {
+        date:         ins.date_start || '',
+        spend:        parseFloat(m.spend)        || 0,
+        impressions:  parseFloat(m.impressions)  || 0,
+        clicks:       parseFloat(m.clicks)       || 0,
+        linkClicks:   parseFloat(m.linkClicks)   || 0,
+        reach:        parseFloat(m.reach)        || 0,
+        leads:        parseFloat(m.leads)        || 0,
+        purchases:    parseFloat(m.purchases)    || 0,
+        messages:     parseFloat(m.messages)     || 0,
+        ctr:          parseFloat(m.ctr)          || 0,
+        cpm:          parseFloat(m.cpm)          || 0,
+        cpc:          parseFloat(m.cpc)          || 0,
+        roas:         parseFloat(m.roas)         || 0,
+        cpa:          parseFloat(m.cpa)          || 0
+      };
+    });
+    daily.sort(function(a, b) { return a.date < b.date ? -1 : 1; });
+
     return {
       campaigns:  campList.map(function(c) { return { id: c.id, name: c.name }; }),
       insights:   aggregatedInsights,
-      daily:      [],
+      daily:      daily,
       totals: {
         spend:         gt.spend.toFixed(2),
         impressions:   Math.round(gt.impressions),
