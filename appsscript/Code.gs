@@ -22,8 +22,9 @@ function doGet(e) {
     else if (action === 'getAgenda')     out = getAgenda();
     else if (action === 'getAlerts')     out = getAlerts();
     else if (action === 'getPipeline')   out = getPipeline();
-    else if (action === 'getMetrics')    out = getMetrics(p.accountId, p.startDate, p.endDate);
-    else if (action === 'getMetricsHistory') out = getMetricsHistory(p.clientId);
+    else if (action === 'getMetrics')         out = getMetrics(p.accountId, p.startDate, p.endDate);
+    else if (action === 'getMetricsHistory')  out = getMetricsHistory(p.clientId);
+    else if (action === 'getAllAccountsMetrics') out = getAllAccountsMetrics(p.startDate, p.endDate);
     else if (action === 'getAiInsights') out = getAiInsights();
     else if (action === 'getCriativoAccounts') out = getCriativoAccounts();
     else out = { error: 'Unknown action: ' + action };
@@ -438,9 +439,9 @@ function setPipelineStep(body) {
 // ===================== DETRICS CONFIG =====================
 var DETRICS_SHEET_ID   = '1BfgMq89t7_4INsNzkSZZk2UZvK2ndjRQyC90aw_ipqo';
 var DETRICS_SHEET_NAME = 'Meta Ads - Last 12 Months';
-// Colunas Detrics (índice 0-based):
-// 0=Date Start, 1=Date Stop, 2=Account Name, 3=Campaign Name,
-// 4=Amount Spent, 5=Impressions, 6=Clicks, 7=CTR, 8=CPC, 9=CPM
+// Estrutura da planilha Detrics (Paid plan, Daily breakdown, ~251 colunas):
+// Cada linha = 1 anúncio × 1 dia. Deve agregar por campanha no código.
+// Os índices das colunas principais estão nas constantes DC_* abaixo.
 
 function parseMoney(val) {
   // Remove "$", "R$", vírgulas, espaços; converte para float
@@ -456,32 +457,53 @@ function parsePercent(val) {
   return parseFloat(s) || 0;
 }
 
+// ─── Índices de colunas do Detrics (0-based) ─────────────────────────────────
+// Estrutura: per-ad per-day (Paid plan, Daily breakdown, 251 colunas)
+var DC_DATE         = 0;   // A  - Date (YYYY-MM-DD ou Date object)
+var DC_ACCOUNT      = 1;   // B  - Account Name
+var DC_CAMPAIGN     = 2;   // C  - Campaign Name
+var DC_ADSET        = 3;   // D  - Ad Set Name
+var DC_AD           = 4;   // E  - Ad Name
+var DC_SPEND        = 5;   // F  - Amount Spent
+var DC_CLICKS       = 6;   // G  - Clicks (All)
+var DC_LINK_CLICKS  = 7;   // H  - Inline Link Clicks
+var DC_IMPRESSIONS  = 8;   // I  - Impressions
+var DC_REACH        = 9;   // J  - Reach
+var DC_FREQUENCY    = 10;  // K  - Frequency
+var DC_LPV          = 11;  // L  - Landing Page Views
+var DC_RESULTS      = 12;  // M  - Results
+var DC_CPR          = 13;  // N  - Cost per Result
+var DC_LEADS        = 30;  // AE - Website Leads
+var DC_PURCHASES    = 36;  // AK - Website Purchases
+var DC_MSG_NEW      = 53;  // BB - New Messaging Conversations
+var DC_MSG_START    = 54;  // BC - Messaging Conversations Started
+var DC_CPC          = 118; // DO - CPC (Cost per Click)
+var DC_CTR_ALL      = 119; // DP - CTR (All)
+var DC_CTR_LINK     = 120; // DQ - CTR (Link Click-Through Rate)
+var DC_CPM          = 121; // DR - CPM (Cost per 1,000 Impressions)
+var DC_ROAS_ALL     = 128; // DY - Overall Purchase ROAS
+var DC_ROAS_WEB     = 129; // DZ - Website Purchase ROAS
+
 function getMetrics(accountId, startDate, endDate) {
   // Lê métricas da planilha Detrics (Meta Ads - Last 12 Months)
+  // Nova estrutura: per-ad per-day, 251 colunas, Daily breakdown (Paid plan)
   if (!accountId) return { error: 'accountId required' };
 
   try {
-    var ss   = SpreadsheetApp.openById(DETRICS_SHEET_ID);
-    var sh   = ss.getSheetByName(DETRICS_SHEET_NAME);
+    var ss = SpreadsheetApp.openById(DETRICS_SHEET_ID);
+    var sh = ss.getSheetByName(DETRICS_SHEET_NAME);
     if (!sh) return { error: 'Aba "' + DETRICS_SHEET_NAME + '" não encontrada na planilha Detrics.' };
 
-    var data    = sh.getDataRange().getValues();
+    var data = sh.getDataRange().getValues();
     if (data.length < 2) return { error: 'Planilha Detrics vazia.' };
 
-    // Normaliza accountId para comparação (sem "act_", lowercase, trim)
+    // Normaliza para comparação (sem "act_", lowercase, trim)
     var normalizeId = function(s) {
       return String(s || '').replace(/^act_/i, '').toLowerCase().trim();
     };
     var needle = normalizeId(accountId);
 
-    // Itera linhas (pula cabeçalho)
-    var totalSpend       = 0;
-    var totalImpressions = 0;
-    var totalClicks      = 0;
-    var campaigns        = {};  // Campaign Name → {spend, impressions, clicks}
-    var matchedRows      = 0;
-
-    // Função auxiliar: converte Date ou string para "YYYY-MM-DD"
+    // Converte Date object ou string para "YYYY-MM-DD"
     var toDateStr = function(val) {
       if (!val) return '';
       if (val instanceof Date) {
@@ -493,108 +515,270 @@ function getMetrics(accountId, startDate, endDate) {
       return String(val).trim().slice(0, 10);
     };
 
-    for (var i = 1; i < data.length; i++) {
-      var row         = data[i];
-      var dateStart   = toDateStr(row[0]);
-      var dateStop    = toDateStr(row[1]);
-      var accountName = String(row[2] || '').trim();
-      var campaignName = String(row[3] || '').trim();
-      var amountSpent  = parseMoney(row[4]);
-      var impressions  = parseInt(row[5]) || 0;
-      var clicks       = parseInt(row[6]) || 0;
+    // Leitura segura de número de uma célula
+    var num = function(v) { return parseFloat(String(v || '0').replace(/[^0-9.\-]/g, '')) || 0; };
 
-      // Match: accountId pode ser o Account Name (ex: "INNOVE 3D") ou parte dele
-      var nameNorm = normalizeId(accountName);
-      var isMatch  = (nameNorm === needle) ||
-                     (nameNorm.indexOf(needle) !== -1 && needle.length > 3) ||
-                     (needle.indexOf(nameNorm) !== -1 && nameNorm.length > 3);
+    // Totais globais
+    var totals = {
+      spend: 0, impressions: 0, clicks: 0, linkClicks: 0,
+      reach: 0, frequency: 0, lpv: 0,
+      leads: 0, purchases: 0, messages: 0,
+      roasSum: 0, roasCount: 0,   // para média ponderada de ROAS
+      freqSum: 0, freqCount: 0    // para média de frequência
+    };
+
+    // Agrega por campanha
+    var campaigns = {};
+    var matchedRows = 0;
+
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+
+      // Match de conta (coluna B)
+      var accountName = String(row[DC_ACCOUNT] || '').trim();
+      var nameNorm    = normalizeId(accountName);
+      var isMatch = (nameNorm === needle) ||
+                    (nameNorm.indexOf(needle) !== -1 && needle.length > 3) ||
+                    (needle.indexOf(nameNorm) !== -1 && nameNorm.length > 3);
       if (!isMatch) continue;
 
-      // Filtro de data: a linha cobre [dateStart, dateStop]
-      // Queremos linhas que se sobrepõem com [startDate, endDate]
-      if (startDate && endDate) {
-        var ds = dateStart;
-        var de = dateStop;
-        // Sem sobreposição se: linha termina antes do início OU linha começa depois do fim
-        if (de < startDate || ds > endDate) continue;
-      }
+      // Filtro de data (coluna A - data única no formato Daily)
+      var rowDate = toDateStr(row[DC_DATE]);
+      if (startDate && rowDate < startDate) continue;
+      if (endDate   && rowDate > endDate)   continue;
 
       matchedRows++;
-      totalSpend       += amountSpent;
-      totalImpressions += impressions;
-      totalClicks      += clicks;
 
-      if (campaignName) {
-        if (!campaigns[campaignName]) {
-          campaigns[campaignName] = { spend: 0, impressions: 0, clicks: 0 };
-        }
-        campaigns[campaignName].spend       += amountSpent;
-        campaigns[campaignName].impressions += impressions;
-        campaigns[campaignName].clicks      += clicks;
+      // Extrai métricas desta linha
+      var rowSpend   = num(row[DC_SPEND]);
+      var rowImpr    = num(row[DC_IMPRESSIONS]);
+      var rowClicks  = num(row[DC_CLICKS]);
+      var rowLClicks = num(row[DC_LINK_CLICKS]);
+      var rowReach   = num(row[DC_REACH]);
+      var rowFreq    = num(row[DC_FREQUENCY]);
+      var rowLpv     = num(row[DC_LPV]);
+      var rowLeads   = num(row[DC_LEADS]);
+      var rowPurch   = num(row[DC_PURCHASES]);
+      var rowMsg     = num(row[DC_MSG_NEW]) + num(row[DC_MSG_START]);
+      var rowRoas    = num(row[DC_ROAS_WEB]) || num(row[DC_ROAS_ALL]);
+
+      // Acumula totais
+      totals.spend      += rowSpend;
+      totals.impressions += rowImpr;
+      totals.clicks     += rowClicks;
+      totals.linkClicks += rowLClicks;
+      totals.reach      += rowReach;
+      totals.lpv        += rowLpv;
+      totals.leads      += rowLeads;
+      totals.purchases  += rowPurch;
+      totals.messages   += rowMsg;
+      if (rowFreq > 0)  { totals.freqSum += rowFreq; totals.freqCount++; }
+      if (rowRoas > 0)  { totals.roasSum += rowRoas * rowSpend; totals.roasCount += rowSpend; } // ponderado por gasto
+
+      // Agrega por campanha
+      var campName = String(row[DC_CAMPAIGN] || '').trim() || '(sem campanha)';
+      if (!campaigns[campName]) {
+        campaigns[campName] = {
+          spend: 0, impressions: 0, clicks: 0, linkClicks: 0,
+          reach: 0, lpv: 0, leads: 0, purchases: 0, messages: 0,
+          roasSum: 0, roasCount: 0
+        };
       }
+      var c = campaigns[campName];
+      c.spend      += rowSpend;
+      c.impressions += rowImpr;
+      c.clicks     += rowClicks;
+      c.linkClicks += rowLClicks;
+      c.reach      += rowReach;
+      c.lpv        += rowLpv;
+      c.leads      += rowLeads;
+      c.purchases  += rowPurch;
+      c.messages   += rowMsg;
+      if (rowRoas > 0) { c.roasSum += rowRoas * rowSpend; c.roasCount += rowSpend; }
     }
 
     if (matchedRows === 0) {
-      return { error: 'Nenhum dado encontrado para "' + accountId + '" no período ' + startDate + ' a ' + endDate + '. Verifique se o nome da conta no campo "Conta Criativivo" corresponde ao Account Name no Detrics.' };
+      return { error: 'Nenhum dado encontrado para "' + accountId + '" no período ' + startDate + ' a ' + endDate + '. Verifique se o nome da conta corresponde ao Account Name no Detrics.' };
     }
 
-    // Monta lista de insights por campanha (compatível com MetricsTab.jsx)
+    // Calcula métricas derivadas para um objeto de campanha ou totais
+    var calcDerived = function(obj) {
+      var ctr  = obj.impressions > 0 ? (obj.clicks / obj.impressions) * 100 : 0;
+      var ctrL = obj.impressions > 0 ? (obj.linkClicks / obj.impressions) * 100 : 0;
+      var cpm  = obj.impressions > 0 ? (obj.spend / obj.impressions) * 1000 : 0;
+      var cpc  = obj.clicks > 0      ? obj.spend / obj.clicks : 0;
+      var roas = obj.roasCount > 0   ? obj.roasSum / obj.roasCount : 0;
+      var cpa  = obj.leads + obj.purchases > 0 ? obj.spend / (obj.leads + obj.purchases) : 0;
+      return {
+        ctr:  ctr.toFixed(2),
+        ctrL: ctrL.toFixed(2),
+        cpm:  cpm.toFixed(2),
+        cpc:  cpc.toFixed(2),
+        roas: roas.toFixed(2),
+        cpa:  cpa.toFixed(2)
+      };
+    };
+
+    // Monta insights por campanha
     var aggregatedInsights = Object.keys(campaigns).map(function(campName) {
-      var c   = campaigns[campName];
-      var ctr = c.impressions > 0 ? ((c.clicks / c.impressions) * 100) : 0;
-      var cpm = c.impressions > 0 ? ((c.spend / c.impressions) * 1000) : 0;
-      var cpc = c.clicks > 0      ? (c.spend / c.clicks)                : 0;
+      var c = campaigns[campName];
+      var d = calcDerived(c);
       return {
         campaign_id:   campName,
         campaign_name: campName,
         spend:         c.spend.toFixed(2),
-        impressions:   String(c.impressions),
-        clicks:        String(c.clicks),
-        reach:         '0',
-        ctr:           ctr.toFixed(2),
-        cpm:           cpm.toFixed(2),
-        cpc:           cpc.toFixed(2),
-        leads:         '0',
-        purchases:     '0',
-        messages:      '0',
-        purchaseValue: '0',
-        roas:          '0',
-        cpa:           '0'
+        impressions:   String(Math.round(c.impressions)),
+        clicks:        String(Math.round(c.clicks)),
+        linkClicks:    String(Math.round(c.linkClicks)),
+        reach:         String(Math.round(c.reach)),
+        lpv:           String(Math.round(c.lpv)),
+        leads:         String(Math.round(c.leads)),
+        purchases:     String(Math.round(c.purchases)),
+        messages:      String(Math.round(c.messages)),
+        ctr:           d.ctr,
+        cpm:           d.cpm,
+        cpc:           d.cpc,
+        roas:          d.roas,
+        cpa:           d.cpa,
+        purchaseValue: '0'
       };
     });
 
-    // Totais globais
-    var totalCTR = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100) : 0;
-    var totalCPM = totalImpressions > 0 ? ((totalSpend / totalImpressions) * 1000) : 0;
-    var totalCPC = totalClicks > 0      ? (totalSpend / totalClicks)                : 0;
+    // Totais globais com métricas derivadas
+    var td   = calcDerived(totals);
+    var freq = totals.freqCount > 0 ? (totals.freqSum / totals.freqCount).toFixed(2) : '0';
 
     return {
       campaigns: aggregatedInsights.map(function(ins) {
         return { id: ins.campaign_id, name: ins.campaign_name };
       }),
-      insights:  aggregatedInsights,
-      daily:     [],
+      insights: aggregatedInsights,
+      daily:    [],
       totals: {
-        spend:         totalSpend.toFixed(2),
-        impressions:   totalImpressions,
-        clicks:        totalClicks,
-        reach:         0,
-        leads:         0,
-        purchases:     0,
-        messages:      0,
+        spend:         totals.spend.toFixed(2),
+        impressions:   Math.round(totals.impressions),
+        clicks:        Math.round(totals.clicks),
+        linkClicks:    Math.round(totals.linkClicks),
+        reach:         Math.round(totals.reach),
+        frequency:     freq,
+        lpv:           Math.round(totals.lpv),
+        leads:         Math.round(totals.leads),
+        purchases:     Math.round(totals.purchases),
+        messages:      Math.round(totals.messages),
         purchaseValue: '0',
-        roas:          '0',
-        cpa:           '0',
-        ctr:           totalCTR.toFixed(2),
-        cpm:           totalCPM.toFixed(2),
-        cpc:           totalCPC.toFixed(2)
+        roas:          td.roas,
+        cpa:           td.cpa,
+        ctr:           td.ctr,
+        cpm:           td.cpm,
+        cpc:           td.cpc
       },
-      period:   { start: startDate, end: endDate },
-      source:   'detrics'
+      period:      { start: startDate, end: endDate },
+      source:      'detrics',
+      matchedRows: matchedRows
     };
 
   } catch(err) {
-    return { error: 'Erro ao ler planilha Detrics: ' + err.message };
+    return { error: 'Erro ao ler planilha Detrics: ' + err.message + ' | stack: ' + err.stack };
+  }
+}
+
+// ─── Visão geral compilada: todas as contas ───────────────────────────────────
+// Retorna array com totais por conta para o período informado.
+// Usado pela aba "Visão Geral" no dashboard.
+function getAllAccountsMetrics(startDate, endDate) {
+  try {
+    var ss = SpreadsheetApp.openById(DETRICS_SHEET_ID);
+    var sh = ss.getSheetByName(DETRICS_SHEET_NAME);
+    if (!sh) return { error: 'Aba "' + DETRICS_SHEET_NAME + '" não encontrada.' };
+
+    var data = sh.getDataRange().getValues();
+    if (data.length < 2) return { error: 'Planilha Detrics vazia.' };
+
+    var toDateStr = function(val) {
+      if (!val) return '';
+      if (val instanceof Date) {
+        var y = val.getFullYear();
+        var m = String(val.getMonth() + 1).padStart(2, '0');
+        var d = String(val.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + d;
+      }
+      return String(val).trim().slice(0, 10);
+    };
+    var num = function(v) { return parseFloat(String(v || '0').replace(/[^0-9.\-]/g, '')) || 0; };
+
+    // Acumula por nome de conta
+    var accounts = {};
+
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+
+      // Filtro de data
+      var rowDate = toDateStr(row[DC_DATE]);
+      if (startDate && rowDate < startDate) continue;
+      if (endDate   && rowDate > endDate)   continue;
+
+      var accountName = String(row[DC_ACCOUNT] || '').trim();
+      if (!accountName) continue;
+
+      if (!accounts[accountName]) {
+        accounts[accountName] = {
+          spend: 0, impressions: 0, clicks: 0, linkClicks: 0,
+          reach: 0, leads: 0, purchases: 0, messages: 0,
+          roasSum: 0, roasCount: 0
+        };
+      }
+      var a = accounts[accountName];
+      var rowSpend = num(row[DC_SPEND]);
+      a.spend      += rowSpend;
+      a.impressions += num(row[DC_IMPRESSIONS]);
+      a.clicks     += num(row[DC_CLICKS]);
+      a.linkClicks += num(row[DC_LINK_CLICKS]);
+      a.reach      += num(row[DC_REACH]);
+      a.leads      += num(row[DC_LEADS]);
+      a.purchases  += num(row[DC_PURCHASES]);
+      a.messages   += num(row[DC_MSG_NEW]) + num(row[DC_MSG_START]);
+      var rowRoas   = num(row[DC_ROAS_WEB]) || num(row[DC_ROAS_ALL]);
+      if (rowRoas > 0 && rowSpend > 0) {
+        a.roasSum   += rowRoas * rowSpend;
+        a.roasCount += rowSpend;
+      }
+    }
+
+    // Monta resultado
+    var result = Object.keys(accounts).map(function(name) {
+      var a    = accounts[name];
+      var roas = a.roasCount > 0 ? (a.roasSum / a.roasCount).toFixed(2) : '0';
+      var ctr  = a.impressions > 0 ? ((a.clicks / a.impressions) * 100).toFixed(2) : '0';
+      var cpm  = a.impressions > 0 ? ((a.spend / a.impressions) * 1000).toFixed(2) : '0';
+      var cpc  = a.clicks > 0      ? (a.spend / a.clicks).toFixed(2) : '0';
+      var conversions = a.leads + a.purchases;
+      var cpa  = conversions > 0 ? (a.spend / conversions).toFixed(2) : '0';
+      return {
+        accountName:  name,
+        spend:        a.spend.toFixed(2),
+        impressions:  Math.round(a.impressions),
+        clicks:       Math.round(a.clicks),
+        linkClicks:   Math.round(a.linkClicks),
+        reach:        Math.round(a.reach),
+        leads:        Math.round(a.leads),
+        purchases:    Math.round(a.purchases),
+        conversions:  Math.round(conversions),
+        messages:     Math.round(a.messages),
+        roas:         roas,
+        ctr:          ctr,
+        cpm:          cpm,
+        cpc:          cpc,
+        cpa:          cpa
+      };
+    });
+
+    // Ordena por gasto (maior primeiro)
+    result.sort(function(a, b) { return parseFloat(b.spend) - parseFloat(a.spend); });
+
+    return { accounts: result, period: { start: startDate, end: endDate }, source: 'detrics' };
+
+  } catch(err) {
+    return { error: 'Erro em getAllAccountsMetrics: ' + err.message };
   }
 }
 

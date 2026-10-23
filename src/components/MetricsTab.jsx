@@ -3,35 +3,55 @@ import { useApp } from '../lib/AppContext'
 
 const SCRIPT_URL = import.meta.env.VITE_SCRIPT_URL
 
-// Métricas disponíveis por tipo de conta
+// Todas as métricas disponíveis
 const METRICS_META = [
-  { key: 'spend', label: 'Investimento (R$)', format: 'currency' },
-  { key: 'impressions', label: 'Impressões', format: 'number' },
-  { key: 'reach', label: 'Alcance', format: 'number' },
-  { key: 'clicks', label: 'Cliques', format: 'number' },
-  { key: 'ctr', label: 'CTR (%)', format: 'percent' },
-  { key: 'cpm', label: 'CPM (R$)', format: 'currency' },
-  { key: 'cpc', label: 'CPC (R$)', format: 'currency' },
-  { key: 'leads', label: 'Leads', format: 'number' },
-  { key: 'messages', label: 'Conversas iniciadas', format: 'number' },
-  { key: 'purchases', label: 'Compras', format: 'number' },
-  { key: 'roas', label: 'ROAS', format: 'decimal' },
-  { key: 'cpa', label: 'CPA (R$)', format: 'currency' },
+  { key: 'spend',       label: 'Investimento',  unit: 'R$',  format: 'currency' },
+  { key: 'impressions', label: 'Impressões',     unit: '',    format: 'number'   },
+  { key: 'reach',       label: 'Alcance',        unit: '',    format: 'number'   },
+  { key: 'clicks',      label: 'Cliques (total)',unit: '',    format: 'number'   },
+  { key: 'linkClicks',  label: 'Link Clicks',    unit: '',    format: 'number'   },
+  { key: 'lpv',         label: 'Landing Page Views', unit: '',format: 'number'  },
+  { key: 'ctr',         label: 'CTR',            unit: '%',   format: 'percent'  },
+  { key: 'cpm',         label: 'CPM',            unit: 'R$',  format: 'currency' },
+  { key: 'cpc',         label: 'CPC',            unit: 'R$',  format: 'currency' },
+  { key: 'frequency',   label: 'Frequência',     unit: '',    format: 'decimal'  },
+  { key: 'leads',       label: 'Leads',          unit: '',    format: 'number'   },
+  { key: 'messages',    label: 'Conversas',      unit: '',    format: 'number'   },
+  { key: 'purchases',   label: 'Compras',        unit: '',    format: 'number'   },
+  { key: 'roas',        label: 'ROAS',           unit: 'x',   format: 'decimal'  },
+  { key: 'cpa',         label: 'CPA',            unit: 'R$',  format: 'currency' },
 ]
 
 const PERIOD_OPTIONS = [
-  { value: '7', label: 'Últimos 7 dias' },
-  { value: '14', label: 'Últimos 14 dias' },
-  { value: '30', label: 'Últimos 30 dias' },
-  { value: 'month', label: 'Este mês' },
-  { value: 'custom', label: 'Personalizado' },
+  { value: '7',     label: 'Últimos 7 dias'  },
+  { value: '14',    label: 'Últimos 14 dias' },
+  { value: '30',    label: 'Últimos 30 dias' },
+  { value: 'month', label: 'Este mês'        },
+  { value: 'custom',label: 'Personalizado'   },
+]
+
+// Colunas mostradas na tabela de visão geral
+const OVERVIEW_COLS = [
+  { key: 'spend',       label: 'Gasto',       format: 'currency' },
+  { key: 'conversions', label: 'Conversões',  format: 'number'   },
+  { key: 'roas',        label: 'ROAS',        format: 'decimal'  },
+  { key: 'ctr',         label: 'CTR',         format: 'percent'  },
+  { key: 'leads',       label: 'Leads',       format: 'number'   },
+  { key: 'messages',    label: 'Conversas',   format: 'number'   },
+  { key: 'purchases',   label: 'Compras',     format: 'number'   },
+  { key: 'impressions', label: 'Impressões',  format: 'number'   },
+  { key: 'cpm',         label: 'CPM',         format: 'currency' },
 ]
 
 function fmt(value, format) {
   const n = parseFloat(value) || 0
-  if (format === 'currency') return `R$ ${n.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`
+  if (format === 'currency') {
+    return 'R$ ' + n.toFixed(2)
+      .replace('.', ',')
+      .replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  }
   if (format === 'percent') return `${n.toFixed(2)}%`
-  if (format === 'decimal') return n.toFixed(2)
+  if (format === 'decimal')  return n.toFixed(2)
   return n.toLocaleString('pt-BR')
 }
 
@@ -58,33 +78,195 @@ function MiniChart({ data, metric, color = 'var(--orange)' }) {
   )
 }
 
-export default function MetricsTab() {
+// ─── Tab: Visão Geral (todas as contas) ─────────────────────────────────────
+function OverviewTab({ period, customStart, customEnd }) {
   const { clients } = useApp()
-  const [selectedClientId, setSelectedClientId] = useState('')
-  const [period, setPeriod] = useState('7')
-  const [customStart, setCustomStart] = useState('')
-  const [customEnd, setCustomEnd] = useState('')
-  const [selectedMetrics, setSelectedMetrics] = useState(['spend', 'impressions', 'clicks', 'ctr'])
-  const [data, setData] = useState(null)
+  const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [historyData, setHistoryData] = useState([])
-
-  // Clientes com conta Criativivo
-  const clientsWithCriativivo = clients.filter(c => c.criativoAccountId && !c.cancelado)
+  const [error, setError]     = useState('')
+  const [visibleCols, setVisibleCols] = useState(['spend', 'conversions', 'roas', 'ctr', 'leads'])
 
   const getDateRange = useCallback(() => {
     const today = new Date()
-    const fmt = d => d.toISOString().slice(0, 10)
+    const fmtD = d => d.toISOString().slice(0, 10)
     if (period === 'custom') return { start: customStart, end: customEnd }
     if (period === 'month') {
       const start = new Date(today.getFullYear(), today.getMonth(), 1)
-      return { start: fmt(start), end: fmt(today) }
+      return { start: fmtD(start), end: fmtD(today) }
     }
     const days = parseInt(period)
     const start = new Date(today)
     start.setDate(start.getDate() - days)
-    return { start: fmt(start), end: fmt(today) }
+    return { start: fmtD(start), end: fmtD(today) }
+  }, [period, customStart, customEnd])
+
+  const load = useCallback(async () => {
+    const { start, end } = getDateRange()
+    if (!start || !end) return
+    setLoading(true)
+    setError('')
+    try {
+      const res  = await fetch(`${SCRIPT_URL}?action=getAllAccountsMetrics&startDate=${start}&endDate=${end}`)
+      const json = await res.json()
+      if (json.error) throw new Error(json.error)
+      setData(json)
+    } catch (e) {
+      setError('Erro: ' + e.message)
+    }
+    setLoading(false)
+  }, [getDateRange])
+
+  useEffect(() => { load() }, [load])
+
+  // Mapeia accountName → cliente
+  const findClient = (accountName) => {
+    const norm = (s) => String(s || '').toLowerCase().trim()
+    const needle = norm(accountName)
+    return clients.find(c => {
+      if (!c.criativoAccountId) return false
+      const hay = norm(c.criativoAccountId)
+      return hay === needle || hay.includes(needle) || needle.includes(hay)
+    })
+  }
+
+  const toggleCol = (key) => {
+    setVisibleCols(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
+  }
+
+  if (loading) return (
+    <div style={{ textAlign: 'center', padding: 40, color: '#555' }}>
+      <i className="ti ti-loader-2 ti-spin" style={{ fontSize: 24 }} />
+      <div style={{ marginTop: 8, fontSize: 13 }}>Carregando visão geral...</div>
+    </div>
+  )
+
+  if (error) return (
+    <div style={{ background: 'rgba(226,75,74,0.1)', border: '0.5px solid var(--red)', borderRadius: 8, padding: 12, fontSize: 13, color: 'var(--red)', marginBottom: 16 }}>
+      <i className="ti ti-alert-circle" style={{ marginRight: 6 }} />{error}
+    </div>
+  )
+
+  if (!data) return null
+
+  const accounts = data.accounts || []
+
+  // Totalizadores
+  const grand = accounts.reduce((acc, a) => {
+    acc.spend       += parseFloat(a.spend)       || 0
+    acc.impressions += parseFloat(a.impressions) || 0
+    acc.clicks      += parseFloat(a.clicks)      || 0
+    acc.leads       += parseFloat(a.leads)       || 0
+    acc.purchases   += parseFloat(a.purchases)   || 0
+    acc.conversions += parseFloat(a.conversions) || 0
+    acc.messages    += parseFloat(a.messages)    || 0
+    return acc
+  }, { spend: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0, conversions: 0, messages: 0 })
+  grand.ctr = grand.impressions > 0 ? ((grand.clicks / grand.impressions) * 100).toFixed(2) : '0'
+  grand.cpm = grand.impressions > 0 ? ((grand.spend  / grand.impressions) * 1000).toFixed(2) : '0'
+  grand.roas = '—'
+
+  const shownCols = OVERVIEW_COLS.filter(c => visibleCols.includes(c.key))
+
+  return (
+    <div>
+      {/* Seletor de colunas */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 8 }}>Colunas visíveis</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {OVERVIEW_COLS.map(col => (
+            <button key={col.key} onClick={() => toggleCol(col.key)}
+              style={{
+                padding: '3px 10px', borderRadius: 20, fontSize: 11, cursor: 'pointer', border: 'none',
+                background: visibleCols.includes(col.key) ? 'var(--orange)' : '#1a1a1a',
+                color: visibleCols.includes(col.key) ? '#fff' : '#666',
+              }}>
+              {col.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tabela */}
+      <div style={{ overflowX: 'auto', borderRadius: 10, border: '0.5px solid #2a2a2a' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: '#111', borderBottom: '0.5px solid #2a2a2a' }}>
+              <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-dim)', fontWeight: 500, fontSize: 11 }}>Conta</th>
+              {shownCols.map(col => (
+                <th key={col.key} style={{ padding: '10px 14px', textAlign: 'right', color: 'var(--text-dim)', fontWeight: 500, fontSize: 11, whiteSpace: 'nowrap' }}>
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {accounts.map((account, idx) => {
+              const client = findClient(account.accountName)
+              return (
+                <tr key={idx} style={{ borderBottom: '0.5px solid #1a1a1a', transition: 'background 0.1s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#111'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <td style={{ padding: '10px 14px' }}>
+                    <div style={{ fontWeight: 500, color: 'var(--text)' }}>{client?.name || account.accountName}</div>
+                    {client?.name && <div style={{ fontSize: 11, color: '#555', marginTop: 2 }}>{account.accountName}</div>}
+                  </td>
+                  {shownCols.map(col => (
+                    <td key={col.key} style={{ padding: '10px 14px', textAlign: 'right', color: col.key === 'spend' ? 'var(--orange)' : 'var(--text)', fontWeight: col.key === 'spend' ? 600 : 400 }}>
+                      {fmt(account[col.key], col.format)}
+                    </td>
+                  ))}
+                </tr>
+              )
+            })}
+          </tbody>
+          <tfoot>
+            <tr style={{ background: '#111', borderTop: '0.5px solid #333' }}>
+              <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 12, color: 'var(--text-dim)' }}>
+                Total ({accounts.length} contas)
+              </td>
+              {shownCols.map(col => (
+                <td key={col.key} style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 600, color: col.key === 'spend' ? 'var(--orange)' : 'var(--text)' }}>
+                  {grand[col.key] !== undefined ? fmt(grand[col.key], col.format) : '—'}
+                </td>
+              ))}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {accounts.length === 0 && (
+        <div style={{ textAlign: 'center', padding: 40, color: '#555', fontSize: 13 }}>
+          Nenhum dado encontrado para o período selecionado.
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Tab: Por Cliente ────────────────────────────────────────────────────────
+function ClientTab({ period, customStart, customEnd }) {
+  const { clients } = useApp()
+  const [selectedClientId, setSelectedClientId] = useState('')
+  const [selectedMetrics, setSelectedMetrics]   = useState(['spend', 'impressions', 'clicks', 'ctr', 'roas'])
+  const [data, setData]         = useState(null)
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState('')
+  const [historyData, setHistoryData] = useState([])
+
+  const clientsWithMeta = clients.filter(c => c.criativoAccountId && !c.cancelado)
+
+  const getDateRange = useCallback(() => {
+    const today = new Date()
+    const fmtD = d => d.toISOString().slice(0, 10)
+    if (period === 'custom') return { start: customStart, end: customEnd }
+    if (period === 'month') {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1)
+      return { start: fmtD(start), end: fmtD(today) }
+    }
+    const days = parseInt(period)
+    const start = new Date(today)
+    start.setDate(start.getDate() - days)
+    return { start: fmtD(start), end: fmtD(today) }
   }, [period, customStart, customEnd])
 
   const loadMetrics = useCallback(async () => {
@@ -95,12 +277,11 @@ export default function MetricsTab() {
     setError('')
     const { start, end } = getDateRange()
     try {
-      const res = await fetch(`${SCRIPT_URL}?action=getMetrics&accountId=${client.criativoAccountId}&startDate=${start}&endDate=${end}`)
+      const res  = await fetch(`${SCRIPT_URL}?action=getMetrics&accountId=${encodeURIComponent(client.criativoAccountId)}&startDate=${start}&endDate=${end}`)
       const json = await res.json()
       if (json.error) throw new Error(json.error)
       setData(json)
-      // Carregar histórico
-      const hRes = await fetch(`${SCRIPT_URL}?action=getMetricsHistory&clientId=${selectedClientId}`)
+      const hRes  = await fetch(`${SCRIPT_URL}?action=getMetricsHistory&clientId=${selectedClientId}`)
       const hJson = await hRes.json()
       if (Array.isArray(hJson)) setHistoryData(hJson)
     } catch (e) {
@@ -111,7 +292,7 @@ export default function MetricsTab() {
 
   useEffect(() => {
     if (selectedClientId) loadMetrics()
-  }, [selectedClientId, period])
+  }, [selectedClientId, period, customStart, customEnd])
 
   const toggleMetric = (key) => {
     setSelectedMetrics(prev =>
@@ -119,61 +300,28 @@ export default function MetricsTab() {
     )
   }
 
-  const selectedClient = clients.find(c => c.id === selectedClientId)
-  const allMetrics = METRICS_META
-
-  // Totais vêm prontos do backend (tempo real via Criativivo)
   const totals = data?.totals || {}
 
   return (
-    <div style={{ padding: '20px 0' }}>
-      {/* Seletor de conta */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Cliente</div>
-          <select value={selectedClientId} onChange={e => setSelectedClientId(e.target.value)}
-            style={{ width: '100%', background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', color: 'var(--text)', fontSize: 13 }}>
-            <option value="">Selecionar cliente...</option>
-            {clientsWithCriativivo.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.name} {c.clientType === 'ecommerce' ? '🛒' : c.clientType === 'lead' ? '📲' : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Período</div>
-          <select value={period} onChange={e => setPeriod(e.target.value)}
-            style={{ width: '100%', background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', color: 'var(--text)', fontSize: 13 }}>
-            {PERIOD_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-          </select>
-        </div>
+    <div>
+      {/* Seletor de cliente */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Cliente</div>
+        <select value={selectedClientId} onChange={e => { setSelectedClientId(e.target.value); setData(null) }}
+          style={{ width: '100%', background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', color: 'var(--text)', fontSize: 13 }}>
+          <option value="">Selecionar cliente...</option>
+          {clientsWithMeta.map(c => (
+            <option key={c.id} value={c.id}>
+              {c.name} {c.clientType === 'ecommerce' ? '🛒' : c.clientType === 'lead' ? '📲' : ''}
+            </option>
+          ))}
+        </select>
       </div>
-
-      {period === 'custom' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Data início</div>
-            <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
-              style={{ width: '100%', background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', color: 'var(--text)', fontSize: 13 }} />
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Data fim</div>
-            <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
-              style={{ width: '100%', background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', color: 'var(--text)', fontSize: 13 }} />
-          </div>
-        </div>
-      )}
 
       {!selectedClientId && (
         <div style={{ textAlign: 'center', padding: 40, color: '#555', fontSize: 14 }}>
           <i className="ti ti-chart-bar" style={{ fontSize: 32, display: 'block', marginBottom: 8 }} />
-          Selecione um cliente para ver as métricas
-          {clientsWithCriativivo.length === 0 && (
-            <div style={{ fontSize: 12, marginTop: 8, color: '#444' }}>
-              Nenhum cliente tem conta Criativivo vinculada ainda.<br/>Edite um cliente e selecione a conta.
-            </div>
-          )}
+          Selecione um cliente para ver as métricas detalhadas
         </div>
       )}
 
@@ -196,7 +344,7 @@ export default function MetricsTab() {
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 8 }}>Métricas exibidas</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {allMetrics.map(m => (
+              {METRICS_META.map(m => (
                 <button key={m.key} onClick={() => toggleMetric(m.key)}
                   style={{
                     padding: '4px 10px', borderRadius: 20, fontSize: 11, cursor: 'pointer', border: 'none',
@@ -212,64 +360,64 @@ export default function MetricsTab() {
 
           {/* Cards de totais */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginBottom: 20 }}>
-            {allMetrics.filter(m => selectedMetrics.includes(m.key)).map(m => (
+            {METRICS_META.filter(m => selectedMetrics.includes(m.key)).map(m => (
               <div key={m.key} style={{
                 background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 10, padding: '12px 14px'
               }}>
                 <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 4 }}>{m.label}</div>
-                <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--text)' }}>
+                <div style={{ fontSize: 18, fontWeight: 600, color: m.key === 'spend' ? 'var(--orange)' : 'var(--text)' }}>
                   {totals[m.key] !== undefined ? fmt(totals[m.key], m.format) : '—'}
                 </div>
+                {m.unit && <div style={{ fontSize: 10, color: '#555', marginTop: 2 }}>{m.unit}</div>}
               </div>
             ))}
           </div>
 
-          {/* Campanhas detalhadas */}
-          {data.campaigns && data.campaigns.length > 0 && (
+          {/* Info de linhas processadas */}
+          {data.matchedRows > 0 && (
+            <div style={{ fontSize: 11, color: '#555', marginBottom: 12 }}>
+              {data.matchedRows.toLocaleString('pt-BR')} linhas processadas · {data.campaigns?.length || 0} campanhas
+            </div>
+          )}
+
+          {/* Campanhas */}
+          {data.insights && data.insights.length > 0 && (
             <div>
               <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
-                Campanhas ativas ({data.campaigns.length})
+                Campanhas ({data.insights.length})
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {data.campaigns.map(camp => {
-                  const ins = data.insights?.find(i => i.campaign_id === camp.id) || {}
-                  const leads = ins.actions?.find(a => a.action_type === 'lead')?.value || 0
-                  const msgs = ins.actions?.find(a => a.action_type === 'onsite_conversion.messaging_conversation_started_7d')?.value || 0
-                  return (
-                    <div key={camp.id} style={{
-                      background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 10, padding: '12px 16px'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 500 }}>{camp.name}</div>
-                          <div style={{ fontSize: 11, color: camp.status === 'ACTIVE' ? 'var(--green)' : '#666', marginTop: 2 }}>
-                            {camp.status === 'ACTIVE' ? '● Ativa' : '○ Pausada'}
-                            {camp.daily_budget_reais && <span style={{ color: '#666', marginLeft: 8 }}>R$ {camp.daily_budget_reais}/dia</span>}
-                          </div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--orange)' }}>
-                            {fmt(ins.spend || 0, 'currency')}
-                          </div>
-                          <div style={{ fontSize: 11, color: '#666' }}>investido</div>
-                        </div>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-                        {[
-                          { label: 'Impressões', value: parseInt(ins.impressions || 0).toLocaleString('pt-BR') },
-                          { label: 'Cliques', value: parseInt(ins.clicks || 0).toLocaleString('pt-BR') },
-                          { label: 'CTR', value: `${parseFloat(ins.ctr || 0).toFixed(2)}%` },
-                          { label: leads > 0 ? 'Leads' : 'Conversas', value: leads > 0 ? leads : msgs },
-                        ].map(stat => (
-                          <div key={stat.label} style={{ background: '#111', borderRadius: 6, padding: '6px 8px' }}>
-                            <div style={{ fontSize: 10, color: '#555' }}>{stat.label}</div>
-                            <div style={{ fontSize: 13, fontWeight: 600 }}>{stat.value}</div>
-                          </div>
-                        ))}
+                {data.insights.sort((a, b) => parseFloat(b.spend) - parseFloat(a.spend)).map(ins => (
+                  <div key={ins.campaign_id} style={{
+                    background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 10, padding: '12px 16px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, flex: 1, paddingRight: 16 }}>{ins.campaign_name}</div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--orange)' }}>{fmt(ins.spend, 'currency')}</div>
+                        {parseFloat(ins.roas) > 0 && (
+                          <div style={{ fontSize: 11, color: '#888' }}>ROAS {ins.roas}x</div>
+                        )}
                       </div>
                     </div>
-                  )
-                })}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 6 }}>
+                      {[
+                        { label: 'Impressões', value: parseInt(ins.impressions || 0).toLocaleString('pt-BR') },
+                        { label: 'Cliques',    value: parseInt(ins.clicks || 0).toLocaleString('pt-BR') },
+                        { label: 'CTR',        value: `${parseFloat(ins.ctr || 0).toFixed(2)}%` },
+                        { label: 'CPM',        value: `R$ ${parseFloat(ins.cpm || 0).toFixed(2)}` },
+                        parseInt(ins.leads)     > 0 && { label: 'Leads',    value: ins.leads },
+                        parseInt(ins.purchases) > 0 && { label: 'Compras',  value: ins.purchases },
+                        parseInt(ins.messages)  > 0 && { label: 'Conversas',value: ins.messages },
+                      ].filter(Boolean).map(stat => (
+                        <div key={stat.label} style={{ background: '#111', borderRadius: 6, padding: '6px 8px' }}>
+                          <div style={{ fontSize: 10, color: '#555' }}>{stat.label}</div>
+                          <div style={{ fontSize: 12, fontWeight: 600 }}>{stat.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -287,6 +435,71 @@ export default function MetricsTab() {
           )}
         </>
       )}
+    </div>
+  )
+}
+
+// ─── Componente principal ────────────────────────────────────────────────────
+export default function MetricsTab() {
+  const [activeTab, setActiveTab] = useState('overview')
+  const [period, setPeriod]       = useState('7')
+  const [customStart, setCustomStart] = useState('')
+  const [customEnd, setCustomEnd]     = useState('')
+
+  const tabStyle = (active) => ({
+    padding: '6px 18px',
+    borderRadius: 20,
+    fontSize: 12,
+    fontWeight: active ? 600 : 400,
+    border: 'none',
+    cursor: 'pointer',
+    background: active ? 'var(--orange)' : '#1a1a1a',
+    color:      active ? '#fff'           : '#666',
+    transition: 'all 0.15s',
+  })
+
+  return (
+    <div style={{ padding: '20px 0' }}>
+      {/* Header: abas + período */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button style={tabStyle(activeTab === 'overview')} onClick={() => setActiveTab('overview')}>
+            <i className="ti ti-layout-grid" style={{ marginRight: 6 }} />Visão Geral
+          </button>
+          <button style={tabStyle(activeTab === 'client')} onClick={() => setActiveTab('client')}>
+            <i className="ti ti-user" style={{ marginRight: 6 }} />Por Cliente
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <select value={period} onChange={e => setPeriod(e.target.value)}
+            style={{ background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '6px 10px', color: 'var(--text)', fontSize: 12 }}>
+            {PERIOD_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Datas personalizadas */}
+      {period === 'custom' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Data início</div>
+            <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
+              style={{ width: '100%', background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', color: 'var(--text)', fontSize: 13 }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Data fim</div>
+            <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
+              style={{ width: '100%', background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', color: 'var(--text)', fontSize: 13 }} />
+          </div>
+        </div>
+      )}
+
+      {/* Conteúdo da aba */}
+      {activeTab === 'overview'
+        ? <OverviewTab period={period} customStart={customStart} customEnd={customEnd} />
+        : <ClientTab  period={period} customStart={customStart} customEnd={customEnd} />
+      }
     </div>
   )
 }
