@@ -585,11 +585,29 @@ function runPredictiveAI() {
       var m14 = getMetricsMeta(client.criativoAccountId, today14, todayStr);
       var m30 = getMetricsMeta(client.criativoAccountId, today30, todayStr);
 
+      // Detecta objetivo real pelas métricas (não depende de campo manual)
+      var t7 = m7.totals || {};
+      var objetivo;
+      if ((parseFloat(t7.purchases) || 0) > 0) {
+        objetivo = 'ecommerce'; // tem compras → e-commerce
+      } else if ((parseFloat(t7.messages) || 0) > 0) {
+        objetivo = 'messages';  // tem mensagens → conversas
+      } else if ((parseFloat(t7.leads) || 0) > 0) {
+        objetivo = 'leads';     // tem leads → geração de leads
+      } else {
+        // Sem conversões ainda — usa clientType como fallback
+        var ct = String(client.clientType || '').toLowerCase();
+        objetivo = ct === 'ecommerce' ? 'ecommerce' : 'messages';
+      }
+
+      var objetivoLabel = objetivo === 'ecommerce' ? 'E-commerce (KPI: Compras, ROAS, Receita)'
+        : objetivo === 'messages' ? 'Conversas por mensagem (KPI: Mensagens iniciadas, Custo por mensagem)'
+        : 'Geração de leads (KPI: Leads, Custo por lead)';
+
       function fmtMetrics(m) {
         if (m.error) return 'Erro: ' + m.error;
         var t = m.totals || {};
-        var clientType = String(client.clientType || 'lead');
-        if (clientType === 'ecommerce') {
+        if (objetivo === 'ecommerce') {
           return 'Gasto: R$' + t.spend +
             ' | Impressões: ' + t.impressions +
             ' | Cliques: ' + t.clicks +
@@ -598,7 +616,20 @@ function runPredictiveAI() {
             ' | Compras: ' + t.purchases +
             ' | Receita: R$' + t.purchaseValue +
             ' | ROAS: ' + t.roas +
-            ' | CPA: R$' + t.cpa +
+            ' | Custo/compra: R$' + t.cpa +
+            ' | Alcance: ' + t.reach +
+            ' | Frequência: ' + t.frequency;
+        } else if (objetivo === 'messages') {
+          var cpMsg = (parseFloat(t.messages) || 0) > 0
+            ? 'R$' + (parseFloat(t.spend) / parseFloat(t.messages)).toFixed(2)
+            : 'N/A';
+          return 'Gasto: R$' + t.spend +
+            ' | Impressões: ' + t.impressions +
+            ' | Cliques: ' + t.clicks +
+            ' | CTR: ' + t.ctr + '%' +
+            ' | CPM: R$' + t.cpm +
+            ' | Conversas iniciadas: ' + t.messages +
+            ' | Custo por conversa: ' + cpMsg +
             ' | Alcance: ' + t.reach +
             ' | Frequência: ' + t.frequency;
         } else {
@@ -608,8 +639,7 @@ function runPredictiveAI() {
             ' | CTR: ' + t.ctr + '%' +
             ' | CPM: R$' + t.cpm +
             ' | Leads: ' + t.leads +
-            ' | Mensagens: ' + t.messages +
-            ' | CPA: R$' + t.cpa +
+            ' | Custo por lead: R$' + t.cpa +
             ' | Alcance: ' + t.reach +
             ' | Frequência: ' + t.frequency;
         }
@@ -629,7 +659,8 @@ function runPredictiveAI() {
 
         '## DADOS DO CLIENTE ATUAL\n' +
         'Nome: ' + client.name + '\n' +
-        'Tipo: ' + (client.clientType === 'ecommerce' ? 'E-commerce' : 'Geração de leads/mensagens') + '\n' +
+        'Objetivo da campanha: ' + objetivoLabel + '\n' +
+        'IMPORTANTE: Avalie APENAS o KPI do objetivo acima. Não mencione métricas de outros objetivos como problema.\n' +
         'Conta Meta: ' + client.criativoAccountId + '\n' +
         'Campanhas ativas: ' + activeCampaigns + ' | Nomes: ' + campaigns + '\n\n' +
 
@@ -757,20 +788,42 @@ function runPredictiveAINow() {
       var m14 = getMetricsMeta(client.criativoAccountId, today14, todayStr);
       var m30 = getMetricsMeta(client.criativoAccountId, today30, todayStr);
 
+      // Detecta objetivo real pelas métricas
+      var t7now = m7.totals || {};
+      var objetivoNow;
+      if ((parseFloat(t7now.purchases) || 0) > 0) {
+        objetivoNow = 'ecommerce';
+      } else if ((parseFloat(t7now.messages) || 0) > 0) {
+        objetivoNow = 'messages';
+      } else if ((parseFloat(t7now.leads) || 0) > 0) {
+        objetivoNow = 'leads';
+      } else {
+        var ct2 = String(client.clientType || '').toLowerCase();
+        objetivoNow = ct2 === 'ecommerce' ? 'ecommerce' : 'messages';
+      }
+
+      var objetivoLabelNow = objetivoNow === 'ecommerce' ? 'E-commerce (KPI: Compras, ROAS, Receita)'
+        : objetivoNow === 'messages' ? 'Conversas por mensagem (KPI: Mensagens iniciadas, Custo por mensagem)'
+        : 'Geração de leads (KPI: Leads, Custo por lead)';
+
       function fmtMetrics(m) {
         if (m.error) return 'Erro: ' + m.error;
         var t = m.totals || {};
-        var clientType = String(client.clientType || 'lead');
-        if (clientType === 'ecommerce') {
+        if (objetivoNow === 'ecommerce') {
           return 'Gasto: R$' + t.spend + ' | Impressões: ' + t.impressions + ' | Cliques: ' + t.clicks +
             ' | CTR: ' + t.ctr + '% | CPM: R$' + t.cpm + ' | Compras: ' + t.purchases +
-            ' | Receita: R$' + t.purchaseValue + ' | ROAS: ' + t.roas + ' | CPA: R$' + t.cpa +
+            ' | Receita: R$' + t.purchaseValue + ' | ROAS: ' + t.roas + ' | Custo/compra: R$' + t.cpa +
             ' | Alcance: ' + t.reach + ' | Frequência: ' + t.frequency;
+        } else if (objetivoNow === 'messages') {
+          var cpMsg2 = (parseFloat(t.messages) || 0) > 0
+            ? 'R$' + (parseFloat(t.spend) / parseFloat(t.messages)).toFixed(2) : 'N/A';
+          return 'Gasto: R$' + t.spend + ' | Impressões: ' + t.impressions + ' | Cliques: ' + t.clicks +
+            ' | CTR: ' + t.ctr + '% | CPM: R$' + t.cpm + ' | Conversas iniciadas: ' + t.messages +
+            ' | Custo por conversa: ' + cpMsg2 + ' | Alcance: ' + t.reach + ' | Frequência: ' + t.frequency;
         } else {
           return 'Gasto: R$' + t.spend + ' | Impressões: ' + t.impressions + ' | Cliques: ' + t.clicks +
             ' | CTR: ' + t.ctr + '% | CPM: R$' + t.cpm + ' | Leads: ' + t.leads +
-            ' | Mensagens: ' + t.messages + ' | CPA: R$' + t.cpa +
-            ' | Alcance: ' + t.reach + ' | Frequência: ' + t.frequency;
+            ' | Custo por lead: R$' + t.cpa + ' | Alcance: ' + t.reach + ' | Frequência: ' + t.frequency;
         }
       }
 
@@ -782,7 +835,8 @@ function runPredictiveAINow() {
         'Seu objetivo é identificar padrões históricos e prever com precisão o que vai acontecer nos próximos 3 a 7 dias.\n\n' +
         '## DADOS DO CLIENTE ATUAL\n' +
         'Nome: ' + client.name + '\n' +
-        'Tipo: ' + (client.clientType === 'ecommerce' ? 'E-commerce' : 'Geração de leads/mensagens') + '\n' +
+        'Objetivo da campanha: ' + objetivoLabelNow + '\n' +
+        'IMPORTANTE: Avalie APENAS o KPI do objetivo acima. Não mencione métricas de outros objetivos como problema.\n' +
         'Conta Meta: ' + client.criativoAccountId + '\n' +
         'Campanhas ativas: ' + activeCampaigns + ' | Nomes: ' + campaigns + '\n\n' +
         '## MÉTRICAS ATUAIS (últimos 7 dias)\n' + fmtMetrics(m7) + '\n\n' +
