@@ -430,14 +430,41 @@ function OverviewTab({ period, customStart, customEnd, refreshKey }) {
 // ─── Tab: Por Cliente ────────────────────────────────────────────────────────
 function ClientTab({ period, customStart, customEnd, refreshKey }) {
   const { clients } = useApp()
-  const [selectedClientId, setSelectedClientId] = useState('')
+  // selectedAccount = { id: 'act_XXX', name: 'Nome da conta' } | null
+  const [selectedAccount, setSelectedAccount]   = useState(null)
+  const [metaAccounts, setMetaAccounts]         = useState([])
+  const [accountsLoading, setAccountsLoading]   = useState(true)
   const [selectedMetrics, setSelectedMetrics]   = useState(['spend', 'impressions', 'clicks', 'ctr', 'roas'])
   const [data, setData]         = useState(null)
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
   const [historyData, setHistoryData] = useState([])
 
-  const clientsWithMeta = clients.filter(c => c.criativoAccountId && !c.cancelado)
+  // Busca contas Meta direto da API ao montar
+  useEffect(() => {
+    async function loadAccounts() {
+      setAccountsLoading(true)
+      try {
+        const res  = await fetch(`${SCRIPT_URL}?action=getMetaAccounts`)
+        const json = await res.json()
+        if (json.error) throw new Error(json.error)
+        const accounts = (json.accounts || []).map(a => ({
+          id:   a.id,
+          name: a.name || a.id,
+        }))
+        setMetaAccounts(accounts)
+      } catch (e) {
+        console.error('Erro ao buscar contas Meta:', e)
+      }
+      setAccountsLoading(false)
+    }
+    loadAccounts()
+  }, [])
+
+  // Encontra o cliente cadastrado vinculado à conta selecionada (para histórico)
+  const linkedClient = selectedAccount
+    ? clients.find(c => c.criativoAccountId && String(c.criativoAccountId).replace(/^act_/i,'') === String(selectedAccount.id).replace(/^act_/i,''))
+    : null
 
   const getDateRange = useCallback(() => {
     const today = new Date()
@@ -456,31 +483,32 @@ function ClientTab({ period, customStart, customEnd, refreshKey }) {
   }, [period, customStart, customEnd])
 
   const loadMetrics = useCallback(async () => {
-    if (!selectedClientId) return
-    const client = clients.find(c => c.id === selectedClientId)
-    if (!client?.criativoAccountId) return
+    if (!selectedAccount) return
     setLoading(true)
     setError('')
     const { start, end } = getDateRange()
     try {
-      const res  = await fetch(`${SCRIPT_URL}?action=getMetrics&accountId=${encodeURIComponent(client.criativoAccountId)}&startDate=${start}&endDate=${end}`)
+      const res  = await fetch(`${SCRIPT_URL}?action=getMetrics&accountId=${encodeURIComponent(selectedAccount.id)}&startDate=${start}&endDate=${end}`)
       const json = await res.json()
       if (json.error) throw new Error(json.error)
-      // Preenche dias sem gasto com zero para o eixo X ser contínuo
       if (json.daily) json.daily = fillDailyGaps(json.daily, start, end)
       setData(json)
-      const hRes  = await fetch(`${SCRIPT_URL}?action=getMetricsHistory&clientId=${selectedClientId}`)
-      const hJson = await hRes.json()
-      if (Array.isArray(hJson)) setHistoryData(hJson)
+      if (linkedClient) {
+        const hRes  = await fetch(`${SCRIPT_URL}?action=getMetricsHistory&clientId=${linkedClient.id}`)
+        const hJson = await hRes.json()
+        if (Array.isArray(hJson)) setHistoryData(hJson)
+      } else {
+        setHistoryData([])
+      }
     } catch (e) {
       setError('Erro ao carregar métricas: ' + e.message)
     }
     setLoading(false)
-  }, [selectedClientId, clients, getDateRange])
+  }, [selectedAccount, linkedClient, getDateRange])
 
   useEffect(() => {
-    if (selectedClientId) loadMetrics()
-  }, [selectedClientId, period, customStart, customEnd, refreshKey])
+    if (selectedAccount) loadMetrics()
+  }, [selectedAccount, period, customStart, customEnd, refreshKey])
 
   const toggleMetric = (key) => {
     setSelectedMetrics(prev =>
@@ -492,28 +520,42 @@ function ClientTab({ period, customStart, customEnd, refreshKey }) {
 
   return (
     <div>
-      {/* Seletor de cliente */}
+      {/* Seletor de conta Meta */}
       <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Cliente</div>
-        <select value={selectedClientId} onChange={e => { setSelectedClientId(e.target.value); setData(null) }}
-          style={{ width: '100%', background: '#141414', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', color: '#fff', fontSize: 13, colorScheme: 'dark', cursor: 'pointer' }}>
-          <option value="" style={{ background: '#141414', color: '#888' }}>Selecionar cliente...</option>
-          {clientsWithMeta.map(c => (
-            <option key={c.id} value={c.id} style={{ background: '#141414', color: '#fff' }}>
-              {c.name} {c.clientType === 'ecommerce' ? '🛒' : c.clientType === 'lead' ? '📲' : ''}
+        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
+          Conta de Anúncios
+          {linkedClient && <span style={{ marginLeft: 8, color: 'var(--orange)' }}>→ {linkedClient.name}</span>}
+        </div>
+        <select
+          value={selectedAccount?.id || ''}
+          onChange={e => {
+            const acc = metaAccounts.find(a => a.id === e.target.value) || null
+            setSelectedAccount(acc)
+            setData(null)
+            setHistoryData([])
+          }}
+          disabled={accountsLoading}
+          style={{ width: '100%', background: '#141414', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', color: '#fff', fontSize: 13, colorScheme: 'dark', cursor: 'pointer' }}
+        >
+          <option value="" style={{ background: '#141414', color: '#888' }}>
+            {accountsLoading ? 'Carregando contas...' : metaAccounts.length === 0 ? 'Nenhuma conta encontrada' : 'Selecionar conta...'}
+          </option>
+          {metaAccounts.map(a => (
+            <option key={a.id} value={a.id} style={{ background: '#141414', color: '#fff' }}>
+              {a.name}
             </option>
           ))}
         </select>
       </div>
 
-      {!selectedClientId && (
+      {!selectedAccount && (
         <div style={{ textAlign: 'center', padding: 40, color: '#555', fontSize: 14 }}>
           <i className="ti ti-chart-bar" style={{ fontSize: 32, display: 'block', marginBottom: 8 }} />
-          Selecione um cliente para ver as métricas detalhadas
+          {accountsLoading ? 'Carregando contas de anúncio...' : 'Selecione uma conta para ver as métricas detalhadas'}
         </div>
       )}
 
-      {selectedClientId && loading && (
+      {selectedAccount && loading && (
         <div style={{ textAlign: 'center', padding: 40, color: '#555' }}>
           <i className="ti ti-loader-2 ti-spin" style={{ fontSize: 24 }} />
           <div style={{ marginTop: 8, fontSize: 13 }}>Carregando métricas...</div>
@@ -526,7 +568,7 @@ function ClientTab({ period, customStart, customEnd, refreshKey }) {
         </div>
       )}
 
-      {selectedClientId && data && !loading && (
+      {selectedAccount && data && !loading && (
         <>
           {/* Seletor de métricas */}
           <div style={{ marginBottom: 16 }}>
