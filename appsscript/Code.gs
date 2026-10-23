@@ -803,16 +803,11 @@ function getMetricsHistory(clientId) {
 
 function collectDailyMetrics() {
   // Busca métricas de todos os clientes com criativoAccountId e salva em metrics_history
+  // Migrado para Meta API direta (sem Criativivo)
   var clients = sheetToObjects(getSheet('clients'));
   var today = new Date();
   var yesterday = new Date(today.getTime() - 86400000);
   var dateStr = yesterday.toISOString().slice(0, 10);
-
-  var criativoToken = PropertiesService.getScriptProperties().getProperty('CRIATIVIVO_TOKEN');
-  if (!criativoToken) {
-    Logger.log('CRIATIVIVO_TOKEN não configurado');
-    return;
-  }
 
   var sh = getSheet('metrics_history');
   // Criar cabeçalho se não existir
@@ -824,20 +819,14 @@ function collectDailyMetrics() {
     if (!client.criativoAccountId || client.cancelado === true || client.cancelado === 'TRUE') return;
 
     try {
-      var url = 'https://criativivo.com.br/api/meta/campaigns?account_id=' + client.criativoAccountId +
-                '&since=' + dateStr + '&until=' + dateStr;
-      var resp = UrlFetchApp.fetch(url, {
-        headers: { 'Authorization': 'Bearer ' + criativoToken },
-        muteHttpExceptions: true
-      });
-      var json = JSON.parse(resp.getContentText());
+      var result = getMetricsMeta(client.criativoAccountId, dateStr, dateStr);
 
       var id = genId();
       var now = new Date().toISOString();
       sh.appendRow([
         id, client.id, client.criativoAccountId, dateStr,
-        JSON.stringify(json.campaigns || []),
-        JSON.stringify(json.insights || []),
+        JSON.stringify(result.campaigns || []),
+        JSON.stringify(result.insights  || []),
         now
       ]);
 
@@ -872,17 +861,12 @@ function sendWhatsApp(number, message) {
 }
 
 function sendDailyReport() {
+  // Migrado para Meta API direta (sem Criativivo)
   var clients = sheetToObjects(getSheet('clients'));
   var today = new Date();
   var dateDisplay = today.toLocaleDateString('pt-BR');
   var yesterday = new Date(today.getTime() - 86400000);
   var yesterdayStr = yesterday.toISOString().slice(0, 10);
-
-  var criativoToken = PropertiesService.getScriptProperties().getProperty('CRIATIVIVO_TOKEN');
-  if (!criativoToken) {
-    Logger.log('CRIATIVIVO_TOKEN não configurado');
-    return;
-  }
 
   // Para cada cliente ativo com criativoAccountId E whatsappGroup, envia relatório individual no grupo dele
   var activeClients = clients.filter(function(c) {
@@ -893,49 +877,30 @@ function sendDailyReport() {
   });
 
   if (activeClients.length === 0) {
-    Logger.log('Nenhum cliente ativo com conta Criativivo e grupo WhatsApp configurados');
+    Logger.log('Nenhum cliente ativo com conta Meta e grupo WhatsApp configurados');
     return;
   }
 
   var sent = 0;
   activeClients.forEach(function(client) {
     try {
-      var url = 'https://criativivo.com.br/api/meta/campaigns?account_id=' + client.criativoAccountId +
-                '&since=' + yesterdayStr + '&until=' + yesterdayStr;
-      var resp = UrlFetchApp.fetch(url, {
-        headers: { 'Authorization': 'Bearer ' + criativoToken },
-        muteHttpExceptions: true
-      });
-      var data = JSON.parse(resp.getContentText());
-      var insights = data.insights || [];
+      var result = getMetricsMeta(client.criativoAccountId, yesterdayStr, yesterdayStr);
+      var t = result.totals || {};
 
-      var spend = insights.reduce(function(s, i) { return s + (parseFloat(i.spend) || 0); }, 0);
-      var impressions = insights.reduce(function(s, i) { return s + (parseInt(i.impressions) || 0); }, 0);
-      var clicks = insights.reduce(function(s, i) { return s + (parseInt(i.clicks) || 0); }, 0);
+      var spend      = t.spend       || 0;
+      var impressions = t.impressions || 0;
+      var clicks     = t.clicks      || 0;
 
       var clientType = client.clientType || 'lead';
-      var extraLine = '';
+      var extraLine  = '';
 
       if (clientType === 'ecommerce') {
-        var purchases = insights.reduce(function(s, i) {
-          var acts = i.actions || [];
-          var p = acts.find(function(a) { return a.action_type === 'offsite_conversion.fb_pixel_purchase'; });
-          return s + (p ? parseFloat(p.value) : 0);
-        }, 0);
-        var revenue = insights.reduce(function(s, i) {
-          var vals = i.action_values || [];
-          var r = vals.find(function(a) { return a.action_type === 'offsite_conversion.fb_pixel_purchase'; });
-          return s + (r ? parseFloat(r.value) : 0);
-        }, 0);
-        var roas = spend > 0 ? (revenue / spend).toFixed(2) : '0';
-        extraLine = '🛒 Compras: ' + purchases + ' | ROAS: ' + roas + 'x';
+        var purchases = t.purchases    || 0;
+        var roas      = t.roas         || 0;
+        extraLine = '🛒 Compras: ' + purchases + ' | ROAS: ' + roas.toFixed(2) + 'x';
       } else {
-        var leads = insights.reduce(function(s, i) {
-          var acts = i.actions || [];
-          var l = acts.find(function(a) { return a.action_type === 'lead' || a.action_type === 'onsite_conversion.messaging_conversation_started_7d'; });
-          return s + (l ? parseInt(l.value) : 0);
-        }, 0);
-        var cpl = leads > 0 ? 'R$' + (spend / leads).toFixed(2) : '—';
+        var leads = t.leads || t.messages || 0;
+        var cpl   = leads > 0 ? 'R$' + (spend / leads).toFixed(2) : '—';
         extraLine = '📲 Leads: ' + leads + ' | CPL: ' + cpl;
       }
 
@@ -961,6 +926,7 @@ function sendDailyReport() {
 }
 
 function sendWeeklyReport() {
+  // Migrado para Meta API direta (sem Criativivo)
   var today = new Date();
   var dayOfWeek = today.getDay(); // 0=Dom, 1=Seg, ..., 6=Sab
   if (dayOfWeek !== 1) {
@@ -969,8 +935,6 @@ function sendWeeklyReport() {
   }
 
   var clients = sheetToObjects(getSheet('clients'));
-  var criativoToken = PropertiesService.getScriptProperties().getProperty('CRIATIVIVO_TOKEN');
-  if (!criativoToken) return;
 
   // Última semana: segunda passada a domingo passado
   var lastMonday = new Date(today.getTime() - 7 * 86400000);
@@ -987,51 +951,32 @@ function sendWeeklyReport() {
   });
 
   if (activeClients.length === 0) {
-    Logger.log('Nenhum cliente com conta Criativivo e grupo WhatsApp configurados');
+    Logger.log('Nenhum cliente com conta Meta e grupo WhatsApp configurados');
     return;
   }
 
   var sent = 0;
   activeClients.forEach(function(client) {
     try {
-      var url = 'https://criativivo.com.br/api/meta/campaigns?account_id=' + client.criativoAccountId +
-                '&since=' + sinceStr + '&until=' + untilStr;
-      var resp = UrlFetchApp.fetch(url, {
-        headers: { 'Authorization': 'Bearer ' + criativoToken },
-        muteHttpExceptions: true
-      });
-      var data = JSON.parse(resp.getContentText());
-      var insights = data.insights || [];
+      var result = getMetricsMeta(client.criativoAccountId, sinceStr, untilStr);
+      var t = result.totals || {};
 
-      var spend = insights.reduce(function(s, i) { return s + (parseFloat(i.spend) || 0); }, 0);
-      var impressions = insights.reduce(function(s, i) { return s + (parseInt(i.impressions) || 0); }, 0);
-      var clicks = insights.reduce(function(s, i) { return s + (parseInt(i.clicks) || 0); }, 0);
-      var reach = insights.reduce(function(s, i) { return s + (parseInt(i.reach) || 0); }, 0);
-      var ctr = impressions > 0 ? ((clicks / impressions) * 100).toFixed(2) + '%' : '—';
+      var spend       = t.spend       || 0;
+      var impressions = t.impressions  || 0;
+      var clicks      = t.clicks       || 0;
+      var reach       = t.reach        || 0;
+      var ctr         = t.ctr          > 0 ? t.ctr.toFixed(2) + '%' : '—';
 
       var clientType = client.clientType || 'lead';
-      var extraLine = '';
+      var extraLine  = '';
 
       if (clientType === 'ecommerce') {
-        var purchases = insights.reduce(function(s, i) {
-          var acts = i.actions || [];
-          var p = acts.find(function(a) { return a.action_type === 'offsite_conversion.fb_pixel_purchase'; });
-          return s + (p ? parseFloat(p.value) : 0);
-        }, 0);
-        var revenue = insights.reduce(function(s, i) {
-          var vals = i.action_values || [];
-          var r = vals.find(function(a) { return a.action_type === 'offsite_conversion.fb_pixel_purchase'; });
-          return s + (r ? parseFloat(r.value) : 0);
-        }, 0);
-        var roas = spend > 0 ? (revenue / spend).toFixed(2) : '0';
-        extraLine = '🛒 Compras: ' + purchases + ' | ROAS: ' + roas + 'x';
+        var purchases = t.purchases || 0;
+        var roas      = t.roas      || 0;
+        extraLine = '🛒 Compras: ' + purchases + ' | ROAS: ' + roas.toFixed(2) + 'x';
       } else {
-        var leads = insights.reduce(function(s, i) {
-          var acts = i.actions || [];
-          var l = acts.find(function(a) { return a.action_type === 'lead' || a.action_type === 'onsite_conversion.messaging_conversation_started_7d'; });
-          return s + (l ? parseInt(l.value) : 0);
-        }, 0);
-        var cpl = leads > 0 ? 'R$' + (spend / leads).toFixed(2) : '—';
+        var leads = t.leads || t.messages || 0;
+        var cpl   = leads > 0 ? 'R$' + (spend / leads).toFixed(2) : '—';
         extraLine = '📲 Leads: ' + leads + ' | CPL: ' + cpl;
       }
 
@@ -1068,11 +1013,8 @@ function sendSnapshotEvening() {
 }
 
 function sendSnapshot(period) {
+  // Migrado para Meta API direta (sem Criativivo)
   var clients = sheetToObjects(getSheet('clients'));
-  var criativoToken = PropertiesService.getScriptProperties().getProperty('CRIATIVIVO_TOKEN');
-
-  if (!criativoToken) return;
-
   var today = new Date().toISOString().slice(0, 10);
 
   // Para cada cliente ativo com criativoAccountId E whatsappGroup, envia snapshot individual no grupo dele
@@ -1088,42 +1030,23 @@ function sendSnapshot(period) {
   var sent = 0;
   activeClients.forEach(function(client) {
     try {
-      var url = 'https://criativivo.com.br/api/meta/campaigns?account_id=' + client.criativoAccountId +
-                '&since=' + today + '&until=' + today;
-      var resp = UrlFetchApp.fetch(url, {
-        headers: { 'Authorization': 'Bearer ' + criativoToken },
-        muteHttpExceptions: true
-      });
-      var data = JSON.parse(resp.getContentText());
-      var insights = data.insights || [];
+      var result = getMetricsMeta(client.criativoAccountId, today, today);
+      var t = result.totals || {};
 
-      var spend = insights.reduce(function(s, i) { return s + (parseFloat(i.spend) || 0); }, 0);
-      var impressions = insights.reduce(function(s, i) { return s + (parseInt(i.impressions) || 0); }, 0);
-      var clicks = insights.reduce(function(s, i) { return s + (parseInt(i.clicks) || 0); }, 0);
+      var spend       = t.spend       || 0;
+      var impressions = t.impressions  || 0;
+      var clicks      = t.clicks       || 0;
 
       var clientType = client.clientType || 'lead';
-      var extraLine = '';
+      var extraLine  = '';
 
       if (clientType === 'ecommerce') {
-        var purchases = insights.reduce(function(s, i) {
-          var acts = i.actions || [];
-          var p = acts.find(function(a) { return a.action_type === 'offsite_conversion.fb_pixel_purchase'; });
-          return s + (p ? parseFloat(p.value) : 0);
-        }, 0);
-        var revenue = insights.reduce(function(s, i) {
-          var vals = i.action_values || [];
-          var r = vals.find(function(a) { return a.action_type === 'offsite_conversion.fb_pixel_purchase'; });
-          return s + (r ? parseFloat(r.value) : 0);
-        }, 0);
-        var roas = spend > 0 ? (revenue / spend).toFixed(2) : '0';
-        extraLine = '🛒 Compras: ' + purchases + ' | ROAS: ' + roas + 'x';
+        var purchases = t.purchases || 0;
+        var roas      = t.roas      || 0;
+        extraLine = '🛒 Compras: ' + purchases + ' | ROAS: ' + roas.toFixed(2) + 'x';
       } else {
-        var leads = insights.reduce(function(s, i) {
-          var acts = i.actions || [];
-          var l = acts.find(function(a) { return a.action_type === 'lead' || a.action_type === 'onsite_conversion.messaging_conversation_started_7d'; });
-          return s + (l ? parseInt(l.value) : 0);
-        }, 0);
-        var cpl = leads > 0 ? 'R$' + (spend / leads).toFixed(2) : '—';
+        var leads = t.leads || t.messages || 0;
+        var cpl   = leads > 0 ? 'R$' + (spend / leads).toFixed(2) : '—';
         extraLine = '📲 Leads: ' + leads + ' | CPL: ' + cpl;
       }
 
@@ -1200,37 +1123,17 @@ function saveAiInsight(body) {
   return { id: id };
 }
 
-// ===================== CRIATIVIVO ACCOUNTS =====================
+// ===================== CRIATIVIVO ACCOUNTS (compatibilidade) =====================
+// Delegado para getMetaAccounts() — sem dependência do Criativivo
 function getCriativoAccounts() {
-  // Retorna lista de contas vinculadas ao Criativivo
-  // Pode ser expandido para buscar dinamicamente via API
-  var criativoToken = PropertiesService.getScriptProperties().getProperty('CRIATIVIVO_TOKEN');
-  if (!criativoToken) {
-    // Fallback: retorna lista estática configurada nas propriedades
-    var staticAccounts = PropertiesService.getScriptProperties().getProperty('CRIATIVIVO_ACCOUNTS');
-    if (staticAccounts) {
-      try { return JSON.parse(staticAccounts); } catch(e) { return []; }
-    }
-    return [];
-  }
-
-  try {
-    var resp = UrlFetchApp.fetch('https://criativivo.com.br/api/ad-accounts', {
-      headers: { 'Authorization': 'Bearer ' + criativoToken },
-      muteHttpExceptions: true
-    });
-    var data = JSON.parse(resp.getContentText());
-    return data || [];
-  } catch(err) {
-    Logger.log('Erro getCriativoAccounts: ' + err.message);
-    return [];
-  }
+  return getMetaAccounts();
 }
 
 // ===================== AI INSIGHTS SEMANAL (Fase C) =====================
 // Roda toda segunda-feira e gera análise automática para todos os clientes
 
 function weeklyAiAnalysis() {
+  // Migrado para Meta API direta (sem Criativivo)
   var today = new Date();
   if (today.getDay() !== 1) {
     Logger.log('Análise semanal só roda às segundas-feiras');
@@ -1238,11 +1141,10 @@ function weeklyAiAnalysis() {
   }
 
   var clients = sheetToObjects(getSheet('clients'));
-  var criativoToken = PropertiesService.getScriptProperties().getProperty('CRIATIVIVO_TOKEN');
   var claudeApiKey = PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY');
 
-  if (!criativoToken || !claudeApiKey) {
-    Logger.log('CRIATIVIVO_TOKEN ou CLAUDE_API_KEY não configurados');
+  if (!claudeApiKey) {
+    Logger.log('CLAUDE_API_KEY não configurada');
     return;
   }
 
@@ -1259,50 +1161,32 @@ function weeklyAiAnalysis() {
 
   activeClients.forEach(function(client) {
     try {
-      // 1. Busca métricas
-      var url = 'https://criativivo.com.br/api/meta/campaigns?account_id=' + client.criativoAccountId +
-                '&since=' + sinceStr + '&until=' + untilStr;
-      var resp = UrlFetchApp.fetch(url, {
-        headers: { 'Authorization': 'Bearer ' + criativoToken },
-        muteHttpExceptions: true
-      });
-      var data = JSON.parse(resp.getContentText());
-      var insights = data.insights || [];
-      var campaigns = data.campaigns || [];
+      // 1. Busca métricas via Meta API direta
+      var result = getMetricsMeta(client.criativoAccountId, sinceStr, untilStr);
+      var t        = result.totals    || {};
+      var campaigns = result.campaigns || [];
 
-      var spend = insights.reduce(function(s, i) { return s + (parseFloat(i.spend) || 0); }, 0);
+      var spend = t.spend || 0;
       if (spend === 0) return; // Sem dados, pula
 
-      var impressions = insights.reduce(function(s, i) { return s + (parseInt(i.impressions) || 0); }, 0);
-      var clicks = insights.reduce(function(s, i) { return s + (parseInt(i.clicks) || 0); }, 0);
-      var reach = insights.reduce(function(s, i) { return s + (parseInt(i.reach) || 0); }, 0);
-      var ctr = impressions > 0 ? ((clicks / impressions) * 100).toFixed(2) : '0';
-      var cpm = impressions > 0 ? ((spend / impressions) * 1000).toFixed(2) : '0';
-      var cpc = clicks > 0 ? (spend / clicks).toFixed(2) : '0';
+      var impressions = t.impressions || 0;
+      var clicks      = t.clicks      || 0;
+      var reach       = t.reach       || 0;
+      var ctr         = t.ctr         > 0 ? t.ctr.toFixed(2)  : '0';
+      var cpm         = t.cpm         > 0 ? t.cpm.toFixed(2)  : '0';
+      var cpc         = t.cpc         > 0 ? t.cpc.toFixed(2)  : '0';
 
       var extraMetrics = '';
       var clientType = client.clientType || 'lead';
 
       if (clientType === 'ecommerce') {
-        var purchases = insights.reduce(function(s, i) {
-          var acts = i.actions || [];
-          var p = acts.find(function(a) { return a.action_type === 'offsite_conversion.fb_pixel_purchase'; });
-          return s + (p ? parseFloat(p.value) : 0);
-        }, 0);
-        var revenue = insights.reduce(function(s, i) {
-          var vals = i.action_values || [];
-          var r = vals.find(function(a) { return a.action_type === 'offsite_conversion.fb_pixel_purchase'; });
-          return s + (r ? parseFloat(r.value) : 0);
-        }, 0);
-        var roas = spend > 0 ? (revenue / spend).toFixed(2) : '0';
+        var purchases = t.purchases    || 0;
+        var revenue   = t.purchaseValue || 0;
+        var roas      = t.roas          > 0 ? t.roas.toFixed(2) : '0';
         extraMetrics = '\n- Compras: ' + purchases + '\n- Receita: R$' + revenue.toFixed(2) + '\n- ROAS: ' + roas + 'x';
       } else {
-        var leads = insights.reduce(function(s, i) {
-          var acts = i.actions || [];
-          var l = acts.find(function(a) { return a.action_type === 'lead' || a.action_type === 'onsite_conversion.messaging_conversation_started_7d'; });
-          return s + (l ? parseInt(l.value) : 0);
-        }, 0);
-        var cpl = leads > 0 ? (spend / leads).toFixed(2) : '0';
+        var leads = t.leads || t.messages || 0;
+        var cpl   = leads > 0 ? (spend / leads).toFixed(2) : '0';
         extraMetrics = '\n- Leads/Mensagens: ' + leads + '\n- CPL: R$' + cpl;
       }
 
@@ -1373,11 +1257,9 @@ function resetBackfill() {
 }
 
 function backfillMetrics() {
+  // Migrado para Meta API direta (sem Criativivo)
   var DAYS_BACK  = 180;   // quantos dias de histórico buscar
   var MAX_ROWS   = 80;    // linhas máximas por execução (segurança de tempo)
-
-  var criativoToken = PropertiesService.getScriptProperties().getProperty('CRIATIVIVO_TOKEN');
-  if (!criativoToken) { Logger.log('CRIATIVIVO_TOKEN não configurado'); return; }
 
   var clients = sheetToObjects(getSheet('clients')).filter(function(c) {
     return c.criativoAccountId && c.cancelado !== true && c.cancelado !== 'TRUE' && c.cancelado !== 'true';
@@ -1411,7 +1293,6 @@ function backfillMetrics() {
   }
 
   var rows = 0;
-  var done = false;
 
   outer:
   for (var di = dayIdx; di < dates.length; di++) {
@@ -1422,17 +1303,11 @@ function backfillMetrics() {
 
       if (!existing[key]) {
         try {
-          var url = 'https://criativivo.com.br/api/meta/campaigns?account_id=' + client.criativoAccountId +
-                    '&since=' + dateStr + '&until=' + dateStr;
-          var resp = UrlFetchApp.fetch(url, {
-            headers: { 'Authorization': 'Bearer ' + criativoToken },
-            muteHttpExceptions: true
-          });
-          var json = JSON.parse(resp.getContentText());
+          var result = getMetricsMeta(client.criativoAccountId, dateStr, dateStr);
           sh.appendRow([
             genId(), client.id, client.criativoAccountId, dateStr,
-            JSON.stringify(json.campaigns || []),
-            JSON.stringify(json.insights  || []),
+            JSON.stringify(result.campaigns || []),
+            JSON.stringify(result.insights  || []),
             new Date().toISOString()
           ]);
           rows++;
@@ -1477,7 +1352,7 @@ function backfillMetrics() {
 // 8. weeklyAiAnalysis       → Gatilho de tempo → Semanal → Segunda → 6h-7h
 //
 // Propriedades do Script (configurar em Configurações do projeto > Propriedades):
-// - CRIATIVIVO_TOKEN: seu token da API Criativivo (regenere se foi exposto)
+// - META_TOKEN: token de acesso Meta (Business Manager) — NUNCA comitar no GitHub
 // - WHATSAPP_MANAGER: número do gestor para receber relatórios (ex: 5541999999999)
 // - CLAUDE_API_KEY: sua chave da API Claude/Anthropic (regenere se foi exposta)
 

@@ -496,10 +496,10 @@ function ClientTab({ period, customStart, customEnd, refreshKey }) {
       <div style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Cliente</div>
         <select value={selectedClientId} onChange={e => { setSelectedClientId(e.target.value); setData(null) }}
-          style={{ width: '100%', background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', color: 'var(--text)', fontSize: 13 }}>
-          <option value="">Selecionar cliente...</option>
+          style={{ width: '100%', background: '#141414', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', color: '#fff', fontSize: 13, colorScheme: 'dark', cursor: 'pointer' }}>
+          <option value="" style={{ background: '#141414', color: '#888' }}>Selecionar cliente...</option>
           {clientsWithMeta.map(c => (
-            <option key={c.id} value={c.id}>
+            <option key={c.id} value={c.id} style={{ background: '#141414', color: '#fff' }}>
               {c.name} {c.clientType === 'ecommerce' ? '🛒' : c.clientType === 'lead' ? '📲' : ''}
             </option>
           ))}
