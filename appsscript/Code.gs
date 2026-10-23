@@ -30,6 +30,7 @@ function doGet(e) {
       out = getAllAccountsMetricsMeta(p.startDate, p.endDate);
     }
     else if (action === 'getMetaAccounts') out = getMetaAccounts();
+    else if (action === 'getMetaStatus')   out = getMetaStatus();
     else if (action === 'getAiInsights') out = getAiInsights();
     else if (action === 'getCriativoAccounts') out = getCriativoAccounts();
     else out = { error: 'Unknown action: ' + action };
@@ -1342,14 +1343,15 @@ function backfillMetrics() {
 // ===================== TRIGGERS - GUIA DE CONFIGURAÇÃO =====================
 // Configure os triggers em: Apps Script > Gatilhos (ícone do relógio)
 //
-// 1. collectDailyMetrics    → Gatilho de tempo → Diário → 2h-3h
-// 2. sendDailyReport        → Gatilho de tempo → Diário → 8h-9h
-// 3. sendWeeklyReport       → Gatilho de tempo → Semanal → Segunda → 9h-10h
-// 4. sendSnapshotNoon       → Gatilho de tempo → Diário → 12h-13h
-// 5. sendSnapshotEvening    → Gatilho de tempo → Diário → 17h-18h
-// 6. checkBalanceAndStatus  → Gatilho de tempo → Diário → 10h-11h
-// 7. runClientFeedback      → Gatilho de tempo → Diário → 10h-11h
-// 8. weeklyAiAnalysis       → Gatilho de tempo → Semanal → Segunda → 6h-7h
+// 1. collectDailyMetrics      → Gatilho de tempo → Diário → 2h-3h
+// 2. sendDailyReport          → Gatilho de tempo → Diário → 8h-9h
+// 3. sendWeeklyReport         → Gatilho de tempo → Semanal → Segunda → 9h-10h
+// 4. sendSnapshotNoon         → Gatilho de tempo → Diário → 12h-13h
+// 5. sendSnapshotEvening      → Gatilho de tempo → Diário → 17h-18h
+// 6. checkBalanceAndStatus    → Gatilho de tempo → Diário → 10h-11h
+// 7. runClientFeedback        → Gatilho de tempo → Diário → 10h-11h
+// 8. weeklyAiAnalysis         → Gatilho de tempo → Semanal → Segunda → 6h-7h
+// 9. checkMetaAccountsHourly → Gatilho de tempo → A cada hora (toda hora)
 //
 // Propriedades do Script (configurar em Configurações do projeto > Propriedades):
 // - META_TOKEN: token de acesso Meta (Business Manager) — NUNCA comitar no GitHub

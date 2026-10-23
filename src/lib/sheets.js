@@ -328,6 +328,21 @@ export async function fetchMetricsHistory(clientId) {
   }
 }
 
+// ---- META STATUS (monitoramento horário de saldo/campanhas) ----
+
+export async function fetchMetaStatus() {
+  try {
+    const url = `${SCRIPT_URL}?action=getMetaStatus`
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`Script error: ${res.status}`)
+    const json = await res.json()
+    return json.status || []
+  } catch (e) {
+    console.error('fetchMetaStatus error:', e)
+    return []
+  }
+}
+
 // ---- AI INSIGHTS ----
 
 export async function saveAiInsight(clientId, insight, period) {

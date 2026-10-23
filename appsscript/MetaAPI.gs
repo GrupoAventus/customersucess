@@ -403,3 +403,124 @@ function getAllAccountsMetricsMeta(startDate, endDate) {
     return { error: 'Erro getAllAccountsMetricsMeta: ' + err.message };
   }
 }
+
+// ─── checkMetaAccountsHourly ─────────────────────────────────
+// Roda a cada 1 hora via trigger.
+// Para cada cliente com criativoAccountId:
+//   1. Verifica se há campanhas ativas (status=ACTIVE) na conta Meta
+//   2. Busca saldo real da conta via Meta API
+//   3. Se sem campanha ativa → move Kanban para "Anúncios pausados"
+//   4. Se saldo < R$50 → envia alerta WhatsApp no grupo do cliente
+//   5. Salva resultado em meta_status (aba do Sheets) para o frontend exibir badges
+function checkMetaAccountsHourly() {
+  var token = PropertiesService.getScriptProperties().getProperty('META_TOKEN');
+  if (!token) { Logger.log('META_TOKEN não configurado'); return; }
+
+  var clients = sheetToObjects(getSheet('clients')).filter(function(c) {
+    return c.criativoAccountId && c.cancelado !== true && c.cancelado !== 'TRUE';
+  });
+
+  if (clients.length === 0) { Logger.log('Nenhum cliente com conta Meta vinculada'); return; }
+
+  // Garante aba meta_status com cabeçalho
+  var sh = getSheet('meta_status');
+  if (sh.getLastRow() === 0) {
+    sh.appendRow(['clientId', 'accountId', 'balance', 'activeCampaigns', 'lowBalance', 'updatedAt']);
+  }
+
+  // Monta mapa clientId → linha existente para upsert
+  var statusMap = {};
+  var lastRow = sh.getLastRow();
+  if (lastRow > 1) {
+    var rows = sh.getRange(2, 1, lastRow - 1, 6).getValues();
+    rows.forEach(function(r, i) { statusMap[String(r[0])] = i + 2; }); // row number (1-indexed)
+  }
+
+  var movedToPA = 0;
+  var lowBalanceAlerts = 0;
+
+  clients.forEach(function(client) {
+    try {
+      var actId = String(client.criativoAccountId).replace(/^act_/i, '');
+      var acctParam = 'act_' + actId;
+
+      // 1. Campanhas ativas
+      var campUrl = META_API_BASE + '/' + acctParam + '/campaigns'
+        + '?fields=id,name,status,effective_status'
+        + '&effective_status=[%22ACTIVE%22]'
+        + '&limit=50'
+        + '&access_token=' + token;
+
+      var campJson = metaGet_(campUrl);
+      var activeCampaigns = (campJson.data || []).length;
+
+      // 2. Saldo da conta (em centavos → converter para reais)
+      var acctUrl = META_API_BASE + '/' + acctParam
+        + '?fields=balance,amount_spent,currency,account_status'
+        + '&access_token=' + token;
+      var acctJson = metaGet_(acctUrl);
+      // balance vem em centavos da moeda da conta (BRL)
+      var balanceCents = parseFloat(acctJson.balance) || 0;
+      var balance      = balanceCents / 100; // converte para reais
+
+      var lowBalance = balance < 50;
+
+      // 3. Atualiza Kanban se sem campanha ativa e cliente estava em "Campanha ativa"
+      var currentStatus = String(client.status || '');
+      if (activeCampaigns === 0 && currentStatus === 'Campanha ativa') {
+        updateClientStatus({ id: client.id, status: 'Anúncios pausados' });
+        Logger.log('[MONITOR] ' + client.name + ' → sem campanhas ativas → movido para "Anúncios pausados"');
+        movedToPA++;
+      }
+
+      // 4. Alerta WhatsApp se saldo baixo
+      if (lowBalance && client.whatsappGroup) {
+        var msg = '⚠️ *Alerta de Saldo Baixo — AventusCS_*\n\n' +
+          '📉 Saldo da conta Meta: *R$' + balance.toFixed(2) + '*\n' +
+          '💡 Saldo abaixo de R$50 — verifique a recarga!\n\n' +
+          '_Monitoramento automático AventusCS_';
+        sendWhatsApp(client.whatsappGroup, msg);
+        lowBalanceAlerts++;
+        Logger.log('[MONITOR] ' + client.name + ' → saldo R$' + balance.toFixed(2) + ' → alerta enviado');
+      }
+
+      // 5. Upsert na aba meta_status
+      var now = new Date().toISOString();
+      var rowData = [client.id, client.criativoAccountId, balance.toFixed(2), activeCampaigns, lowBalance, now];
+
+      if (statusMap[client.id]) {
+        sh.getRange(statusMap[client.id], 1, 1, 6).setValues([rowData]);
+      } else {
+        sh.appendRow(rowData);
+        statusMap[client.id] = sh.getLastRow();
+      }
+
+    } catch(err) {
+      Logger.log('[MONITOR] Erro em ' + client.name + ': ' + err.message);
+    }
+  });
+
+  Logger.log('[MONITOR] Concluído: ' + movedToPA + ' movidos para PA, ' + lowBalanceAlerts + ' alertas de saldo');
+}
+
+// ─── getMetaStatus ───────────────────────────────────────────
+// Retorna o último status de saldo/campanhas salvo pela verificação horária.
+// Usado pelo frontend para exibir badges nos cards.
+function getMetaStatus() {
+  var sh = getSheet('meta_status');
+  if (sh.getLastRow() <= 1) return { status: [] };
+
+  var rows = sheetToObjects(sh);
+  return {
+    status: rows.map(function(r) {
+      return {
+        clientId:        String(r.clientId || ''),
+        accountId:       String(r.accountId || ''),
+        balance:         parseFloat(r.balance) || 0,
+        activeCampaigns: parseInt(r.activeCampaigns) || 0,
+        lowBalance:      r.lowBalance === true || r.lowBalance === 'TRUE' || r.lowBalance === 'true',
+        updatedAt:       String(r.updatedAt || '')
+      };
+    })
+  };
+}
