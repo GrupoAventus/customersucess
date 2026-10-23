@@ -1197,6 +1197,25 @@ function getCriativoAccounts() {
   return getMetaAccounts();
 }
 
+// ===================== META STATUS (cópia direta para garantir disponibilidade) =====================
+function getMetaStatus() {
+  var sh = getSheet('meta_status');
+  if (sh.getLastRow() <= 1) return { status: [] };
+  var rows = sheetToObjects(sh);
+  return {
+    status: rows.map(function(r) {
+      return {
+        clientId:        String(r.clientId || ''),
+        accountId:       String(r.accountId || ''),
+        balance:         parseFloat(r.balance) || 0,
+        activeCampaigns: parseInt(r.activeCampaigns) || 0,
+        lowBalance:      r.lowBalance === true || r.lowBalance === 'TRUE' || r.lowBalance === 'true',
+        updatedAt:       String(r.updatedAt || '')
+      };
+    })
+  };
+}
+
 // ===================== AI INSIGHTS SEMANAL (Fase C) =====================
 // Roda toda segunda-feira e gera análise automática para todos os clientes
 
