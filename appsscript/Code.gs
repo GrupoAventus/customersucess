@@ -1280,3 +1280,22 @@ function backfillMetrics() {
 // - CRIATIVIVO_TOKEN: seu token da API Criativivo (regenere se foi exposto)
 // - WHATSAPP_MANAGER: número do gestor para receber relatórios (ex: 5541999999999)
 // - CLAUDE_API_KEY: sua chave da API Claude/Anthropic (regenere se foi exposta)
+
+// ===================== TESTE DETRICS =====================
+function testePROFFLEX() {
+  var r = getMetrics('PROFFLEX', '2026-10-01', '2026-10-23');
+  Logger.log(JSON.stringify(r));
+}
+
+function testeListaContas() {
+  // Lista todos os Account Names únicos na planilha Detrics
+  var ss = SpreadsheetApp.openById(DETRICS_SHEET_ID);
+  var sh = ss.getSheetByName(DETRICS_SHEET_NAME);
+  var data = sh.getDataRange().getValues();
+  var contas = {};
+  for (var i = 1; i < data.length; i++) {
+    var nome = String(data[i][2] || '').trim();
+    if (nome) contas[nome] = true;
+  }
+  Logger.log('Contas encontradas no Detrics: ' + JSON.stringify(Object.keys(contas)));
+}
