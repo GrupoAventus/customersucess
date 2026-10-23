@@ -122,21 +122,42 @@ export default function PredictiveAI() {
   const { clients } = useApp()
   const [insights, setInsights] = useState([])
   const [loading, setLoading] = useState(true)
+  const [running, setRunning] = useState(false)
+  const [runResult, setRunResult] = useState(null)
   const [filter, setFilter] = useState('all') // all | alert | noalert
 
+  async function loadInsights() {
+    try {
+      const res = await fetch(`${SCRIPT_URL}?action=getPredictiveInsights`)
+      const json = await res.json()
+      setInsights(json.insights || [])
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
   useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch(`${SCRIPT_URL}?action=getPredictiveInsights`)
-        const json = await res.json()
-        setInsights(json.insights || [])
-      } catch (e) {
-        console.error(e)
-      }
+    async function init() {
+      await loadInsights()
       setLoading(false)
     }
-    load()
+    init()
   }, [])
+
+  async function handleRunNow() {
+    setRunning(true)
+    setRunResult(null)
+    try {
+      const res = await fetch(`${SCRIPT_URL}?action=runPredictiveAINow`)
+      const json = await res.json()
+      setRunResult(json)
+      // Recarrega os insights após rodar
+      await loadInsights()
+    } catch (e) {
+      setRunResult({ error: 'Erro ao conectar com o servidor.' })
+    }
+    setRunning(false)
+  }
 
   const clientMap = Object.fromEntries(clients.map(c => [c.id, c]))
 
@@ -168,19 +189,65 @@ export default function PredictiveAI() {
     <div style={{ padding: '2rem', maxWidth: 900, margin: '0 auto' }}>
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-          <span style={{ fontSize: 22 }}>🧠</span>
-          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>IA Preditiva</h1>
-          {alertCount > 0 && (
-            <span style={{ background: 'var(--red)', color: '#fff', fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>
-              {alertCount} alerta{alertCount > 1 ? 's' : ''}
-            </span>
-          )}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 22 }}>🧠</span>
+            <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>IA Preditiva</h1>
+            {alertCount > 0 && (
+              <span style={{ background: 'var(--red)', color: '#fff', fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>
+                {alertCount} alerta{alertCount > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={handleRunNow}
+            disabled={running}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: running ? '#444' : 'var(--orange)',
+              color: '#fff', border: 'none', borderRadius: 10,
+              fontSize: 13, fontWeight: 700, padding: '8px 16px',
+              cursor: running ? 'not-allowed' : 'pointer',
+              opacity: running ? 0.7 : 1,
+              transition: 'opacity 0.2s',
+            }}
+          >
+            {running ? (
+              <>
+                <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⏳</span>
+                Gerando previsões...
+              </>
+            ) : (
+              <>🧠 Gerar agora</>
+            )}
+          </button>
         </div>
         <p style={{ fontSize: 13, color: '#666', margin: 0 }}>
           Previsões geradas toda segunda-feira com base em padrões históricos de todos os clientes.
         </p>
+
+        {/* Resultado do run manual */}
+        {runResult && (
+          <div style={{
+            marginTop: 12,
+            padding: '10px 14px',
+            borderRadius: 10,
+            fontSize: 13,
+            background: runResult.error ? 'rgba(226,75,74,0.1)' : 'rgba(99,153,34,0.1)',
+            border: `1px solid ${runResult.error ? 'var(--red)' : 'var(--green)'}`,
+            color: runResult.error ? 'var(--red)' : 'var(--green)',
+          }}>
+            {runResult.error
+              ? `❌ ${runResult.error}`
+              : `✅ Previsões geradas! ${runResult.processed}/${runResult.total} clientes processados.${runResult.errors?.length ? ` (${runResult.errors.length} com erro)` : ''}`
+            }
+          </div>
+        )}
       </div>
+
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      `}</style>
 
       {/* Filtros */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>

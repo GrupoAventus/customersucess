@@ -708,6 +708,136 @@ function runPredictiveAI() {
   Logger.log('[PredictiveAI] Concluído para ' + clients.length + ' clientes');
 }
 
+// ─── runPredictiveAINow ──────────────────────────────────────
+// Versão manual do runPredictiveAI, sem verificação de dia da semana.
+// Acionada pelo botão "Gerar agora" no CRM.
+function runPredictiveAINow() {
+  var claudeApiKey = PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY');
+  if (!claudeApiKey) return { error: 'CLAUDE_API_KEY não configurada nas propriedades do script.' };
+
+  var token = PropertiesService.getScriptProperties().getProperty('META_TOKEN');
+  if (!token) return { error: 'META_TOKEN não configurado nas propriedades do script.' };
+
+  var clients = sheetToObjects(getSheet('clients')).filter(function(c) {
+    return c.criativoAccountId && !c.cancelado && c.cancelado !== 'TRUE';
+  });
+
+  if (clients.length === 0) return { error: 'Nenhum cliente com conta Meta vinculada.' };
+
+  function dateStr(daysAgo) {
+    var d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    return d.toISOString().slice(0, 10);
+  }
+  var today7  = dateStr(7);
+  var today14 = dateStr(14);
+  var today30 = dateStr(30);
+  var todayStr = dateStr(0);
+
+  var allInsights = sheetToObjects(getSheet('ai_insights'))
+    .filter(function(r) { return r.period === 'predictive'; })
+    .map(function(r) {
+      return '[' + (r.createdAt || '').slice(0,10) + '] ' + (r.clientId || '') + ': ' + (r.insight || '').slice(0, 300);
+    });
+  var historicalPatterns = allInsights.length > 0
+    ? allInsights.slice(-30).join('\n')
+    : 'Nenhum histórico disponível ainda (primeira execução).';
+
+  var sh = getSheet('ai_insights');
+  if (sh.getLastRow() === 0) {
+    sh.appendRow(['id', 'clientId', 'period', 'insight', 'createdAt']);
+  }
+
+  var processed = 0;
+  var errors = [];
+
+  clients.forEach(function(client) {
+    try {
+      var m7  = getMetricsMeta(client.criativoAccountId, today7,  todayStr);
+      var m14 = getMetricsMeta(client.criativoAccountId, today14, todayStr);
+      var m30 = getMetricsMeta(client.criativoAccountId, today30, todayStr);
+
+      function fmtMetrics(m) {
+        if (m.error) return 'Erro: ' + m.error;
+        var t = m.totals || {};
+        var clientType = String(client.clientType || 'lead');
+        if (clientType === 'ecommerce') {
+          return 'Gasto: R$' + t.spend + ' | Impressões: ' + t.impressions + ' | Cliques: ' + t.clicks +
+            ' | CTR: ' + t.ctr + '% | CPM: R$' + t.cpm + ' | Compras: ' + t.purchases +
+            ' | Receita: R$' + t.purchaseValue + ' | ROAS: ' + t.roas + ' | CPA: R$' + t.cpa +
+            ' | Alcance: ' + t.reach + ' | Frequência: ' + t.frequency;
+        } else {
+          return 'Gasto: R$' + t.spend + ' | Impressões: ' + t.impressions + ' | Cliques: ' + t.clicks +
+            ' | CTR: ' + t.ctr + '% | CPM: R$' + t.cpm + ' | Leads: ' + t.leads +
+            ' | Mensagens: ' + t.messages + ' | CPA: R$' + t.cpa +
+            ' | Alcance: ' + t.reach + ' | Frequência: ' + t.frequency;
+        }
+      }
+
+      var campaigns = (m7.campaigns || []).map(function(c) { return c.name; }).join(', ') || 'Nenhuma';
+      var activeCampaigns = (m7.campaigns || []).filter(function(c) { return c.status === 'ACTIVE'; }).length;
+
+      var prompt =
+        'Você é um sistema de inteligência preditiva especializado em performance de mídia paga (Meta Ads).\n' +
+        'Seu objetivo é identificar padrões históricos e prever com precisão o que vai acontecer nos próximos 3 a 7 dias.\n\n' +
+        '## DADOS DO CLIENTE ATUAL\n' +
+        'Nome: ' + client.name + '\n' +
+        'Tipo: ' + (client.clientType === 'ecommerce' ? 'E-commerce' : 'Geração de leads/mensagens') + '\n' +
+        'Conta Meta: ' + client.criativoAccountId + '\n' +
+        'Campanhas ativas: ' + activeCampaigns + ' | Nomes: ' + campaigns + '\n\n' +
+        '## MÉTRICAS ATUAIS (últimos 7 dias)\n' + fmtMetrics(m7) + '\n\n' +
+        '## MÉTRICAS DOS ÚLTIMOS 14 DIAS\n' + fmtMetrics(m14) + '\n\n' +
+        '## MÉTRICAS DOS ÚLTIMOS 30 DIAS\n' + fmtMetrics(m30) + '\n\n' +
+        '## HISTÓRICO DE PADRÕES\n' + historicalPatterns + '\n\n---\n\n' +
+        '## FORMATO DE RESPOSTA (sempre nesse formato exato):\n\n' +
+        'PADRÃO IDENTIFICADO: [nome do padrão em 1 linha]\n' +
+        'SIMILARIDADE HISTÓRICA: [quando e onde esse padrão apareceu antes, e o que aconteceu depois]\n' +
+        'PREVISÃO 3 DIAS: [o que vai acontecer]\n' +
+        'PREVISÃO 7 DIAS: [o que vai acontecer]\n' +
+        'CONFIANÇA: [baixo/médio/alto] — [justificativa em 1 linha]\n' +
+        '⚠️ ALERTA: [se houver, descreva — caso contrário escreva "Nenhum"]\n' +
+        'AÇÃO AGORA: [ação específica com prazo]';
+
+      var claudeResp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': claudeApiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        payload: JSON.stringify({
+          model: 'claude-haiku-4-5',
+          max_tokens: 800,
+          messages: [{ role: 'user', content: prompt }]
+        }),
+        muteHttpExceptions: true
+      });
+
+      var claudeData = JSON.parse(claudeResp.getContentText());
+      var insightText = (claudeData.content && claudeData.content[0]) ? claudeData.content[0].text : '';
+
+      if (insightText) {
+        sh.appendRow([genId(), client.id, 'predictive', insightText, new Date().toISOString()]);
+        processed++;
+        Logger.log('[PredictiveAI Manual] Previsão salva para ' + client.name);
+      }
+
+      Utilities.sleep(1000); // evita rate limit
+
+    } catch(err) {
+      errors.push(client.name + ': ' + err.message);
+      Logger.log('[PredictiveAI Manual] Erro em ' + client.name + ': ' + err.message);
+    }
+  });
+
+  return {
+    ok: true,
+    processed: processed,
+    total: clients.length,
+    errors: errors
+  };
+}
+
 // ─── getPredictiveInsights ────────────────────────────────────
 // Retorna as últimas previsões preditivas de todos os clientes
 function getPredictiveInsights() {
