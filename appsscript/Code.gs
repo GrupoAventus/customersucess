@@ -932,19 +932,19 @@ function sendDailyReport() {
       var result = getMetricsMeta(client.criativoAccountId, yesterdayStr, yesterdayStr);
       var t = result.totals || {};
 
-      var spend      = t.spend       || 0;
-      var impressions = t.impressions || 0;
-      var clicks     = t.clicks      || 0;
+      var spend      = parseFloat(t.spend)       || 0;
+      var impressions = parseFloat(t.impressions) || 0;
+      var clicks     = parseFloat(t.clicks)      || 0;
 
       var clientType = client.clientType || 'lead';
       var extraLine  = '';
 
       if (clientType === 'ecommerce') {
-        var purchases = t.purchases    || 0;
-        var roas      = t.roas         || 0;
+        var purchases = parseFloat(t.purchases)    || 0;
+        var roas      = parseFloat(t.roas)         || 0;
         extraLine = '🛒 Compras: ' + purchases + ' | ROAS: ' + roas.toFixed(2) + 'x';
       } else {
-        var leads = t.leads || t.messages || 0;
+        var leads = parseFloat(t.leads || t.messages) || 0;
         var cpl   = leads > 0 ? 'R$' + (spend / leads).toFixed(2) : '—';
         extraLine = '📲 Leads: ' + leads + ' | CPL: ' + cpl;
       }
@@ -1006,21 +1006,22 @@ function sendWeeklyReport() {
       var result = getMetricsMeta(client.criativoAccountId, sinceStr, untilStr);
       var t = result.totals || {};
 
-      var spend       = t.spend       || 0;
-      var impressions = t.impressions  || 0;
-      var clicks      = t.clicks       || 0;
-      var reach       = t.reach        || 0;
-      var ctr         = t.ctr          > 0 ? t.ctr.toFixed(2) + '%' : '—';
+      var spend       = parseFloat(t.spend)       || 0;
+      var impressions = parseFloat(t.impressions)  || 0;
+      var clicks      = parseFloat(t.clicks)       || 0;
+      var reach       = parseFloat(t.reach)        || 0;
+      var ctrRaw      = parseFloat(t.ctr)          || 0;
+      var ctr         = ctrRaw > 0 ? ctrRaw.toFixed(2) + '%' : '—';
 
       var clientType = client.clientType || 'lead';
       var extraLine  = '';
 
       if (clientType === 'ecommerce') {
-        var purchases = t.purchases || 0;
-        var roas      = t.roas      || 0;
+        var purchases = parseFloat(t.purchases) || 0;
+        var roas      = parseFloat(t.roas)      || 0;
         extraLine = '🛒 Compras: ' + purchases + ' | ROAS: ' + roas.toFixed(2) + 'x';
       } else {
-        var leads = t.leads || t.messages || 0;
+        var leads = parseFloat(t.leads || t.messages) || 0;
         var cpl   = leads > 0 ? 'R$' + (spend / leads).toFixed(2) : '—';
         extraLine = '📲 Leads: ' + leads + ' | CPL: ' + cpl;
       }
@@ -1078,19 +1079,19 @@ function sendSnapshot(period) {
       var result = getMetricsMeta(client.criativoAccountId, today, today);
       var t = result.totals || {};
 
-      var spend       = t.spend       || 0;
-      var impressions = t.impressions  || 0;
-      var clicks      = t.clicks       || 0;
+      var spend       = parseFloat(t.spend)       || 0;
+      var impressions = parseFloat(t.impressions)  || 0;
+      var clicks      = parseFloat(t.clicks)       || 0;
 
       var clientType = client.clientType || 'lead';
       var extraLine  = '';
 
       if (clientType === 'ecommerce') {
-        var purchases = t.purchases || 0;
-        var roas      = t.roas      || 0;
+        var purchases = parseFloat(t.purchases) || 0;
+        var roas      = parseFloat(t.roas)      || 0;
         extraLine = '🛒 Compras: ' + purchases + ' | ROAS: ' + roas.toFixed(2) + 'x';
       } else {
-        var leads = t.leads || t.messages || 0;
+        var leads = parseFloat(t.leads || t.messages) || 0;
         var cpl   = leads > 0 ? 'R$' + (spend / leads).toFixed(2) : '—';
         extraLine = '📲 Leads: ' + leads + ' | CPL: ' + cpl;
       }
@@ -1211,26 +1212,30 @@ function weeklyAiAnalysis() {
       var t        = result.totals    || {};
       var campaigns = result.campaigns || [];
 
-      var spend = t.spend || 0;
+      var spend = parseFloat(t.spend) || 0;
       if (spend === 0) return; // Sem dados, pula
 
-      var impressions = t.impressions || 0;
-      var clicks      = t.clicks      || 0;
-      var reach       = t.reach       || 0;
-      var ctr         = t.ctr         > 0 ? t.ctr.toFixed(2)  : '0';
-      var cpm         = t.cpm         > 0 ? t.cpm.toFixed(2)  : '0';
-      var cpc         = t.cpc         > 0 ? t.cpc.toFixed(2)  : '0';
+      var impressions = parseFloat(t.impressions) || 0;
+      var clicks      = parseFloat(t.clicks)      || 0;
+      var reach       = parseFloat(t.reach)       || 0;
+      var ctrRaw2     = parseFloat(t.ctr)         || 0;
+      var cpmRaw      = parseFloat(t.cpm)         || 0;
+      var cpcRaw      = parseFloat(t.cpc)         || 0;
+      var ctr         = ctrRaw2 > 0 ? ctrRaw2.toFixed(2) : '0';
+      var cpm         = cpmRaw  > 0 ? cpmRaw.toFixed(2)  : '0';
+      var cpc         = cpcRaw  > 0 ? cpcRaw.toFixed(2)  : '0';
 
       var extraMetrics = '';
       var clientType = client.clientType || 'lead';
 
       if (clientType === 'ecommerce') {
-        var purchases = t.purchases    || 0;
-        var revenue   = t.purchaseValue || 0;
-        var roas      = t.roas          > 0 ? t.roas.toFixed(2) : '0';
+        var purchases = parseFloat(t.purchases)    || 0;
+        var revenue   = parseFloat(t.purchaseValue) || 0;
+        var roasRaw   = parseFloat(t.roas)          || 0;
+        var roas      = roasRaw > 0 ? roasRaw.toFixed(2) : '0';
         extraMetrics = '\n- Compras: ' + purchases + '\n- Receita: R$' + revenue.toFixed(2) + '\n- ROAS: ' + roas + 'x';
       } else {
-        var leads = t.leads || t.messages || 0;
+        var leads = parseFloat(t.leads || t.messages) || 0;
         var cpl   = leads > 0 ? (spend / leads).toFixed(2) : '0';
         extraMetrics = '\n- Leads/Mensagens: ' + leads + '\n- CPL: R$' + cpl;
       }
