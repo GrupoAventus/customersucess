@@ -905,15 +905,85 @@ function sendWhatsApp(number, message) {
   }
 }
 
+// ---- Helper: formata número como moeda BR ----
+function fmtBRL(val) {
+  return 'R$ ' + parseFloat(val || 0).toFixed(2).replace('.', ',');
+}
+function fmtNum(val) {
+  return parseFloat(val || 0).toLocaleString('pt-BR');
+}
+function fmtPct(val) {
+  return parseFloat(val || 0).toFixed(2).replace('.', ',') + '%';
+}
+
+// ---- Helper: monta o bloco de conversão de acordo com o tipo do cliente ----
+function buildConversionBlock(t, clientType, spend) {
+  clientType = clientType || 'lead';
+  var lines = [];
+  if (clientType === 'ecommerce') {
+    var purchases    = parseFloat(t.purchases || 0);
+    var purchaseVal  = parseFloat(t.purchaseValue || t.purchase_value || 0);
+    var roas         = parseFloat(t.roas || 0);
+    var cpa          = purchases > 0 ? spend / purchases : 0;
+    var reach        = parseFloat(t.reach || 0);
+    var addToCart    = parseFloat(t.addToCart || t.add_to_cart || 0);
+    var viewContent  = parseFloat(t.viewContent || t.view_content || 0);
+    var initCheckout = parseFloat(t.initiateCheckout || t.initiate_checkout || 0);
+    lines.push('🛒 *CONVERSÕES*');
+    lines.push('');
+    lines.push('💰 INVESTIMENTO');
+    lines.push(fmtBRL(spend) + ' investido');
+    lines.push('');
+    lines.push('🎯 RESULTADOS');
+    lines.push('- ' + purchases + ' compras = ' + fmtBRL(purchaseVal));
+    lines.push('- ROAS: ' + roas.toFixed(2).replace('.', ',') + 'x');
+    lines.push('- CPA: ' + fmtBRL(cpa));
+    lines.push('');
+    lines.push('📊 FUNIL COMPLETO');
+    lines.push('👁️ ' + fmtNum(reach) + ' pessoas alcançadas');
+    lines.push('👆 ' + fmtNum(parseFloat(t.clicks || 0)) + ' clicaram');
+    if (viewContent  > 0) lines.push('👀 ' + fmtNum(viewContent)  + ' visualizaram produtos');
+    if (addToCart    > 0) lines.push('🛒 ' + fmtNum(addToCart)    + ' adicionaram ao carrinho');
+    if (initCheckout > 0) lines.push('💳 ' + fmtNum(initCheckout) + ' iniciaram checkout');
+    lines.push('✅ ' + purchases + ' compraram');
+    lines.push('');
+    lines.push('💡 EFICIÊNCIA');
+    lines.push('- CTR: ' + fmtPct(t.ctr));
+    lines.push('- CPM: ' + fmtBRL(t.cpm));
+    lines.push('- CPC: ' + fmtBRL(t.cpc));
+  } else {
+    // lead / mensagem / conversão
+    var leads  = parseFloat(t.leads || t.messages || 0);
+    var cpl    = leads > 0 ? spend / leads : 0;
+    var reach2 = parseFloat(t.reach || 0);
+    lines.push('💬 *LEADS / MENSAGENS*');
+    lines.push('');
+    lines.push('💰 INVESTIMENTO');
+    lines.push(fmtBRL(spend) + ' investido');
+    lines.push('');
+    lines.push('🎯 RESULTADOS');
+    lines.push('- ' + leads + ' conversões');
+    lines.push('- Custo por resultado: ' + fmtBRL(cpl));
+    lines.push('');
+    lines.push('📊 ALCANCE');
+    lines.push('👁️ ' + fmtNum(reach2) + ' pessoas alcançadas');
+    lines.push('👆 ' + fmtNum(parseFloat(t.clicks || 0)) + ' cliques');
+    lines.push('');
+    lines.push('💡 EFICIÊNCIA');
+    lines.push('- CTR: ' + fmtPct(t.ctr));
+    lines.push('- CPM: ' + fmtBRL(t.cpm));
+    lines.push('- CPC: ' + fmtBRL(t.cpc));
+  }
+  return lines.join('\n');
+}
+
 function sendDailyReport() {
-  // Migrado para Meta API direta (sem Criativivo)
   var clients = sheetToObjects(getSheet('clients'));
   var today = new Date();
-  var dateDisplay = today.toLocaleDateString('pt-BR');
   var yesterday = new Date(today.getTime() - 86400000);
   var yesterdayStr = yesterday.toISOString().slice(0, 10);
+  var dateLabel = yesterday.toLocaleDateString('pt-BR') + ' - ' + yesterday.toLocaleDateString('pt-BR');
 
-  // Para cada cliente ativo com criativoAccountId E whatsappGroup, envia relatório individual no grupo dele
   var activeClients = clients.filter(function(c) {
     return c.status === 'Campanha ativa' &&
            c.criativoAccountId &&
@@ -931,36 +1001,21 @@ function sendDailyReport() {
     try {
       var result = getMetricsMeta(client.criativoAccountId, yesterdayStr, yesterdayStr);
       var t = result.totals || {};
+      var spend = parseFloat(t.spend) || 0;
 
-      var spend      = parseFloat(t.spend)       || 0;
-      var impressions = parseFloat(t.impressions) || 0;
-      var clicks     = parseFloat(t.clicks)      || 0;
+      var conversion = buildConversionBlock(t, client.clientType, spend);
 
-      var clientType = client.clientType || 'lead';
-      var extraLine  = '';
+      var message =
+        '📊 *Relatório Diário - ' + client.name + '*\n' +
+        '🔷 Meta Ads\n' +
+        '\n' +
+        '📅 Período: ' + dateLabel + '\n' +
+        '\n' +
+        conversion + '\n' +
+        '\n' +
+        'Obrigado por escolher a Aventus_';
 
-      if (clientType === 'ecommerce') {
-        var purchases = parseFloat(t.purchases)    || 0;
-        var roas      = parseFloat(t.roas)         || 0;
-        extraLine = '🛒 Compras: ' + purchases + ' | ROAS: ' + roas.toFixed(2) + 'x';
-      } else {
-        var leads = parseFloat(t.leads || t.messages) || 0;
-        var cpl   = leads > 0 ? 'R$' + (spend / leads).toFixed(2) : '—';
-        extraLine = '📲 Leads: ' + leads + ' | CPL: ' + cpl;
-      }
-
-      var lines = [
-        '📊 *Relatório Diário — ' + dateDisplay + '*',
-        '',
-        '💰 Gasto ontem: *R$' + spend.toFixed(2) + '*',
-        '👁 Impressões: ' + impressions.toLocaleString('pt-BR'),
-        '🖱 Cliques: ' + clicks
-      ];
-      if (extraLine) lines.push(extraLine);
-      lines.push('');
-      lines.push('_AventusCS_ · relatório automático_');
-
-      sendWhatsApp(client.whatsappGroup, lines.join('\n'));
+      sendWhatsApp(client.whatsappGroup, message);
       sent++;
     } catch(err) {
       Logger.log('Erro relatório diário ' + client.name + ': ' + err.message);
@@ -971,24 +1026,20 @@ function sendDailyReport() {
 }
 
 function sendWeeklyReport() {
-  // Migrado para Meta API direta (sem Criativivo)
   var today = new Date();
-  var dayOfWeek = today.getDay(); // 0=Dom, 1=Seg, ..., 6=Sab
+  var dayOfWeek = today.getDay();
   if (dayOfWeek !== 1) {
     Logger.log('Relatório semanal só roda às segundas-feiras');
     return;
   }
 
   var clients = sheetToObjects(getSheet('clients'));
-
-  // Última semana: segunda passada a domingo passado
   var lastMonday = new Date(today.getTime() - 7 * 86400000);
   var lastSunday = new Date(today.getTime() - 1 * 86400000);
   var sinceStr = lastMonday.toISOString().slice(0, 10);
   var untilStr = lastSunday.toISOString().slice(0, 10);
-  var periodLabel = lastMonday.toLocaleDateString('pt-BR') + ' a ' + lastSunday.toLocaleDateString('pt-BR');
+  var dateLabel = lastMonday.toLocaleDateString('pt-BR') + ' - ' + lastSunday.toLocaleDateString('pt-BR');
 
-  // Para cada cliente com criativoAccountId E whatsappGroup, envia relatório semanal individual no grupo dele
   var activeClients = clients.filter(function(c) {
     return c.criativoAccountId &&
            c.whatsappGroup &&
@@ -1005,42 +1056,21 @@ function sendWeeklyReport() {
     try {
       var result = getMetricsMeta(client.criativoAccountId, sinceStr, untilStr);
       var t = result.totals || {};
+      var spend = parseFloat(t.spend) || 0;
 
-      var spend       = parseFloat(t.spend)       || 0;
-      var impressions = parseFloat(t.impressions)  || 0;
-      var clicks      = parseFloat(t.clicks)       || 0;
-      var reach       = parseFloat(t.reach)        || 0;
-      var ctrRaw      = parseFloat(t.ctr)          || 0;
-      var ctr         = ctrRaw > 0 ? ctrRaw.toFixed(2) + '%' : '—';
+      var conversion = buildConversionBlock(t, client.clientType, spend);
 
-      var clientType = client.clientType || 'lead';
-      var extraLine  = '';
+      var message =
+        '📊 *Relatório Semanal - ' + client.name + '*\n' +
+        '🔷 Meta Ads\n' +
+        '\n' +
+        '📅 Período: ' + dateLabel + '\n' +
+        '\n' +
+        conversion + '\n' +
+        '\n' +
+        'Obrigado por escolher a Aventus_';
 
-      if (clientType === 'ecommerce') {
-        var purchases = parseFloat(t.purchases) || 0;
-        var roas      = parseFloat(t.roas)      || 0;
-        extraLine = '🛒 Compras: ' + purchases + ' | ROAS: ' + roas.toFixed(2) + 'x';
-      } else {
-        var leads = parseFloat(t.leads || t.messages) || 0;
-        var cpl   = leads > 0 ? 'R$' + (spend / leads).toFixed(2) : '—';
-        extraLine = '📲 Leads: ' + leads + ' | CPL: ' + cpl;
-      }
-
-      var lines = [
-        '📈 *Relatório Semanal*',
-        '_' + periodLabel + '_',
-        '',
-        '💰 Investimento: *R$' + spend.toFixed(2) + '*',
-        '👥 Alcance: ' + reach.toLocaleString('pt-BR'),
-        '👁 Impressões: ' + impressions.toLocaleString('pt-BR'),
-        '🖱 Cliques: ' + clicks + ' | CTR: ' + ctr
-      ];
-      if (extraLine) lines.push(extraLine);
-      lines.push('');
-      lines.push('Status: ' + (client.status || '—'));
-      lines.push('_AventusCS_ · relatório automático_');
-
-      sendWhatsApp(client.whatsappGroup, lines.join('\n'));
+      sendWhatsApp(client.whatsappGroup, message);
       sent++;
     } catch(err) {
       Logger.log('Erro relatório semanal ' + client.name + ': ' + err.message);
@@ -1059,11 +1089,11 @@ function sendSnapshotEvening() {
 }
 
 function sendSnapshot(period) {
-  // Migrado para Meta API direta (sem Criativivo)
   var clients = sheetToObjects(getSheet('clients'));
-  var today = new Date().toISOString().slice(0, 10);
+  var todayStr = new Date().toISOString().slice(0, 10);
+  var todayLabel = new Date().toLocaleDateString('pt-BR');
+  var periodTitle = period === 'meio-dia' ? '⚡ Snapshot Meio-dia' : '⚡ Snapshot Fim de Tarde';
 
-  // Para cada cliente ativo com criativoAccountId E whatsappGroup, envia snapshot individual no grupo dele
   var activeClients = clients.filter(function(c) {
     return c.status === 'Campanha ativa' &&
            c.criativoAccountId &&
@@ -1071,37 +1101,29 @@ function sendSnapshot(period) {
            c.cancelado !== true && c.cancelado !== 'TRUE';
   });
 
-  if (activeClients.length === 0) return;
+  if (activeClients.length === 0) {
+    Logger.log('Nenhum cliente ativo para snapshot');
+    return;
+  }
 
   var sent = 0;
   activeClients.forEach(function(client) {
     try {
-      var result = getMetricsMeta(client.criativoAccountId, today, today);
+      var result = getMetricsMeta(client.criativoAccountId, todayStr, todayStr);
       var t = result.totals || {};
+      var spend = parseFloat(t.spend) || 0;
 
-      var spend       = parseFloat(t.spend)       || 0;
-      var impressions = parseFloat(t.impressions)  || 0;
-      var clicks      = parseFloat(t.clicks)       || 0;
+      var conversion = buildConversionBlock(t, client.clientType, spend);
 
-      var clientType = client.clientType || 'lead';
-      var extraLine  = '';
-
-      if (clientType === 'ecommerce') {
-        var purchases = parseFloat(t.purchases) || 0;
-        var roas      = parseFloat(t.roas)      || 0;
-        extraLine = '🛒 Compras: ' + purchases + ' | ROAS: ' + roas.toFixed(2) + 'x';
-      } else {
-        var leads = parseFloat(t.leads || t.messages) || 0;
-        var cpl   = leads > 0 ? 'R$' + (spend / leads).toFixed(2) : '—';
-        extraLine = '📲 Leads: ' + leads + ' | CPL: ' + cpl;
-      }
-
-      var message = '⚡ *Snapshot ' + period + '*\n\n' +
-        '💰 Gasto hoje: *R$' + spend.toFixed(2) + '*\n' +
-        '👁 Impressões: ' + impressions.toLocaleString('pt-BR') + '\n' +
-        '🖱 Cliques: ' + clicks +
-        (extraLine ? '\n' + extraLine : '') + '\n\n' +
-        '_AventusCS_ · atualização automática_';
+      var message =
+        periodTitle + ' - ' + client.name + '\n' +
+        '🔷 Meta Ads\n' +
+        '\n' +
+        '📅 Período: ' + todayLabel + ' - ' + todayLabel + '\n' +
+        '\n' +
+        conversion + '\n' +
+        '\n' +
+        'Obrigado por escolher a Aventus_';
 
       sendWhatsApp(client.whatsappGroup, message);
       sent++;
