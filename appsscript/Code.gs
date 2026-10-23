@@ -155,9 +155,9 @@ function updateClientData(body) {
   sh.getRange(row, 12).setValue(body.ccSocial||'');
   sh.getRange(row, 25).setValue(body.whatsappGroup||'');
   sh.getRange(row, 26).setValue(body.whatsappGroupName||'');
-  // Novas colunas AB=27, AC=28 (0-indexed no appendRow, 1-indexed aqui)
-  sh.getRange(row, 27).setValue(body.criativoAccountId||'');
-  sh.getRange(row, 28).setValue(body.clientType||'');
+  // AB=28, AC=29 (1-indexed no getRange)
+  sh.getRange(row, 28).setValue(body.criativoAccountId||'');
+  sh.getRange(row, 29).setValue(body.clientType||'');
   return { ok: true };
 }
 
