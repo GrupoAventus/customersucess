@@ -524,3 +524,218 @@ function getMetaStatus() {
     })
   };
 }
+
+// ─── runPredictiveAI ─────────────────────────────────────────
+// Roda toda segunda-feira via trigger.
+// Para cada cliente com conta Meta vinculada:
+//   1. Busca métricas dos últimos 7, 14 e 30 dias via Meta API
+//   2. Busca histórico de previsões de todos os clientes (padrões anteriores)
+//   3. Chama Claude com prompt preditivo avançado
+//   4. Salva previsão na aba ai_insights com period='predictive'
+function runPredictiveAI() {
+  var today = new Date();
+  if (today.getDay() !== 1) {
+    Logger.log('[PredictiveAI] Só roda às segundas-feiras');
+    return;
+  }
+
+  var claudeApiKey = PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY');
+  if (!claudeApiKey) { Logger.log('[PredictiveAI] CLAUDE_API_KEY não configurada'); return; }
+
+  var token = PropertiesService.getScriptProperties().getProperty('META_TOKEN');
+  if (!token) { Logger.log('[PredictiveAI] META_TOKEN não configurado'); return; }
+
+  var clients = sheetToObjects(getSheet('clients')).filter(function(c) {
+    return c.criativoAccountId && !c.cancelado && c.cancelado !== 'TRUE';
+  });
+
+  if (clients.length === 0) { Logger.log('[PredictiveAI] Nenhum cliente com conta Meta'); return; }
+
+  // Datas dos períodos
+  function dateStr(daysAgo) {
+    var d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    return d.toISOString().slice(0, 10);
+  }
+  var today7  = dateStr(7);
+  var today14 = dateStr(14);
+  var today30 = dateStr(30);
+  var todayStr = dateStr(0);
+
+  // Busca histórico de TODOS os clientes (para comparação de padrões)
+  var allInsights = sheetToObjects(getSheet('ai_insights'))
+    .filter(function(r) { return r.period === 'predictive'; })
+    .map(function(r) {
+      return '[' + (r.createdAt || '').slice(0,10) + '] ' + (r.clientId || '') + ': ' + (r.insight || '').slice(0, 300);
+    });
+  var historicalPatterns = allInsights.length > 0
+    ? allInsights.slice(-30).join('\n') // últimas 30 previsões de todos os clientes
+    : 'Nenhum histórico disponível ainda (primeira execução).';
+
+  var sh = getSheet('ai_insights');
+  if (sh.getLastRow() === 0) {
+    sh.appendRow(['id', 'clientId', 'period', 'insight', 'createdAt']);
+  }
+
+  clients.forEach(function(client) {
+    try {
+      Logger.log('[PredictiveAI] Processando: ' + client.name);
+
+      // Busca métricas dos 3 períodos
+      var m7  = getMetricsMeta(client.criativoAccountId, today7,  todayStr);
+      var m14 = getMetricsMeta(client.criativoAccountId, today14, todayStr);
+      var m30 = getMetricsMeta(client.criativoAccountId, today30, todayStr);
+
+      function fmtMetrics(m) {
+        if (m.error) return 'Erro: ' + m.error;
+        var t = m.totals || {};
+        var clientType = String(client.clientType || 'lead');
+        if (clientType === 'ecommerce') {
+          return 'Gasto: R$' + t.spend +
+            ' | Impressões: ' + t.impressions +
+            ' | Cliques: ' + t.clicks +
+            ' | CTR: ' + t.ctr + '%' +
+            ' | CPM: R$' + t.cpm +
+            ' | Compras: ' + t.purchases +
+            ' | Receita: R$' + t.purchaseValue +
+            ' | ROAS: ' + t.roas +
+            ' | CPA: R$' + t.cpa +
+            ' | Alcance: ' + t.reach +
+            ' | Frequência: ' + t.frequency;
+        } else {
+          return 'Gasto: R$' + t.spend +
+            ' | Impressões: ' + t.impressions +
+            ' | Cliques: ' + t.clicks +
+            ' | CTR: ' + t.ctr + '%' +
+            ' | CPM: R$' + t.cpm +
+            ' | Leads: ' + t.leads +
+            ' | Mensagens: ' + t.messages +
+            ' | CPA: R$' + t.cpa +
+            ' | Alcance: ' + t.reach +
+            ' | Frequência: ' + t.frequency;
+        }
+      }
+
+      var metrics7  = fmtMetrics(m7);
+      var metrics14 = fmtMetrics(m14);
+      var metrics30 = fmtMetrics(m30);
+
+      // Campanhas ativas
+      var campaigns = (m7.campaigns || []).map(function(c) { return c.name; }).join(', ') || 'Nenhuma';
+      var activeCampaigns = (m7.campaigns || []).filter(function(c) { return c.status === 'ACTIVE'; }).length;
+
+      var prompt =
+        'Você é um sistema de inteligência preditiva especializado em performance de mídia paga (Meta Ads).\n' +
+        'Seu objetivo é identificar padrões históricos e prever com precisão o que vai acontecer nos próximos 3 a 7 dias.\n\n' +
+
+        '## DADOS DO CLIENTE ATUAL\n' +
+        'Nome: ' + client.name + '\n' +
+        'Tipo: ' + (client.clientType === 'ecommerce' ? 'E-commerce' : 'Geração de leads/mensagens') + '\n' +
+        'Conta Meta: ' + client.criativoAccountId + '\n' +
+        'Campanhas ativas: ' + activeCampaigns + ' | Nomes: ' + campaigns + '\n\n' +
+
+        '## MÉTRICAS ATUAIS (últimos 7 dias)\n' + metrics7 + '\n\n' +
+        '## MÉTRICAS DOS ÚLTIMOS 14 DIAS\n' + metrics14 + '\n\n' +
+        '## MÉTRICAS DOS ÚLTIMOS 30 DIAS\n' + metrics30 + '\n\n' +
+
+        '## HISTÓRICO DE PADRÕES (previsões anteriores deste e de outros clientes)\n' +
+        historicalPatterns + '\n\n' +
+
+        '---\n\n' +
+        '## SUA MISSÃO\n\n' +
+
+        '1. IDENTIFICAÇÃO DE PADRÃO\n' +
+        'Analise a trajetória das métricas dos últimos 7 dias em relação aos 14 e 30 dias.\n' +
+        'Identifique se há um padrão reconhecível: queda de ROAS, aumento de CPM, fadiga criativa, saturação de público, sazonalidade, etc.\n' +
+        'Compare esse padrão com os históricos fornecidos. Existe algum período anterior — deste ou de outro cliente — onde o comportamento era parecido?\n\n' +
+
+        '2. PREVISÃO\n' +
+        'Com base no padrão identificado e no que aconteceu historicamente depois dele:\n' +
+        '- O que provavelmente vai acontecer nos próximos 3 dias?\n' +
+        '- E nos próximos 7 dias?\n' +
+        '- Qual métrica vai se mover primeiro e em qual direção?\n' +
+        '- Qual é o nível de confiança dessa previsão (baixo / médio / alto) e por quê?\n\n' +
+
+        '3. ALERTAS CRÍTICOS\n' +
+        'Se houver sinais de deterioração iminente (ROAS em queda, CPM subindo, CTR caindo, frequência alta), declare como ALERTA VERMELHO com urgência e impacto estimado em reais.\n\n' +
+
+        '4. AÇÃO RECOMENDADA\n' +
+        'Uma ação concreta e específica que deve ser tomada AGORA para aproveitar o padrão positivo ou evitar o negativo. Não seja genérico — cite métricas, valores e prazo.\n\n' +
+
+        '## FORMATO DE RESPOSTA (sempre nesse formato exato):\n\n' +
+        'PADRÃO IDENTIFICADO: [nome do padrão em 1 linha]\n' +
+        'SIMILARIDADE HISTÓRICA: [quando e onde esse padrão apareceu antes, e o que aconteceu depois]\n' +
+        'PREVISÃO 3 DIAS: [o que vai acontecer]\n' +
+        'PREVISÃO 7 DIAS: [o que vai acontecer]\n' +
+        'CONFIANÇA: [baixo/médio/alto] — [justificativa em 1 linha]\n' +
+        '⚠️ ALERTA: [se houver, descreva — caso contrário escreva "Nenhum"]\n' +
+        'AÇÃO AGORA: [ação específica com prazo]';
+
+      // Chama Claude
+      var claudeResp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': claudeApiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        payload: JSON.stringify({
+          model: 'claude-haiku-4-5',
+          max_tokens: 800,
+          messages: [{ role: 'user', content: prompt }]
+        }),
+        muteHttpExceptions: true
+      });
+
+      var claudeData = JSON.parse(claudeResp.getContentText());
+      var insightText = (claudeData.content && claudeData.content[0]) ? claudeData.content[0].text : '';
+
+      if (!insightText) {
+        Logger.log('[PredictiveAI] Claude não retornou previsão para ' + client.name);
+        return;
+      }
+
+      // Salva na aba ai_insights com period='predictive'
+      var id = genId();
+      var now = new Date().toISOString();
+      sh.appendRow([id, client.id, 'predictive', insightText, now]);
+      Logger.log('[PredictiveAI] Previsão salva para ' + client.name);
+
+    } catch(err) {
+      Logger.log('[PredictiveAI] Erro em ' + client.name + ': ' + err.message);
+    }
+  });
+
+  Logger.log('[PredictiveAI] Concluído para ' + clients.length + ' clientes');
+}
+
+// ─── getPredictiveInsights ────────────────────────────────────
+// Retorna as últimas previsões preditivas de todos os clientes
+function getPredictiveInsights() {
+  var sh = getSheet('ai_insights');
+  if (sh.getLastRow() <= 1) return { insights: [] };
+
+  var rows = sheetToObjects(sh).filter(function(r) {
+    return r.period === 'predictive';
+  });
+
+  // Pega só a mais recente por cliente
+  var latest = {};
+  rows.forEach(function(r) {
+    var cid = String(r.clientId || '');
+    if (!latest[cid] || r.createdAt > latest[cid].createdAt) {
+      latest[cid] = r;
+    }
+  });
+
+  return {
+    insights: Object.values(latest).map(function(r) {
+      return {
+        id:        String(r.id || ''),
+        clientId:  String(r.clientId || ''),
+        insight:   String(r.insight || ''),
+        createdAt: String(r.createdAt || '')
+      };
+    })
+  };
+}

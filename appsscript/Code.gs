@@ -74,8 +74,9 @@ function doGet(e) {
       out = getAllAccountsMetricsMeta(p.startDate, p.endDate);
     }
     else if (action === 'getMetaAccounts') out = getMetaAccounts();
-    else if (action === 'getMetaStatus')   out = getMetaStatus();
-    else if (action === 'getAiInsights') out = getAiInsights();
+    else if (action === 'getMetaStatus')        out = getMetaStatus();
+    else if (action === 'getAiInsights')        out = getAiInsights();
+    else if (action === 'getPredictiveInsights') out = getPredictiveInsights();
     else if (action === 'getCriativoAccounts') out = getCriativoAccounts();
     else out = { error: 'Unknown action: ' + action };
   } catch(err) {

@@ -1,0 +1,228 @@
+import { useState, useEffect } from 'react'
+import { useApp } from '../lib/AppContext'
+
+const SCRIPT_URL = import.meta.env.VITE_SCRIPT_URL || ''
+
+// Parseia o texto do Claude no formato estruturado
+function parseInsight(text) {
+  const get = (label) => {
+    const regex = new RegExp(label + ':?\\s*(.+?)(?=\\n[A-ZÇÃÕ⚠️]|$)', 'si')
+    const m = text.match(regex)
+    return m ? m[1].trim() : ''
+  }
+  return {
+    padrao:       get('PADRÃO IDENTIFICADO'),
+    similaridade: get('SIMILARIDADE HISTÓRICA'),
+    prev3:        get('PREVISÃO 3 DIAS'),
+    prev7:        get('PREVISÃO 7 DIAS'),
+    confianca:    get('CONFIANÇA'),
+    alerta:       get('⚠️ ALERTA'),
+    acao:         get('AÇÃO AGORA'),
+    raw:          text,
+  }
+}
+
+function ConfidenceBadge({ text }) {
+  const lower = (text || '').toLowerCase()
+  const color = lower.startsWith('alto') ? 'var(--green)'
+    : lower.startsWith('médio') || lower.startsWith('medio') ? 'var(--amber)'
+    : 'var(--red)'
+  const label = lower.startsWith('alto') ? 'Alta' : lower.startsWith('médio') || lower.startsWith('medio') ? 'Média' : 'Baixa'
+  return (
+    <span style={{ fontSize: 11, fontWeight: 700, color, background: color + '22', padding: '2px 8px', borderRadius: 20 }}>
+      {label} confiança
+    </span>
+  )
+}
+
+function InsightCard({ client, insight, createdAt }) {
+  const [expanded, setExpanded] = useState(false)
+  const parsed = parseInsight(insight)
+  const hasAlert = parsed.alerta && parsed.alerta.toLowerCase() !== 'nenhum' && parsed.alerta.trim() !== ''
+  const date = createdAt ? new Date(createdAt).toLocaleDateString('pt-BR') : ''
+
+  return (
+    <div style={{
+      background: hasAlert ? 'rgba(226,75,74,0.07)' : 'var(--bg-card)',
+      border: `1px solid ${hasAlert ? 'var(--red)' : 'var(--border)'}`,
+      borderRadius: 14, padding: '1.25rem 1.5rem', marginBottom: 16,
+      transition: 'border 0.2s'
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 700, fontSize: 15 }}>{client?.name || '—'}</span>
+            {hasAlert && (
+              <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--red)', color: '#fff', padding: '2px 8px', borderRadius: 20 }}>
+                ⚠️ ALERTA
+              </span>
+            )}
+            <ConfidenceBadge text={parsed.confianca} />
+          </div>
+          <div style={{ fontSize: 11, color: '#555', marginTop: 3 }}>Previsão gerada em {date}</div>
+        </div>
+        <button onClick={() => setExpanded(e => !e)} style={{
+          background: 'none', border: '1px solid var(--border)', borderRadius: 8,
+          color: 'var(--fg)', fontSize: 11, padding: '4px 10px', cursor: 'pointer'
+        }}>
+          {expanded ? 'Fechar ↑' : 'Ver tudo ↓'}
+        </button>
+      </div>
+
+      {/* Padrão */}
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ fontSize: 11, color: '#666', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>Padrão identificado</div>
+        <div style={{ fontSize: 13, color: 'var(--fg)' }}>{parsed.padrao || '—'}</div>
+      </div>
+
+      {/* Previsões lado a lado */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+        <div style={{ background: 'var(--bg-hover)', borderRadius: 10, padding: '10px 12px' }}>
+          <div style={{ fontSize: 10, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>📅 Próximos 3 dias</div>
+          <div style={{ fontSize: 12, color: 'var(--fg)', lineHeight: 1.5 }}>{parsed.prev3 || '—'}</div>
+        </div>
+        <div style={{ background: 'var(--bg-hover)', borderRadius: 10, padding: '10px 12px' }}>
+          <div style={{ fontSize: 10, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>📅 Próximos 7 dias</div>
+          <div style={{ fontSize: 12, color: 'var(--fg)', lineHeight: 1.5 }}>{parsed.prev7 || '—'}</div>
+        </div>
+      </div>
+
+      {/* Alerta vermelho se houver */}
+      {hasAlert && (
+        <div style={{ background: 'rgba(226,75,74,0.13)', border: '1px solid var(--red)', borderRadius: 10, padding: '10px 14px', marginBottom: 10 }}>
+          <div style={{ fontSize: 10, color: 'var(--red)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>⚠️ Alerta crítico</div>
+          <div style={{ fontSize: 12, color: 'var(--fg)', lineHeight: 1.5 }}>{parsed.alerta}</div>
+        </div>
+      )}
+
+      {/* Ação agora */}
+      <div style={{ background: 'rgba(99,153,34,0.08)', border: '1px solid var(--green)', borderRadius: 10, padding: '10px 14px' }}>
+        <div style={{ fontSize: 10, color: 'var(--green)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>⚡ Ação agora</div>
+        <div style={{ fontSize: 12, color: 'var(--fg)', lineHeight: 1.5 }}>{parsed.acao || '—'}</div>
+      </div>
+
+      {/* Expandido: similaridade histórica + raw */}
+      {expanded && (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ background: 'var(--bg-hover)', borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
+            <div style={{ fontSize: 10, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>🔍 Similaridade histórica</div>
+            <div style={{ fontSize: 12, color: 'var(--fg)', lineHeight: 1.5 }}>{parsed.similaridade || '—'}</div>
+          </div>
+          <div style={{ fontSize: 10, color: '#444', fontFamily: 'monospace', whiteSpace: 'pre-wrap', background: '#0a0a0a', borderRadius: 8, padding: 10 }}>
+            {parsed.raw}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function PredictiveAI() {
+  const { clients } = useApp()
+  const [insights, setInsights] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('all') // all | alert | noalert
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch(`${SCRIPT_URL}?action=getPredictiveInsights`)
+        const json = await res.json()
+        setInsights(json.insights || [])
+      } catch (e) {
+        console.error(e)
+      }
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  const clientMap = Object.fromEntries(clients.map(c => [c.id, c]))
+
+  const filtered = insights.filter(i => {
+    const parsed = parseInsight(i.insight || '')
+    const hasAlert = parsed.alerta && parsed.alerta.toLowerCase() !== 'nenhum' && parsed.alerta.trim() !== ''
+    if (filter === 'alert') return hasAlert
+    if (filter === 'noalert') return !hasAlert
+    return true
+  })
+
+  // Alertas primeiro
+  const sorted = [...filtered].sort((a, b) => {
+    const aAlert = parseInsight(a.insight || '').alerta
+    const bAlert = parseInsight(b.insight || '').alerta
+    const aHas = aAlert && aAlert.toLowerCase() !== 'nenhum'
+    const bHas = bAlert && bAlert.toLowerCase() !== 'nenhum'
+    if (aHas && !bHas) return -1
+    if (!aHas && bHas) return 1
+    return new Date(b.createdAt) - new Date(a.createdAt)
+  })
+
+  const alertCount = insights.filter(i => {
+    const p = parseInsight(i.insight || '')
+    return p.alerta && p.alerta.toLowerCase() !== 'nenhum' && p.alerta.trim() !== ''
+  }).length
+
+  return (
+    <div style={{ padding: '2rem', maxWidth: 900, margin: '0 auto' }}>
+      {/* Header */}
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+          <span style={{ fontSize: 22 }}>🧠</span>
+          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>IA Preditiva</h1>
+          {alertCount > 0 && (
+            <span style={{ background: 'var(--red)', color: '#fff', fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>
+              {alertCount} alerta{alertCount > 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+        <p style={{ fontSize: 13, color: '#666', margin: 0 }}>
+          Previsões geradas toda segunda-feira com base em padrões históricos de todos os clientes.
+        </p>
+      </div>
+
+      {/* Filtros */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        {[
+          { id: 'all', label: 'Todos' },
+          { id: 'alert', label: '⚠️ Com alerta' },
+          { id: 'noalert', label: 'Estáveis' },
+        ].map(f => (
+          <button key={f.id} onClick={() => setFilter(f.id)} style={{
+            fontSize: 12, padding: '5px 14px', borderRadius: 20, cursor: 'pointer',
+            background: filter === f.id ? 'var(--orange)' : 'var(--bg-card)',
+            border: `1px solid ${filter === f.id ? 'var(--orange)' : 'var(--border)'}`,
+            color: filter === f.id ? '#fff' : 'var(--fg)',
+            fontWeight: filter === f.id ? 700 : 400,
+          }}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Conteúdo */}
+      {loading ? (
+        <div style={{ color: '#666', fontSize: 14, textAlign: 'center', marginTop: 60 }}>Carregando previsões...</div>
+      ) : sorted.length === 0 ? (
+        <div style={{ textAlign: 'center', marginTop: 60, color: '#555' }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>🧠</div>
+          <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>Nenhuma previsão ainda</div>
+          <div style={{ fontSize: 13, color: '#666', maxWidth: 380, margin: '0 auto', lineHeight: 1.6 }}>
+            A IA roda toda segunda-feira e gera previsões baseadas nas métricas dos últimos 7, 14 e 30 dias de cada cliente.
+            Configure o trigger <code>runPredictiveAI</code> no Apps Script para ativar.
+          </div>
+        </div>
+      ) : (
+        sorted.map(i => (
+          <InsightCard
+            key={i.id}
+            client={clientMap[i.clientId]}
+            insight={i.insight}
+            createdAt={i.createdAt}
+          />
+        ))
+      )}
+    </div>
+  )
+}
