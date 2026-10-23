@@ -122,31 +122,8 @@ export default function MetricsTab() {
   const selectedClient = clients.find(c => c.id === selectedClientId)
   const allMetrics = METRICS_META
 
-  // Calcular totais do período atual
-  const totals = data?.campaigns?.reduce((acc, camp) => {
-    const ins = data.insights?.find(i => i.campaign_id === camp.id) || {}
-    acc.spend = (acc.spend || 0) + parseFloat(ins.spend || 0)
-    acc.impressions = (acc.impressions || 0) + parseInt(ins.impressions || 0)
-    acc.reach = (acc.reach || 0) + parseInt(ins.reach || 0)
-    acc.clicks = (acc.clicks || 0) + parseInt(ins.clicks || 0)
-    // Leads
-    const leadAction = ins.actions?.find(a => a.action_type === 'lead')
-    acc.leads = (acc.leads || 0) + parseInt(leadAction?.value || 0)
-    // Compras
-    const purchaseAction = ins.actions?.find(a => a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase')
-    acc.purchases = (acc.purchases || 0) + parseInt(purchaseAction?.value || 0)
-    // Conversas
-    const msgAction = ins.actions?.find(a => a.action_type === 'onsite_conversion.messaging_conversation_started_7d')
-    acc.messages = (acc.messages || 0) + parseInt(msgAction?.value || 0)
-    return acc
-  }, {}) || {}
-
-  // CTR, CPM, CPC calculados
-  if (totals.impressions > 0) totals.ctr = (totals.clicks / totals.impressions) * 100
-  if (totals.impressions > 0) totals.cpm = (totals.spend / totals.impressions) * 1000
-  if (totals.clicks > 0) totals.cpc = totals.spend / totals.clicks
-  if (totals.purchases > 0) totals.roas = totals.purchaseValue / totals.spend
-  if (totals.leads > 0) totals.cpa = totals.spend / totals.leads
+  // Totais vêm prontos do backend (tempo real via Criativivo)
+  const totals = data?.totals || {}
 
   return (
     <div style={{ padding: '20px 0' }}>

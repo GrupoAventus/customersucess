@@ -436,93 +436,126 @@ function setPipelineStep(body) {
 // Aba metrics_history: id, clientId, accountId, date, campaigns_json, insights_json, createdAt
 
 function getMetrics(accountId, startDate, endDate) {
-  // Busca métricas do histórico salvo na planilha (metrics_history)
-  // O collectDailyMetrics roda todo dia e salva os dados lá
+  // Busca métricas em tempo real via Criativivo API
   if (!accountId) return { error: 'accountId required' };
 
+  var criativoToken = PropertiesService.getScriptProperties().getProperty('CRIATIVIVO_TOKEN');
+  if (!criativoToken) return { error: 'CRIATIVIVO_TOKEN não configurado' };
+
   try {
-    var sh = getSheet('metrics_history');
-    var data = sh.getDataRange().getValues();
-    if (data.length < 2) return { campaigns: [], insights: [], daily: [], info: 'Sem dados históricos ainda. Os dados são coletados diariamente.' };
-
-    var headers = data[0];
-    var rows = data.slice(1).filter(function(row) {
-      var rowAccountId = String(row[headers.indexOf('accountId')] || '');
-      var rowDate = String(row[headers.indexOf('date')] || '').slice(0, 10);
-      return rowAccountId === String(accountId) &&
-             (!startDate || rowDate >= startDate) &&
-             (!endDate || rowDate <= endDate);
+    var url = 'https://criativivo.com.br/api/meta/campaigns?account_id=' + accountId +
+              '&since=' + (startDate || '') + '&until=' + (endDate || '');
+    var resp = UrlFetchApp.fetch(url, {
+      headers: { 'Authorization': 'Bearer ' + criativoToken },
+      muteHttpExceptions: true
     });
 
-    if (rows.length === 0) return { campaigns: [], insights: [], daily: [], info: 'Nenhum dado no período. Os dados são coletados diariamente pelo trigger automático.' };
+    var text = resp.getContentText();
+    var json;
+    try {
+      json = JSON.parse(text);
+    } catch(e) {
+      return { error: 'Resposta inválida da Criativivo: ' + text.slice(0, 200) };
+    }
 
-    // Agregar campanhas e insights de todos os dias do período
-    var campaignMap = {};
-    var dailyTotals = [];
+    if (json.error) return { error: json.error };
 
-    rows.forEach(function(row) {
-      var obj = {};
-      headers.forEach(function(h, i) { obj[h] = row[i]; });
+    var campaigns = json.campaigns || [];
+    var insights  = json.insights  || [];
 
-      var date = String(obj.date || '').slice(0, 10);
-      var campaignsJson = obj.campaigns_json || '[]';
-      var insightsJson = obj.insights_json || '[]';
+    // Montar daily totals a partir dos insights (cada insight já tem date_start/date_stop)
+    // Como é período agregado, retornamos um único ponto
+    var totalSpend       = 0;
+    var totalImpressions = 0;
+    var totalClicks      = 0;
+    var totalLeads       = 0;
+    var totalPurchases   = 0;
+    var totalPurchaseValue = 0;
+    var totalMessages    = 0;
+    var totalReach       = 0;
 
-      var campaigns = [];
-      var insights = [];
-      try { campaigns = JSON.parse(campaignsJson); } catch(e) {}
-      try { insights = JSON.parse(insightsJson); } catch(e) {}
+    insights.forEach(function(ins) {
+      totalSpend       += parseFloat(ins.spend || 0);
+      totalImpressions += parseInt(ins.impressions || 0);
+      totalClicks      += parseInt(ins.clicks || 0);
+      totalReach       += parseInt(ins.reach || 0);
 
-      // Agregar por campanha
-      campaigns.forEach(function(c) {
-        if (!campaignMap[c.id]) {
-          campaignMap[c.id] = { id: c.id, name: c.name, status: c.status, spend: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0 };
+      var actions = ins.actions || [];
+      actions.forEach(function(a) {
+        if (a.action_type === 'lead') totalLeads += parseInt(a.value || 0);
+        if (a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase') {
+          totalPurchases += parseInt(a.value || 0);
         }
-        var ins = insights.find(function(i) { return i.campaign_id === c.id; }) || {};
-        campaignMap[c.id].spend       += parseFloat(ins.spend || 0);
-        campaignMap[c.id].impressions += parseInt(ins.impressions || 0);
-        campaignMap[c.id].clicks      += parseInt(ins.clicks || 0);
-        campaignMap[c.id].leads       += parseInt(ins.leads || 0);
-        campaignMap[c.id].purchases   += parseInt(ins.purchases || 0);
+        if (a.action_type === 'onsite_conversion.messaging_conversation_started_7d') {
+          totalMessages += parseInt(a.value || 0);
+        }
       });
 
-      // Totais diários para gráfico
-      var dayTotal = { date: date, spend: 0, impressions: 0, clicks: 0 };
-      insights.forEach(function(ins) {
-        dayTotal.spend       += parseFloat(ins.spend || 0);
-        dayTotal.impressions += parseInt(ins.impressions || 0);
-        dayTotal.clicks      += parseInt(ins.clicks || 0);
+      var actionValues = ins.action_values || [];
+      actionValues.forEach(function(av) {
+        if (av.action_type === 'purchase') totalPurchaseValue += parseFloat(av.value || 0);
       });
-      dailyTotals.push(dayTotal);
     });
 
-    var campaignsList = Object.values(campaignMap);
+    // Insights agregados por campanha (formato compatível com o frontend)
+    var aggregatedInsights = insights.map(function(ins) {
+      var spend       = parseFloat(ins.spend || 0);
+      var impressions = parseInt(ins.impressions || 0);
+      var clicks      = parseInt(ins.clicks || 0);
+      var reach       = parseInt(ins.reach || 0);
+      var actions     = ins.actions || [];
+      var actionValues = ins.action_values || [];
 
-    // Montar insights agregados
-    var aggregatedInsights = campaignsList.map(function(c) {
-      var totalSpend = c.spend || 0;
-      var totalClicks = c.clicks || 0;
-      var totalImpressions = c.impressions || 0;
+      var leads     = 0, purchases = 0, messages = 0, purchaseValue = 0;
+      actions.forEach(function(a) {
+        if (a.action_type === 'lead') leads += parseInt(a.value || 0);
+        if (a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase') purchases += parseInt(a.value || 0);
+        if (a.action_type === 'onsite_conversion.messaging_conversation_started_7d') messages += parseInt(a.value || 0);
+      });
+      actionValues.forEach(function(av) {
+        if (av.action_type === 'purchase') purchaseValue += parseFloat(av.value || 0);
+      });
+
       return {
-        campaign_id: c.id,
-        spend: totalSpend.toFixed(2),
-        impressions: String(totalImpressions),
-        clicks: String(totalClicks),
-        ctr: totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0',
-        cpm: totalImpressions > 0 ? ((totalSpend / totalImpressions) * 1000).toFixed(2) : '0',
-        cpc: totalClicks > 0 ? (totalSpend / totalClicks).toFixed(2) : '0',
-        leads: String(c.leads || 0),
-        purchases: String(c.purchases || 0),
-        roas: '0',
-        cpa: (c.leads + c.purchases) > 0 ? (totalSpend / (c.leads + c.purchases)).toFixed(2) : '0'
+        campaign_id:  ins.campaign_id,
+        spend:        spend.toFixed(2),
+        impressions:  String(impressions),
+        clicks:       String(clicks),
+        reach:        String(reach),
+        ctr:          impressions > 0 ? ((clicks / impressions) * 100).toFixed(2) : '0',
+        cpm:          impressions > 0 ? ((spend / impressions) * 1000).toFixed(2) : '0',
+        cpc:          clicks > 0 ? (spend / clicks).toFixed(2) : '0',
+        leads:        String(leads),
+        purchases:    String(purchases),
+        messages:     String(messages),
+        purchaseValue: purchaseValue.toFixed(2),
+        roas:         spend > 0 && purchaseValue > 0 ? (purchaseValue / spend).toFixed(2) : '0',
+        cpa:          (leads + purchases) > 0 ? (spend / (leads + purchases)).toFixed(2) : '0',
+        actions:      actions,
+        action_values: actionValues
       };
     });
 
     return {
-      campaigns: campaignsList,
-      insights: aggregatedInsights,
-      daily: dailyTotals.sort(function(a, b) { return a.date.localeCompare(b.date); }),
-      period: { start: startDate, end: endDate, days: rows.length }
+      campaigns: campaigns,
+      insights:  aggregatedInsights,
+      daily:     [],
+      totals: {
+        spend:         totalSpend.toFixed(2),
+        impressions:   totalImpressions,
+        clicks:        totalClicks,
+        reach:         totalReach,
+        leads:         totalLeads,
+        purchases:     totalPurchases,
+        messages:      totalMessages,
+        purchaseValue: totalPurchaseValue.toFixed(2),
+        roas:          totalSpend > 0 && totalPurchaseValue > 0 ? (totalPurchaseValue / totalSpend).toFixed(2) : '0',
+        cpa:           (totalLeads + totalPurchases) > 0 ? (totalSpend / (totalLeads + totalPurchases)).toFixed(2) : '0',
+        ctr:           totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0',
+        cpm:           totalImpressions > 0 ? ((totalSpend / totalImpressions) * 1000).toFixed(2) : '0',
+        cpc:           totalClicks > 0 ? (totalSpend / totalClicks).toFixed(2) : '0'
+      },
+      period: { start: startDate, end: endDate }
     };
 
   } catch(err) {
