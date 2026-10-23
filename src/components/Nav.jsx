@@ -9,6 +9,7 @@ const SECTIONS = [
   { id: 'squad2', label: 'Squad 2' },
   { id: 'cc1', label: 'Centro criativo 1' },
   { id: 'cc2', label: 'Centro criativo 2' },
+  { id: 'predictive', label: '🧠 IA Preditiva' },
 ]
 
 export default function Nav({ current, onChange }) {
