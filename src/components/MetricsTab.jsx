@@ -90,14 +90,18 @@ function OverviewTab({ period, customStart, customEnd }) {
     const today = new Date()
     const fmtD = d => d.toISOString().slice(0, 10)
     if (period === 'custom') return { start: customStart, end: customEnd }
+    // Usa ontem como endDate — dados de hoje no Detrics ainda são zeros (dia incompleto)
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
     if (period === 'month') {
       const start = new Date(today.getFullYear(), today.getMonth(), 1)
-      return { start: fmtD(start), end: fmtD(today) }
+      return { start: fmtD(start), end: fmtD(yesterday) }
     }
     const days = parseInt(period)
-    const start = new Date(today)
-    start.setDate(start.getDate() - days)
-    return { start: fmtD(start), end: fmtD(today) }
+    const end = yesterday
+    const start = new Date(end)
+    start.setDate(start.getDate() - (days - 1)) // ex: 7 dias = ontem e os 6 anteriores
+    return { start: fmtD(start), end: fmtD(end) }
   }, [period, customStart, customEnd])
 
   const load = useCallback(async () => {
@@ -259,14 +263,18 @@ function ClientTab({ period, customStart, customEnd }) {
     const today = new Date()
     const fmtD = d => d.toISOString().slice(0, 10)
     if (period === 'custom') return { start: customStart, end: customEnd }
+    // Usa ontem como endDate — dados de hoje no Detrics ainda são zeros (dia incompleto)
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
     if (period === 'month') {
       const start = new Date(today.getFullYear(), today.getMonth(), 1)
-      return { start: fmtD(start), end: fmtD(today) }
+      return { start: fmtD(start), end: fmtD(yesterday) }
     }
     const days = parseInt(period)
-    const start = new Date(today)
-    start.setDate(start.getDate() - days)
-    return { start: fmtD(start), end: fmtD(today) }
+    const end = yesterday
+    const start = new Date(end)
+    start.setDate(start.getDate() - (days - 1)) // ex: 7 dias = ontem e os 6 anteriores
+    return { start: fmtD(start), end: fmtD(end) }
   }, [period, customStart, customEnd])
 
   const loadMetrics = useCallback(async () => {
