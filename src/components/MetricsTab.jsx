@@ -56,6 +56,23 @@ function fmt(value, format) {
   return n.toLocaleString('pt-BR')
 }
 
+// Preenche dias faltantes no array daily com zeros (Meta só retorna dias com gasto)
+function fillDailyGaps(daily, startDate, endDate) {
+  if (!daily || !startDate || !endDate) return daily || []
+  const result = []
+  const cursor = new Date(startDate + 'T12:00:00Z')
+  const end    = new Date(endDate   + 'T12:00:00Z')
+  const byDate = {}
+  daily.forEach(d => { if (d.date) byDate[d.date] = d })
+  const ZERO = { spend: 0, impressions: 0, clicks: 0, linkClicks: 0, reach: 0, leads: 0, purchases: 0, messages: 0, ctr: 0, cpm: 0, cpc: 0, roas: 0, cpa: 0 }
+  while (cursor <= end) {
+    const key = cursor.toISOString().slice(0, 10)
+    result.push(byDate[key] ? byDate[key] : { ...ZERO, date: key })
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  }
+  return result
+}
+
 function MiniChart({ data, metric, color = 'var(--orange)' }) {
   if (!data || data.length < 2) return null
   const values = data.map(d => parseFloat(d[metric]) || 0)
@@ -449,6 +466,8 @@ function ClientTab({ period, customStart, customEnd, refreshKey }) {
       const res  = await fetch(`${SCRIPT_URL}?action=getMetrics&accountId=${encodeURIComponent(client.criativoAccountId)}&startDate=${start}&endDate=${end}`)
       const json = await res.json()
       if (json.error) throw new Error(json.error)
+      // Preenche dias sem gasto com zero para o eixo X ser contínuo
+      if (json.daily) json.daily = fillDailyGaps(json.daily, start, end)
       setData(json)
       const hRes  = await fetch(`${SCRIPT_URL}?action=getMetricsHistory&clientId=${selectedClientId}`)
       const hJson = await hRes.json()
