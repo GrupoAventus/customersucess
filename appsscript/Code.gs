@@ -1065,6 +1065,111 @@ function weeklyAiAnalysis() {
   });
 }
 
+// ===================== BACKFILL DE MÉTRICAS (180 DIAS) =====================
+// Roda em lotes para não exceder o limite de 6 min do Apps Script.
+// Chame backfillMetrics() repetidamente até aparecer "Backfill concluído!" no log.
+// O progresso é salvo em Script Properties — cada chamada continua de onde parou.
+// Para REINICIAR do zero: chame resetBackfill() antes de backfillMetrics().
+
+function resetBackfill() {
+  var props = PropertiesService.getScriptProperties();
+  props.deleteProperty('BACKFILL_DAY_INDEX');
+  props.deleteProperty('BACKFILL_CLIENT_INDEX');
+  Logger.log('Backfill resetado. Chame backfillMetrics() para começar.');
+}
+
+function backfillMetrics() {
+  var DAYS_BACK  = 180;   // quantos dias de histórico buscar
+  var MAX_ROWS   = 80;    // linhas máximas por execução (segurança de tempo)
+
+  var criativoToken = PropertiesService.getScriptProperties().getProperty('CRIATIVIVO_TOKEN');
+  if (!criativoToken) { Logger.log('CRIATIVIVO_TOKEN não configurado'); return; }
+
+  var clients = sheetToObjects(getSheet('clients')).filter(function(c) {
+    return c.criativoAccountId && c.cancelado !== true && c.cancelado !== 'TRUE' && c.cancelado !== 'true';
+  });
+
+  if (clients.length === 0) { Logger.log('Nenhum cliente com criativoAccountId'); return; }
+
+  // Gera lista de datas: hoje - DAYS_BACK até ontem
+  var dates = [];
+  var today = new Date();
+  for (var d = DAYS_BACK; d >= 1; d--) {
+    var dt = new Date(today.getTime() - d * 86400000);
+    dates.push(dt.toISOString().slice(0, 10));
+  }
+
+  // Lê progresso salvo
+  var props = PropertiesService.getScriptProperties();
+  var dayIdx    = parseInt(props.getProperty('BACKFILL_DAY_INDEX')    || '0', 10);
+  var clientIdx = parseInt(props.getProperty('BACKFILL_CLIENT_INDEX') || '0', 10);
+
+  // Descobre quais combinações (date × client) já existem na planilha
+  var sh = getSheet('metrics_history');
+  if (sh.getLastRow() === 0) {
+    sh.appendRow(['id','clientId','accountId','date','campaigns_json','insights_json','createdAt']);
+  }
+  var existing = {};
+  var lastRow = sh.getLastRow();
+  if (lastRow > 1) {
+    var data = sh.getRange(2, 1, lastRow - 1, 4).getValues(); // id,clientId,accountId,date
+    data.forEach(function(r) { existing[r[1] + '|' + r[3]] = true; }); // clientId|date
+  }
+
+  var rows = 0;
+  var done = false;
+
+  outer:
+  for (var di = dayIdx; di < dates.length; di++) {
+    var dateStr = dates[di];
+    for (var ci = (di === dayIdx ? clientIdx : 0); ci < clients.length; ci++) {
+      var client = clients[ci];
+      var key = client.id + '|' + dateStr;
+
+      if (!existing[key]) {
+        try {
+          var url = 'https://criativivo.com.br/api/meta/campaigns?account_id=' + client.criativoAccountId +
+                    '&since=' + dateStr + '&until=' + dateStr;
+          var resp = UrlFetchApp.fetch(url, {
+            headers: { 'Authorization': 'Bearer ' + criativoToken },
+            muteHttpExceptions: true
+          });
+          var json = JSON.parse(resp.getContentText());
+          sh.appendRow([
+            genId(), client.id, client.criativoAccountId, dateStr,
+            JSON.stringify(json.campaigns || []),
+            JSON.stringify(json.insights  || []),
+            new Date().toISOString()
+          ]);
+          rows++;
+          Logger.log('[' + dateStr + '] ' + client.name + ' ✓');
+        } catch(err) {
+          Logger.log('[' + dateStr + '] ' + client.name + ' ERRO: ' + err.message);
+        }
+      } else {
+        Logger.log('[' + dateStr + '] ' + client.name + ' (já existe, pulando)');
+      }
+
+      // Salva progresso e para se atingiu o limite de linhas
+      if (rows >= MAX_ROWS) {
+        // próxima chamada começa no próximo cliente deste dia
+        var nextCi = ci + 1;
+        var nextDi = di;
+        if (nextCi >= clients.length) { nextCi = 0; nextDi = di + 1; }
+        props.setProperty('BACKFILL_DAY_INDEX',    String(nextDi));
+        props.setProperty('BACKFILL_CLIENT_INDEX', String(nextCi));
+        Logger.log('Lote de ' + rows + ' linhas salvo. Chame backfillMetrics() novamente para continuar. Progresso: dia ' + nextDi + '/' + dates.length);
+        return;
+      }
+    }
+  }
+
+  // Se chegou até aqui, terminou tudo
+  props.deleteProperty('BACKFILL_DAY_INDEX');
+  props.deleteProperty('BACKFILL_CLIENT_INDEX');
+  Logger.log('Backfill concluído! ' + rows + ' novas linhas adicionadas em metrics_history.');
+}
+
 // ===================== TRIGGERS - GUIA DE CONFIGURAÇÃO =====================
 // Configure os triggers em: Apps Script > Gatilhos (ícone do relógio)
 //
