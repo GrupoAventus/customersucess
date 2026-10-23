@@ -10,9 +10,53 @@ var WHATSAPP_MANAGER = '5541999999999'; // Número do gestor para relatórios
 // ===================== doGet =====================
 function doGet(e) {
   var p = e.parameter || {};
-  var action = p.action || '';
   var out;
 
+  // Se vier ?payload=..., é uma escrita via GET (workaround para o redirect 302 do doPost)
+  if (p.payload) {
+    var body;
+    try {
+      body = JSON.parse(decodeURIComponent(p.payload));
+    } catch(err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: 'Invalid payload JSON: ' + err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    var writeAction = body.action || '';
+    try {
+      if (writeAction === 'addClient')           out = addClient(body);
+      else if (writeAction === 'updateClient')   out = updateClientData(body);
+      else if (writeAction === 'updateClientStatus') out = updateClientStatus(body);
+      else if (writeAction === 'updateClientNotes')  out = updateClientNotes(body);
+      else if (writeAction === 'setClientPriority')  out = setClientPriority(body);
+      else if (writeAction === 'setClientFinance')   out = setClientFinance(body);
+      else if (writeAction === 'setClientCard')      out = setClientCard(body);
+      else if (writeAction === 'cancelClient')       out = cancelClient(body);
+      else if (writeAction === 'deleteClient')       out = deleteClient(body);
+      else if (writeAction === 'incrementSocialPost') out = incrementSocialPost(body);
+      else if (writeAction === 'addDemand')          out = addDemand(body);
+      else if (writeAction === 'toggleDemand')       out = toggleDemand(body);
+      else if (writeAction === 'deleteDemand')       out = deleteDemand(body);
+      else if (writeAction === 'markPendingDone')    out = markPendingDone(body);
+      else if (writeAction === 'setTimelineEntry')   out = setTimelineEntry(body);
+      else if (writeAction === 'addReport')          out = addReport(body);
+      else if (writeAction === 'deleteReport')       out = deleteReport(body);
+      else if (writeAction === 'addAgenda')          out = addAgenda(body);
+      else if (writeAction === 'toggleAgenda')       out = toggleAgenda(body);
+      else if (writeAction === 'deleteAgenda')       out = deleteAgenda(body);
+      else if (writeAction === 'addAlert')           out = addAlert(body);
+      else if (writeAction === 'dismissAlert')       out = dismissAlert(body);
+      else if (writeAction === 'setPipelineStep')    out = setPipelineStep(body);
+      else if (writeAction === 'saveAiInsight')      out = saveAiInsight(body);
+      else out = { error: 'Unknown write action: ' + writeAction };
+    } catch(err) {
+      out = { error: err.message };
+    }
+    return ContentService.createTextOutput(JSON.stringify(out))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Leituras normais via ?action=...
+  var action = p.action || '';
   try {
     if (action === 'getClients')         out = getClients();
     else if (action === 'getDemands')    out = getDemands();

@@ -10,11 +10,9 @@ async function callGet(action) {
 }
 
 async function callPost(body) {
-  const res = await fetch(SCRIPT_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(body)
-  })
+  // Apps Script redireciona POST (302) e perde o body — enviamos via GET com payload na URL
+  const url = `${SCRIPT_URL}?payload=${encodeURIComponent(JSON.stringify(body))}`
+  const res = await fetch(url)
   if (!res.ok) throw new Error(`Script error: ${res.status}`)
   return res.json()
 }
