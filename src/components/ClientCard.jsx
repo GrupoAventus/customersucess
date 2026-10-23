@@ -3,7 +3,8 @@ import { PIPELINE_STEPS } from './PipelineTab'
 import { DemandPill } from './UI'
 
 export default function ClientCard({ client, onClick }) {
-  const { getClientDemands, getClientPipeline } = useApp()
+  const { getClientDemands, getClientPipeline, metaStatusMap } = useApp()
+  const ms = metaStatusMap?.[client.id]
   const demands = getClientDemands(client.id)
   const done = demands.filter(d => d.done).length
   const pending = demands.filter(d => !d.done).length
@@ -25,7 +26,17 @@ export default function ClientCard({ client, onClick }) {
       onMouseLeave={e => { e.currentTarget.style.background = colors.bg }}
     >
       <div style={{ position: 'absolute', top: 12, right: 12, width: 10, height: 10, borderRadius: '50%', background: colors.border }} title={colors.label} />
-      <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>{client.name}</div>
+      {ms?.lowBalance && (
+        <span style={{
+          position: 'absolute', top: 8, left: 12,
+          background: '#ff3b30', color: '#fff',
+          fontSize: 10, fontWeight: 700, padding: '2px 7px',
+          borderRadius: 20, letterSpacing: 0.2
+        }} title="Saldo Meta baixo">
+          ⚠️ R${Number(ms.balance).toFixed(2)}
+        </span>
+      )}
+      <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4, marginTop: ms?.lowBalance ? 20 : 0 }}>{client.name}</div>
       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
         {(client.destinos && client.destinos.length > 0 ? client.destinos : [client.destino]).filter(Boolean).map(d => (
           <span key={d} style={{ fontSize: 10, color: 'var(--orange)', background: 'var(--orange-dim)', padding: '2px 8px', borderRadius: 20 }}>{d}</span>

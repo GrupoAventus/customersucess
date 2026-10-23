@@ -1,6 +1,6 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
 import { notifyNewClient, notifyNewDemand, notifyAlert } from './whatsapp'
-import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet, setClientPrioritySheet, setClientFinanceSheet, setClientCardSheet, fetchPendingSales, markPendingDoneSheet, fetchTimeline, setTimelineEntrySheet, fetchReports, addReportSheet, deleteReportSheet, fetchAgenda, addAgendaSheet, toggleAgendaSheet, deleteAgendaSheet, fetchAlerts, addAlertSheet, dismissAlertSheet, fetchPipeline, setPipelineStepSheet } from './sheets'
+import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet, setClientPrioritySheet, setClientFinanceSheet, setClientCardSheet, fetchPendingSales, markPendingDoneSheet, fetchTimeline, setTimelineEntrySheet, fetchReports, addReportSheet, deleteReportSheet, fetchAgenda, addAgendaSheet, toggleAgendaSheet, deleteAgendaSheet, fetchAlerts, addAlertSheet, dismissAlertSheet, fetchPipeline, setPipelineStepSheet, fetchMetaStatus } from './sheets'
 
 const AppContext = createContext(null)
 
@@ -92,6 +92,7 @@ export function AppProvider({ children }) {
   const [alerts, setAlerts] = useState([])
   const [pipeline, setPipeline] = useState([])
   const [aiInsights, setAiInsights] = useState([])
+  const [metaStatus, setMetaStatus] = useState([])
 
   const load = useCallback(async () => {
     if (!useSheets) return
@@ -126,6 +127,7 @@ export function AppProvider({ children }) {
         const json = await res.json()
         if (Array.isArray(json)) setAiInsights(json)
       } catch (e) { console.error(e) }
+      try { setMetaStatus(await fetchMetaStatus()) } catch (e) { console.error(e) }
     } catch (e) { console.error('Load error:', e) }
     setLoading(false)
   }, [])
@@ -497,10 +499,16 @@ export function AppProvider({ children }) {
   const activeClients = clients.filter(c => !c.cancelado)
   const cancelledClients = clients.filter(c => c.cancelado)
 
+  const metaStatusMap = useMemo(
+    () => Object.fromEntries(metaStatus.map(s => [s.clientId, s])),
+    [metaStatus]
+  )
+
   return (
     <AppContext.Provider value={{
       clients: activeClients, allClients: clients, cancelledClients,
       demands, loading, loggedIn, isAdmin, pendingSales, reports, agenda, notifications, alerts, pipeline, aiInsights, setAiInsights,
+      metaStatusMap,
       createClient, createDemand, toggleDemand, registerSocialPost, editClient,
       createReport, deleteReport,
       createAgendaItem, toggleAgendaItem, deleteAgendaItem,
