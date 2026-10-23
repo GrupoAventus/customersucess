@@ -23,6 +23,7 @@ const METRICS_META = [
 ]
 
 const PERIOD_OPTIONS = [
+  { value: 'today', label: 'Hoje'            },
   { value: '7',     label: 'Últimos 7 dias'  },
   { value: '14',    label: 'Últimos 14 dias' },
   { value: '30',    label: 'Últimos 30 dias' },
@@ -123,12 +124,11 @@ function LineChart({ daily, metrics, fmtFn }) {
     return `${parts[2]}/${parts[1]}`
   }
 
+  // Mostra labels no eixo X dia a dia; se muitos dias, distribui ~10 labels uniformemente
+  const MAX_X_LABELS = 10
+  const xLabelStep = daily.length <= MAX_X_LABELS ? 1 : Math.ceil((daily.length - 1) / (MAX_X_LABELS - 1))
   const xLabels = daily.map((d, i) => ({ i, label: fmtDate(d.date) }))
-    .filter((_, i) => {
-      if (daily.length <= 8) return true
-      const step = Math.ceil(daily.length / 7)
-      return i % step === 0 || i === daily.length - 1
-    })
+    .filter((_, i) => i % xLabelStep === 0 || i === daily.length - 1)
 
   const handleMouseMove = (e) => {
     const svg = e.currentTarget
@@ -244,7 +244,7 @@ function LineChart({ daily, metrics, fmtFn }) {
 }
 
 // ─── Tab: Visão Geral (todas as contas) ─────────────────────────────────────
-function OverviewTab({ period, customStart, customEnd }) {
+function OverviewTab({ period, customStart, customEnd, refreshKey }) {
   const { clients } = useApp()
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(false)
@@ -255,17 +255,15 @@ function OverviewTab({ period, customStart, customEnd }) {
     const today = new Date()
     const fmtD = d => d.toISOString().slice(0, 10)
     if (period === 'custom') return { start: customStart, end: customEnd }
-    // Usa ontem como endDate — dados de hoje no Detrics ainda são zeros (dia incompleto)
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
+    if (period === 'today') return { start: fmtD(today), end: fmtD(today) }
     if (period === 'month') {
       const start = new Date(today.getFullYear(), today.getMonth(), 1)
-      return { start: fmtD(start), end: fmtD(yesterday) }
+      return { start: fmtD(start), end: fmtD(today) }
     }
     const days = parseInt(period)
-    const end = yesterday
-    const start = new Date(end)
-    start.setDate(start.getDate() - (days - 1)) // ex: 7 dias = ontem e os 6 anteriores
+    const end = new Date(today)
+    const start = new Date(today)
+    start.setDate(start.getDate() - (days - 1))
     return { start: fmtD(start), end: fmtD(end) }
   }, [period, customStart, customEnd])
 
@@ -285,7 +283,7 @@ function OverviewTab({ period, customStart, customEnd }) {
     setLoading(false)
   }, [getDateRange])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load() }, [load, refreshKey])
 
   // Mapeia accountName → cliente
   const findClient = (accountName) => {
@@ -413,7 +411,7 @@ function OverviewTab({ period, customStart, customEnd }) {
 }
 
 // ─── Tab: Por Cliente ────────────────────────────────────────────────────────
-function ClientTab({ period, customStart, customEnd }) {
+function ClientTab({ period, customStart, customEnd, refreshKey }) {
   const { clients } = useApp()
   const [selectedClientId, setSelectedClientId] = useState('')
   const [selectedMetrics, setSelectedMetrics]   = useState(['spend', 'impressions', 'clicks', 'ctr', 'roas'])
@@ -428,17 +426,15 @@ function ClientTab({ period, customStart, customEnd }) {
     const today = new Date()
     const fmtD = d => d.toISOString().slice(0, 10)
     if (period === 'custom') return { start: customStart, end: customEnd }
-    // Usa ontem como endDate — dados de hoje no Detrics ainda são zeros (dia incompleto)
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
+    if (period === 'today') return { start: fmtD(today), end: fmtD(today) }
     if (period === 'month') {
       const start = new Date(today.getFullYear(), today.getMonth(), 1)
-      return { start: fmtD(start), end: fmtD(yesterday) }
+      return { start: fmtD(start), end: fmtD(today) }
     }
     const days = parseInt(period)
-    const end = yesterday
-    const start = new Date(end)
-    start.setDate(start.getDate() - (days - 1)) // ex: 7 dias = ontem e os 6 anteriores
+    const end = new Date(today)
+    const start = new Date(today)
+    start.setDate(start.getDate() - (days - 1))
     return { start: fmtD(start), end: fmtD(end) }
   }, [period, customStart, customEnd])
 
@@ -465,7 +461,7 @@ function ClientTab({ period, customStart, customEnd }) {
 
   useEffect(() => {
     if (selectedClientId) loadMetrics()
-  }, [selectedClientId, period, customStart, customEnd])
+  }, [selectedClientId, period, customStart, customEnd, refreshKey])
 
   const toggleMetric = (key) => {
     setSelectedMetrics(prev =>
@@ -643,6 +639,7 @@ export default function MetricsTab() {
   const [period, setPeriod]       = useState('7')
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd]     = useState('')
+  const [refreshKey, setRefreshKey]   = useState(0)
 
   const tabStyle = (active) => ({
     padding: '6px 18px',
@@ -669,11 +666,24 @@ export default function MetricsTab() {
           </button>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <select value={period} onChange={e => setPeriod(e.target.value)}
             style={{ background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '6px 10px', color: 'var(--text)', fontSize: 12 }}>
             {PERIOD_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
+          <button
+            onClick={() => setRefreshKey(k => k + 1)}
+            title="Atualizar dados"
+            style={{
+              background: '#1a1a1a', border: '0.5px solid #2a2a2a', borderRadius: 8,
+              padding: '6px 10px', color: '#888', cursor: 'pointer', fontSize: 14,
+              display: 'flex', alignItems: 'center', gap: 4, transition: 'all 0.15s'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#fff' }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#1a1a1a'; e.currentTarget.style.color = '#888' }}
+          >
+            <i className="ti ti-refresh" />
+          </button>
         </div>
       </div>
 
@@ -695,8 +705,8 @@ export default function MetricsTab() {
 
       {/* Conteúdo da aba */}
       {activeTab === 'overview'
-        ? <OverviewTab period={period} customStart={customStart} customEnd={customEnd} />
-        : <ClientTab  period={period} customStart={customStart} customEnd={customEnd} />
+        ? <OverviewTab period={period} customStart={customStart} customEnd={customEnd} refreshKey={refreshKey} />
+        : <ClientTab  period={period} customStart={customStart} customEnd={customEnd} refreshKey={refreshKey} />
       }
     </div>
   )

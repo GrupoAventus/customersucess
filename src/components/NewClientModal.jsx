@@ -237,11 +237,21 @@ export default function NewClientModal({ onClose, prefillName, editingClient }) 
           <select
             value={form.criativoAccountId}
             onChange={e => set('criativoAccountId', e.target.value)}
-            style={{ width: '100%', background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', color: form.criativoAccountId ? 'var(--text)' : '#666', fontSize: 13 }}
+            style={{
+              width: '100%',
+              background: '#141414',
+              border: '0.5px solid #2a2a2a',
+              borderRadius: 8,
+              padding: '8px 10px',
+              color: '#fff',
+              fontSize: 13,
+              colorScheme: 'dark',
+              cursor: 'pointer',
+            }}
           >
-            <option value="">Sem conta vinculada</option>
+            <option value="" style={{ background: '#141414', color: '#888' }}>Sem conta vinculada</option>
             {metaAccounts.map(a => (
-              <option key={a.id} value={a.id}>
+              <option key={a.id} value={a.id} style={{ background: '#141414', color: '#fff' }}>
                 {a.name}{a.status !== 1 ? ` (${META_STATUS_LABEL[a.status] || 'Inativa'})` : ''}
               </option>
             ))}
