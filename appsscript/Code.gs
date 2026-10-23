@@ -22,9 +22,14 @@ function doGet(e) {
     else if (action === 'getAgenda')     out = getAgenda();
     else if (action === 'getAlerts')     out = getAlerts();
     else if (action === 'getPipeline')   out = getPipeline();
-    else if (action === 'getMetrics')         out = getMetrics(p.accountId, p.startDate, p.endDate);
+    else if (action === 'getMetrics') {
+      out = getMetricsMeta(p.accountId, p.startDate, p.endDate);
+    }
     else if (action === 'getMetricsHistory')  out = getMetricsHistory(p.clientId);
-    else if (action === 'getAllAccountsMetrics') out = getAllAccountsMetrics(p.startDate, p.endDate);
+    else if (action === 'getAllAccountsMetrics') {
+      out = getAllAccountsMetricsMeta(p.startDate, p.endDate);
+    }
+    else if (action === 'getMetaAccounts') out = getMetaAccounts();
     else if (action === 'getAiInsights') out = getAiInsights();
     else if (action === 'getCriativoAccounts') out = getCriativoAccounts();
     else out = { error: 'Unknown action: ' + action };
@@ -1475,6 +1480,42 @@ function backfillMetrics() {
 // - CRIATIVIVO_TOKEN: seu token da API Criativivo (regenere se foi exposto)
 // - WHATSAPP_MANAGER: número do gestor para receber relatórios (ex: 5541999999999)
 // - CLAUDE_API_KEY: sua chave da API Claude/Anthropic (regenere se foi exposta)
+
+// ===================== META ACCOUNTS LIST =====================
+// Retorna todas as contas de anúncio acessíveis pelo META_TOKEN
+function getMetaAccounts() {
+  var token = PropertiesService.getScriptProperties().getProperty('META_TOKEN');
+  if (!token) return { error: 'META_TOKEN não configurado nas propriedades do script.' };
+
+  try {
+    var url = 'https://graph.facebook.com/v21.0/me/adaccounts' +
+              '?fields=id,name,account_status,currency' +
+              '&limit=200' +
+              '&access_token=' + token;
+
+    var resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    var json = JSON.parse(resp.getContentText());
+
+    if (json.error) return { error: json.error.message };
+
+    var accounts = (json.data || []).map(function(a) {
+      return {
+        id: a.id,                        // ex: "act_465759813488960"
+        numericId: a.id.replace(/^act_/i, ''), // ex: "465759813488960"
+        name: a.name || a.id,
+        status: a.account_status,        // 1=ACTIVE, 2=DISABLED, 3=UNSETTLED, 7=PENDING_RISK_REVIEW
+        currency: a.currency || 'BRL'
+      };
+    });
+
+    // Ordena por nome
+    accounts.sort(function(a, b) { return a.name.localeCompare(b.name); });
+
+    return { accounts: accounts };
+  } catch(err) {
+    return { error: 'Erro ao buscar contas Meta: ' + err.message };
+  }
+}
 
 // ===================== TESTE DETRICS =====================
 function testePROFFLEX() {

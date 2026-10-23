@@ -1,0 +1,372 @@
+// ============================================================
+// MetaAPI.gs — Integração direta com a Meta Marketing API
+// Substitui leitura do Detrics (Google Sheets) por chamadas
+// diretas à API do Meta, retornando dados em <2 segundos.
+// ============================================================
+
+var META_TOKEN = PropertiesService.getScriptProperties().getProperty('META_TOKEN');
+var META_API_VERSION = 'v21.0';
+var META_API_BASE    = 'https://graph.facebook.com/' + META_API_VERSION;
+
+// Campos de insights que queremos buscar
+var META_INSIGHT_FIELDS = [
+  'spend',
+  'impressions',
+  'reach',
+  'clicks',
+  'inline_link_clicks',
+  'ctr',
+  'cpm',
+  'cpc',
+  'frequency',
+  'actions',        // leads, purchases, mensagens etc.
+  'action_values',  // valor de compras (ROAS)
+  'website_purchase_roas',
+  'purchase_roas',
+  'campaign_name',
+  'campaign_id'
+].join(',');
+
+// ─── Helpers ─────────────────────────────────────────────────
+
+function metaGet_(url) {
+  var res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+  var json = JSON.parse(res.getContentText());
+  if (json.error) throw new Error('Meta API: ' + json.error.message + ' (código ' + json.error.code + ')');
+  return json;
+}
+
+// Soma de uma action pelo tipo (ex: 'lead', 'purchase', 'onsite_conversion.messaging_conversation_started_7d')
+function sumAction_(actions, type) {
+  if (!actions) return 0;
+  var total = 0;
+  actions.forEach(function(a) {
+    if (a.action_type === type) total += parseFloat(a.value) || 0;
+  });
+  return total;
+}
+
+// Converte array de insights da Meta em objeto com nossas métricas
+function parseInsight_(ins) {
+  var actions      = ins.actions || [];
+  var actionValues = ins.action_values || [];
+
+  var leads     = sumAction_(actions, 'lead') +
+                  sumAction_(actions, 'offsite_conversion.fb_pixel_lead') +
+                  sumAction_(actions, 'onsite_conversion.lead_grouped');
+  var purchases = sumAction_(actions, 'purchase') +
+                  sumAction_(actions, 'offsite_conversion.fb_pixel_purchase');
+  var messages  = sumAction_(actions, 'onsite_conversion.messaging_conversation_started_7d') +
+                  sumAction_(actions, 'onsite_conversion.total_messaging_connection');
+  var lpv       = sumAction_(actions, 'landing_page_view');
+
+  var purchaseValue = sumAction_(actionValues, 'purchase') +
+                      sumAction_(actionValues, 'offsite_conversion.fb_pixel_purchase');
+
+  var spend = parseFloat(ins.spend) || 0;
+  var roas  = 0;
+  if (ins.website_purchase_roas && ins.website_purchase_roas.length > 0) {
+    roas = parseFloat(ins.website_purchase_roas[0].value) || 0;
+  } else if (ins.purchase_roas && ins.purchase_roas.length > 0) {
+    roas = parseFloat(ins.purchase_roas[0].value) || 0;
+  } else if (spend > 0 && purchaseValue > 0) {
+    roas = purchaseValue / spend;
+  }
+
+  var impressions = parseFloat(ins.impressions) || 0;
+  var clicks      = parseFloat(ins.clicks)      || 0;
+  var linkClicks  = parseFloat(ins.inline_link_clicks) || 0;
+  var reach       = parseFloat(ins.reach)       || 0;
+  var frequency   = parseFloat(ins.frequency)   || 0;
+
+  var ctr = impressions > 0 ? (clicks / impressions * 100) : parseFloat(ins.ctr) || 0;
+  var cpm = impressions > 0 ? (spend / impressions * 1000) : parseFloat(ins.cpm) || 0;
+  var cpc = clicks > 0      ? (spend / clicks)             : parseFloat(ins.cpc) || 0;
+  var cpa = (leads + purchases) > 0 ? spend / (leads + purchases) : 0;
+
+  return {
+    spend:         spend.toFixed(2),
+    impressions:   Math.round(impressions),
+    clicks:        Math.round(clicks),
+    linkClicks:    Math.round(linkClicks),
+    reach:         Math.round(reach),
+    frequency:     frequency.toFixed(2),
+    lpv:           Math.round(lpv),
+    leads:         Math.round(leads),
+    purchases:     Math.round(purchases),
+    messages:      Math.round(messages),
+    purchaseValue: purchaseValue.toFixed(2),
+    roas:          roas.toFixed(2),
+    ctr:           ctr.toFixed(2),
+    cpm:           cpm.toFixed(2),
+    cpc:           cpc.toFixed(2),
+    cpa:           cpa.toFixed(2)
+  };
+}
+
+// Busca todas as páginas de um endpoint paginado da Meta API
+function fetchAllPages_(url) {
+  var results = [];
+  var nextUrl = url;
+  var maxPages = 20; // segurança
+  var page = 0;
+  while (nextUrl && page < maxPages) {
+    var json = metaGet_(nextUrl);
+    if (json.data) results = results.concat(json.data);
+    nextUrl = (json.paging && json.paging.next) ? json.paging.next : null;
+    page++;
+  }
+  return results;
+}
+
+// ─── getMetricsMeta ──────────────────────────────────────────
+// Equivalente ao getMetrics() do Detrics, mas via Meta API.
+// accountId = ID numérico da conta (ex: "act_123456789")
+function getMetricsMeta(accountId, startDate, endDate) {
+  if (!accountId) return { error: 'accountId required' };
+  if (!META_TOKEN) return { error: 'META_TOKEN não configurado. Vá em Apps Script > Configurações > Propriedades do script e adicione META_TOKEN.' };
+
+  try {
+    var actId = accountId.replace(/^act_/i, '');
+    var acctParam = 'act_' + actId;
+
+    // 1. Insights totais da conta no período (nível campanha)
+    var insightsUrl = META_API_BASE + '/' + acctParam + '/insights'
+      + '?level=campaign'
+      + '&fields=' + encodeURIComponent(META_INSIGHT_FIELDS)
+      + '&time_range=' + encodeURIComponent(JSON.stringify({ since: startDate, until: endDate }))
+      + '&limit=100'
+      + '&access_token=' + META_TOKEN;
+
+    var insightsData = fetchAllPages_(insightsUrl);
+
+    // 2. Agrega por campanha
+    var campaigns = {};
+    var grandTotals = {
+      spend: 0, impressions: 0, clicks: 0, linkClicks: 0,
+      reach: 0, frequency: 0, lpv: 0, leads: 0, purchases: 0,
+      messages: 0, purchaseValue: 0,
+      roasSum: 0, roasCount: 0, freqSum: 0, freqCount: 0
+    };
+
+    insightsData.forEach(function(ins) {
+      var m = parseInsight_(ins);
+      var campId   = ins.campaign_id   || '';
+      var campName = ins.campaign_name || '(sem nome)';
+
+      if (!campaigns[campId]) {
+        campaigns[campId] = {
+          id: campId, name: campName,
+          spend: 0, impressions: 0, clicks: 0, linkClicks: 0,
+          reach: 0, lpv: 0, leads: 0, purchases: 0, messages: 0,
+          purchaseValue: 0, roasSum: 0, roasCount: 0
+        };
+      }
+      var c = campaigns[campId];
+      var spend = parseFloat(m.spend) || 0;
+      var roas  = parseFloat(m.roas)  || 0;
+
+      c.spend        += spend;
+      c.impressions  += parseFloat(m.impressions)  || 0;
+      c.clicks       += parseFloat(m.clicks)       || 0;
+      c.linkClicks   += parseFloat(m.linkClicks)   || 0;
+      c.reach        += parseFloat(m.reach)        || 0;
+      c.lpv          += parseFloat(m.lpv)          || 0;
+      c.leads        += parseFloat(m.leads)        || 0;
+      c.purchases    += parseFloat(m.purchases)    || 0;
+      c.messages     += parseFloat(m.messages)     || 0;
+      c.purchaseValue += parseFloat(m.purchaseValue) || 0;
+      if (roas > 0 && spend > 0) { c.roasSum += roas * spend; c.roasCount += spend; }
+
+      grandTotals.spend        += spend;
+      grandTotals.impressions  += parseFloat(m.impressions)  || 0;
+      grandTotals.clicks       += parseFloat(m.clicks)       || 0;
+      grandTotals.linkClicks   += parseFloat(m.linkClicks)   || 0;
+      grandTotals.reach        += parseFloat(m.reach)        || 0;
+      grandTotals.lpv          += parseFloat(m.lpv)          || 0;
+      grandTotals.leads        += parseFloat(m.leads)        || 0;
+      grandTotals.purchases    += parseFloat(m.purchases)    || 0;
+      grandTotals.messages     += parseFloat(m.messages)     || 0;
+      grandTotals.purchaseValue += parseFloat(m.purchaseValue) || 0;
+      if (roas > 0 && spend > 0) { grandTotals.roasSum += roas * spend; grandTotals.roasCount += spend; }
+      var freq = parseFloat(m.frequency) || 0;
+      if (freq > 0) { grandTotals.freqSum += freq; grandTotals.freqCount++; }
+    });
+
+    // 3. Monta insights por campanha para retorno
+    var campList = Object.keys(campaigns).map(function(id) { return campaigns[id]; });
+    campList.sort(function(a, b) { return b.spend - a.spend; });
+
+    var aggregatedInsights = campList.map(function(c) {
+      var impr = c.impressions;
+      var ctr  = impr > 0 ? (c.clicks / impr * 100).toFixed(2) : '0';
+      var cpm  = impr > 0 ? (c.spend / impr * 1000).toFixed(2) : '0';
+      var cpc  = c.clicks > 0 ? (c.spend / c.clicks).toFixed(2) : '0';
+      var roas = c.roasCount > 0 ? (c.roasSum / c.roasCount).toFixed(2) : '0';
+      var cpa  = (c.leads + c.purchases) > 0 ? (c.spend / (c.leads + c.purchases)).toFixed(2) : '0';
+      return {
+        campaign_id:   c.id,
+        campaign_name: c.name,
+        spend:         c.spend.toFixed(2),
+        impressions:   Math.round(c.impressions),
+        clicks:        Math.round(c.clicks),
+        linkClicks:    Math.round(c.linkClicks),
+        reach:         Math.round(c.reach),
+        lpv:           Math.round(c.lpv),
+        leads:         Math.round(c.leads),
+        purchases:     Math.round(c.purchases),
+        messages:      Math.round(c.messages),
+        purchaseValue: c.purchaseValue.toFixed(2),
+        ctr: ctr, cpm: cpm, cpc: cpc, roas: roas, cpa: cpa
+      };
+    });
+
+    // 4. Totais globais
+    var gt = grandTotals;
+    var gtImpr = gt.impressions;
+    var gtCtr  = gtImpr > 0 ? (gt.clicks / gtImpr * 100).toFixed(2) : '0';
+    var gtCpm  = gtImpr > 0 ? (gt.spend / gtImpr * 1000).toFixed(2) : '0';
+    var gtCpc  = gt.clicks > 0 ? (gt.spend / gt.clicks).toFixed(2) : '0';
+    var gtRoas = gt.roasCount > 0 ? (gt.roasSum / gt.roasCount).toFixed(2) : '0';
+    var gtCpa  = (gt.leads + gt.purchases) > 0 ? (gt.spend / (gt.leads + gt.purchases)).toFixed(2) : '0';
+    var gtFreq = gt.freqCount > 0 ? (gt.freqSum / gt.freqCount).toFixed(2) : '0';
+
+    return {
+      campaigns:  campList.map(function(c) { return { id: c.id, name: c.name }; }),
+      insights:   aggregatedInsights,
+      daily:      [],
+      totals: {
+        spend:         gt.spend.toFixed(2),
+        impressions:   Math.round(gt.impressions),
+        clicks:        Math.round(gt.clicks),
+        linkClicks:    Math.round(gt.linkClicks),
+        reach:         Math.round(gt.reach),
+        frequency:     gtFreq,
+        lpv:           Math.round(gt.lpv),
+        leads:         Math.round(gt.leads),
+        purchases:     Math.round(gt.purchases),
+        messages:      Math.round(gt.messages),
+        purchaseValue: gt.purchaseValue.toFixed(2),
+        roas: gtRoas, ctr: gtCtr, cpm: gtCpm, cpc: gtCpc, cpa: gtCpa
+      },
+      period: { start: startDate, end: endDate },
+      source: 'meta_api'
+    };
+
+  } catch(err) {
+    return { error: 'Erro Meta API: ' + err.message };
+  }
+}
+
+// ─── getAllAccountsMetricsMeta ────────────────────────────────
+// Equivalente ao getAllAccountsMetrics() mas via Meta API.
+// Recebe lista de ad_account_ids dos clientes cadastrados.
+function getAllAccountsMetricsMeta(startDate, endDate) {
+  if (!META_TOKEN) return { error: 'META_TOKEN não configurado.' };
+
+  try {
+    // Busca clientes cadastrados com criativoAccountId
+    var clientsData = getClients();
+    var clients = (clientsData.clients || clientsData || []).filter(function(c) {
+      return c.criativoAccountId && !c.cancelado;
+    });
+
+    if (clients.length === 0) return { accounts: [], period: { start: startDate, end: endDate }, source: 'meta_api' };
+
+    var accounts = [];
+
+    clients.forEach(function(client) {
+      try {
+        var actId    = String(client.criativoAccountId).replace(/^act_/i, '');
+        var acctParam = 'act_' + actId;
+
+        var url = META_API_BASE + '/' + acctParam + '/insights'
+          + '?level=account'
+          + '&fields=' + encodeURIComponent(META_INSIGHT_FIELDS)
+          + '&time_range=' + encodeURIComponent(JSON.stringify({ since: startDate, until: endDate }))
+          + '&access_token=' + META_TOKEN;
+
+        var data = fetchAllPages_(url);
+        if (data.length === 0) {
+          accounts.push({
+            accountName: client.name || client.criativoAccountId,
+            clientId:    client.id || '',
+            spend: '0', impressions: 0, clicks: 0, linkClicks: 0,
+            reach: 0, leads: 0, purchases: 0, conversions: 0,
+            messages: 0, roas: '0', ctr: '0', cpm: '0', cpc: '0', cpa: '0'
+          });
+          return;
+        }
+
+        // Agrega todas as linhas (pode vir mais de uma se houver paginação por campanha)
+        var totals = {
+          spend: 0, impressions: 0, clicks: 0, linkClicks: 0,
+          reach: 0, lpv: 0, leads: 0, purchases: 0, messages: 0,
+          purchaseValue: 0, roasSum: 0, roasCount: 0
+        };
+        data.forEach(function(ins) {
+          var m = parseInsight_(ins);
+          var spend = parseFloat(m.spend) || 0;
+          var roas  = parseFloat(m.roas)  || 0;
+          totals.spend        += spend;
+          totals.impressions  += parseFloat(m.impressions)  || 0;
+          totals.clicks       += parseFloat(m.clicks)       || 0;
+          totals.linkClicks   += parseFloat(m.linkClicks)   || 0;
+          totals.reach        += parseFloat(m.reach)        || 0;
+          totals.leads        += parseFloat(m.leads)        || 0;
+          totals.purchases    += parseFloat(m.purchases)    || 0;
+          totals.messages     += parseFloat(m.messages)     || 0;
+          totals.purchaseValue += parseFloat(m.purchaseValue) || 0;
+          if (roas > 0 && spend > 0) { totals.roasSum += roas * spend; totals.roasCount += spend; }
+        });
+
+        var impr  = totals.impressions;
+        var spend = totals.spend;
+        var roas  = totals.roasCount > 0 ? totals.roasSum / totals.roasCount : 0;
+        var conv  = totals.leads + totals.purchases + totals.messages;
+
+        accounts.push({
+          accountName: client.name || client.criativoAccountId,
+          clientId:    client.id || '',
+          spend:       spend.toFixed(2),
+          impressions: Math.round(impr),
+          clicks:      Math.round(totals.clicks),
+          linkClicks:  Math.round(totals.linkClicks),
+          reach:       Math.round(totals.reach),
+          leads:       Math.round(totals.leads),
+          purchases:   Math.round(totals.purchases),
+          conversions: Math.round(conv),
+          messages:    Math.round(totals.messages),
+          roas:        roas.toFixed(2),
+          ctr:         impr > 0 ? (totals.clicks / impr * 100).toFixed(2) : '0',
+          cpm:         impr > 0 ? (spend / impr * 1000).toFixed(2) : '0',
+          cpc:         totals.clicks > 0 ? (spend / totals.clicks).toFixed(2) : '0',
+          cpa:         conv > 0 ? (spend / conv).toFixed(2) : '0'
+        });
+
+      } catch(e) {
+        // Conta sem acesso ou sem dados — adiciona com zeros para não quebrar a tabela
+        accounts.push({
+          accountName: client.name || client.criativoAccountId,
+          clientId:    client.id || '',
+          spend: '0', impressions: 0, clicks: 0, linkClicks: 0,
+          reach: 0, leads: 0, purchases: 0, conversions: 0,
+          messages: 0, roas: '0', ctr: '0', cpm: '0', cpc: '0', cpa: '0',
+          error: e.message
+        });
+      }
+    });
+
+    // Ordena por gasto desc
+    accounts.sort(function(a, b) { return parseFloat(b.spend) - parseFloat(a.spend); });
+
+    return {
+      accounts: accounts,
+      period:   { start: startDate, end: endDate },
+      source:   'meta_api'
+    };
+
+  } catch(err) {
+    return { error: 'Erro getAllAccountsMetricsMeta: ' + err.message };
+  }
+}

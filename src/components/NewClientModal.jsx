@@ -9,23 +9,8 @@ const EVOLUTION_URL = 'https://evolution-api-production-73dff.up.railway.app'
 const EVOLUTION_KEY = 'aventus2024'
 const INSTANCE = 'aventuscs'
 
-// Contas Criativivo disponíveis (fallback estático)
-// Contas Meta Ads — value = Account Name exato no Detrics (para matching de métricas)
-const CRIATIVIVO_ACCOUNTS_FALLBACK = [
-  { id: 'ATITUDE GESTOR ANDERSON', name: 'ATITUDE GESTOR ANDERSON', provider: 'meta' },
-  { id: 'CA2 - TJ Colecionáveis', name: 'CA2 - TJ Colecionáveis', provider: 'meta' },
-  { id: 'CA - Dan Indiana', name: 'CA - Dan Indiana', provider: 'meta' },
-  { id: 'CA - Diogo Seguro Rápido', name: 'CA - Diogo Seguro Rápido', provider: 'meta' },
-  { id: 'CA - Ellen Moura', name: 'CA - Ellen Moura', provider: 'meta' },
-  { id: 'Construart', name: 'Construart', provider: 'meta' },
-  { id: 'DelphisADS', name: 'DelphisADS', provider: 'meta' },
-  { id: 'ELLEN ALVES', name: 'ELLEN ALVES', provider: 'meta' },
-  { id: 'Green Flip Flops', name: 'Green Flip Flops', provider: 'meta' },
-  { id: 'INNOVE 3D', name: 'INNOVE 3D', provider: 'meta' },
-  { id: 'Panconnect 01', name: 'Panconnect 01', provider: 'meta' },
-  { id: 'PROFFLEX', name: 'PROFFLEX', provider: 'meta' },
-  { id: 'TAHITI', name: 'TAHITI', provider: 'meta' },
-]
+// Status legível para contas Meta
+const META_STATUS_LABEL = { 1: 'Ativa', 2: 'Desativada', 3: 'Pendente', 7: 'Em revisão' }
 
 export default function NewClientModal({ onClose, prefillName, editingClient }) {
   const { createClient, editClient } = useApp()
@@ -68,17 +53,30 @@ export default function NewClientModal({ onClose, prefillName, editingClient }) 
   const [groupSearch, setGroupSearch] = useState('')
   const [showGroupList, setShowGroupList] = useState(false)
 
-  // Criativivo accounts
-  const [criativoAccounts, setCriativoAccounts] = useState(CRIATIVIVO_ACCOUNTS_FALLBACK)
+  // Meta Ads accounts — carregadas da API real
+  const [metaAccounts, setMetaAccounts] = useState([])
+  const [metaAccountsLoading, setMetaAccountsLoading] = useState(false)
+  const [metaAccountsError, setMetaAccountsError] = useState('')
 
-  // Tentar carregar contas dinâmicas do Criativivo via Apps Script
+  // Carregar contas Meta da API ao abrir o modal
   useEffect(() => {
     const scriptUrl = import.meta.env.VITE_SCRIPT_URL
     if (!scriptUrl) return
-    fetch(`${scriptUrl}?action=getCriativoAccounts`)
+    setMetaAccountsLoading(true)
+    fetch(`${scriptUrl}?action=getMetaAccounts`)
       .then(r => r.json())
-      .then(data => { if (data && data.length) setCriativoAccounts(data) })
-      .catch(() => {})
+      .then(data => {
+        if (data.error) {
+          setMetaAccountsError(data.error)
+        } else if (data.accounts && data.accounts.length) {
+          setMetaAccounts(data.accounts)
+        }
+        setMetaAccountsLoading(false)
+      })
+      .catch(e => {
+        setMetaAccountsError('Erro ao carregar contas Meta')
+        setMetaAccountsLoading(false)
+      })
   }, [])
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
@@ -225,17 +223,35 @@ export default function NewClientModal({ onClose, prefillName, editingClient }) 
         )}
       </Field>
 
-      {/* Conta Meta Ads (Detrics) */}
+      {/* Conta Meta Ads — lista dinâmica da API */}
       <Field label="Conta Meta Ads (opcional)">
-        <select value={form.criativoAccountId} onChange={e => set('criativoAccountId', e.target.value)}
-          style={{ width: '100%', background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', color: form.criativoAccountId ? 'var(--text)' : '#666', fontSize: 13 }}>
-          <option value="">Sem conta vinculada</option>
-          <optgroup label="Meta Ads">
-            {criativoAccounts.filter(a => a.provider === 'meta').map(a => (
-              <option key={a.id + a.name} value={a.id}>{a.name}</option>
+        {metaAccountsLoading ? (
+          <div style={{ padding: '8px 12px', background: '#141414', border: '0.5px solid #2a2a2a', borderRadius: 8, fontSize: 13, color: '#555' }}>
+            <i className="ti ti-loader" style={{ marginRight: 6 }} />Carregando contas Meta...
+          </div>
+        ) : metaAccountsError ? (
+          <div style={{ padding: '8px 12px', background: '#1a1010', border: '0.5px solid #3a1a1a', borderRadius: 8, fontSize: 12, color: '#cc4444' }}>
+            <i className="ti ti-alert-circle" style={{ marginRight: 6 }} />{metaAccountsError}
+          </div>
+        ) : (
+          <select
+            value={form.criativoAccountId}
+            onChange={e => set('criativoAccountId', e.target.value)}
+            style={{ width: '100%', background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', color: form.criativoAccountId ? 'var(--text)' : '#666', fontSize: 13 }}
+          >
+            <option value="">Sem conta vinculada</option>
+            {metaAccounts.map(a => (
+              <option key={a.id} value={a.id}>
+                {a.name}{a.status !== 1 ? ` (${META_STATUS_LABEL[a.status] || 'Inativa'})` : ''}
+              </option>
             ))}
-          </optgroup>
-        </select>
+          </select>
+        )}
+        {form.criativoAccountId && (
+          <div style={{ fontSize: 11, color: '#555', marginTop: 4, paddingLeft: 2 }}>
+            ID: {form.criativoAccountId.replace(/^act_/i, '')}
+          </div>
+        )}
       </Field>
 
       {/* Tipo de cliente — aparece só se tiver conta Criativivo */}
