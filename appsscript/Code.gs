@@ -481,10 +481,22 @@ function getMetrics(accountId, startDate, endDate) {
     var campaigns        = {};  // Campaign Name → {spend, impressions, clicks}
     var matchedRows      = 0;
 
+    // Função auxiliar: converte Date ou string para "YYYY-MM-DD"
+    var toDateStr = function(val) {
+      if (!val) return '';
+      if (val instanceof Date) {
+        var y = val.getFullYear();
+        var m = String(val.getMonth() + 1).padStart(2, '0');
+        var d = String(val.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + d;
+      }
+      return String(val).trim().slice(0, 10);
+    };
+
     for (var i = 1; i < data.length; i++) {
       var row         = data[i];
-      var dateStart   = String(row[0] || '').trim();  // "2026-10-01" ou Date object
-      var dateStop    = String(row[1] || '').trim();
+      var dateStart   = toDateStr(row[0]);
+      var dateStop    = toDateStr(row[1]);
       var accountName = String(row[2] || '').trim();
       var campaignName = String(row[3] || '').trim();
       var amountSpent  = parseMoney(row[4]);
@@ -501,9 +513,8 @@ function getMetrics(accountId, startDate, endDate) {
       // Filtro de data: a linha cobre [dateStart, dateStop]
       // Queremos linhas que se sobrepõem com [startDate, endDate]
       if (startDate && endDate) {
-        // Normaliza datas para string YYYY-MM-DD
-        var ds = dateStart.slice(0, 10);
-        var de = dateStop.slice(0, 10);
+        var ds = dateStart;
+        var de = dateStop;
         // Sem sobreposição se: linha termina antes do início OU linha começa depois do fim
         if (de < startDate || ds > endDate) continue;
       }
@@ -1285,6 +1296,16 @@ function backfillMetrics() {
 function testePROFFLEX() {
   var r = getMetrics('PROFFLEX', '2026-10-01', '2026-10-23');
   Logger.log(JSON.stringify(r));
+}
+
+function testeRawDatas() {
+  // Mostra as primeiras 5 linhas brutas para debug de formato de data
+  var ss = SpreadsheetApp.openById(DETRICS_SHEET_ID);
+  var sh = ss.getSheetByName(DETRICS_SHEET_NAME);
+  var data = sh.getRange(1, 1, 6, 4).getValues();
+  data.forEach(function(row, i) {
+    Logger.log('Linha ' + i + ': [' + typeof row[0] + '] "' + row[0] + '" | [' + typeof row[1] + '] "' + row[1] + '" | "' + row[2] + '"');
+  });
 }
 
 function testeListaContas() {
