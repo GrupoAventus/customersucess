@@ -459,9 +459,8 @@ function checkMetaAccountsHourly() {
         + '?fields=balance,amount_spent,currency,account_status'
         + '&access_token=' + token;
       var acctJson = metaGet_(acctUrl);
-      // balance vem em centavos da moeda da conta (BRL)
-      var balanceCents = parseFloat(acctJson.balance) || 0;
-      var balance      = balanceCents / 100; // converte para reais
+      // balance da Meta API já vem em reais para contas BRL (não em centavos)
+      var balance = parseFloat(acctJson.balance) || 0;
 
       var lowBalance = balance < 50;
 
