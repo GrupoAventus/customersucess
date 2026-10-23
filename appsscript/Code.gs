@@ -107,11 +107,15 @@ function genId() {
 }
 
 // ===================== CLIENTS =====================
-// Colunas: id, name, drive, instagram, site, entrou, destino, createdAt,
-// destinos, ccLP, ccEcom, ccSocial, socialPosts, socialWeek,
-// status, observacoes, cancelado, rechargeAmount, dailySpend, lastRecharge,
-// priorityStatus, statusChangedAt, hasCard, whatsappGroup, whatsappGroupName,
-// criativoAccountId(AB=col26), clientType(AC=col27)
+// Colunas (confirmadas pelo gviz 2024-10):
+// col1=id, col2=name, col3=drive, col4=instagram, col5=site,
+// col6=entrou, col7=destino, col8=saldoMax, col9=saldo,
+// col10=createdAt, col11=destinos, col12=ccLP, col13=ccEcom,
+// col14=ccSocial, col15=socialPosts, col16=socialWeek, col17=status,
+// col18=observacoes, col19=cancelado, col20=rechargeAmount,
+// col21=dailySpend, col22=lastRecharge, col23=priorityStatus,
+// col24=statusChangedAt, col25=hasCard, col26=whatsappGroup,
+// col27=whatsappGroupName, col28=criativoAccountId, col29=clientType
 
 function getClients() {
   return sheetToObjects(getSheet('clients'));
@@ -121,20 +125,45 @@ function addClient(body) {
   var sh = getSheet('clients');
   var id = genId();
   var now = new Date().toISOString();
+  // appendRow coloca na ordem exata das colunas:
+  // col1=id, col2=name, col3=drive, col4=instagram, col5=site,
+  // col6=entrou, col7=destino, col8=saldoMax(vazio), col9=saldo(vazio),
+  // col10=createdAt, col11=destinos, col12=ccLP, col13=ccEcom,
+  // col14=ccSocial, col15=socialPosts, col16=socialWeek, col17=status,
+  // col18=observacoes, col19=cancelado, col20=rechargeAmount,
+  // col21=dailySpend, col22=lastRecharge, col23=priorityStatus,
+  // col24=statusChangedAt, col25=hasCard, col26=whatsappGroup,
+  // col27=whatsappGroupName, col28=criativoAccountId, col29=clientType
   sh.appendRow([
-    id, body.name||'', body.drive||'', body.instagram||'', body.site||'',
-    body.entrou||'', body.destino||'', now,
-    JSON.stringify(body.destinos||[]),
-    body.ccLP||'', body.ccEcom||'', body.ccSocial||'',
-    0, '', // socialPosts, socialWeek
-    body.status||'Pegar acessos', body.observacoes||'', false,
-    body.rechargeAmount||0, body.dailySpend||0,
-    body.lastRecharge||now.slice(0,10),
-    body.priorityStatus||'estavel',
-    body.statusChangedAt||now.slice(0,10),
-    body.hasCard||false,
-    body.whatsappGroup||'', body.whatsappGroupName||'',
-    body.criativoAccountId||'', body.clientType||''
+    id,                               // col1: id
+    body.name||'',                    // col2: name
+    body.drive||'',                   // col3: drive
+    body.instagram||'',               // col4: instagram
+    body.site||'',                    // col5: site
+    body.entrou||'',                  // col6: entrou
+    body.destino||'',                 // col7: destino
+    '',                               // col8: saldoMax (não usado no addClient)
+    '',                               // col9: saldo (não usado no addClient)
+    now,                              // col10: createdAt
+    JSON.stringify(body.destinos||[]),// col11: destinos
+    body.ccLP||'',                    // col12: ccLP
+    body.ccEcom||'',                  // col13: ccEcom
+    body.ccSocial||'',                // col14: ccSocial
+    0,                                // col15: socialPosts
+    '',                               // col16: socialWeek
+    body.status||'Pegar acessos',     // col17: status
+    body.observacoes||'',             // col18: observacoes
+    false,                            // col19: cancelado
+    body.rechargeAmount||0,           // col20: rechargeAmount
+    body.dailySpend||0,               // col21: dailySpend
+    body.lastRecharge||now.slice(0,10),// col22: lastRecharge
+    body.priorityStatus||'estavel',   // col23: priorityStatus
+    body.statusChangedAt||now.slice(0,10), // col24: statusChangedAt
+    body.hasCard||false,              // col25: hasCard
+    body.whatsappGroup||'',           // col26: whatsappGroup
+    body.whatsappGroupName||'',       // col27: whatsappGroupName
+    body.criativoAccountId||'',       // col28: criativoAccountId
+    body.clientType||''               // col29: clientType
   ]);
   return { id: id };
 }
@@ -143,21 +172,29 @@ function updateClientData(body) {
   var sh = getSheet('clients');
   var row = findRowById(sh, body.id);
   if (row < 0) return { error: 'Not found' };
+  // Colunas confirmadas pelo header real da planilha (gviz):
+  // col1=id, col2=name, col3=drive, col4=instagram, col5=site,
+  // col6=entrou, col7=destino, col8=saldoMax, col9=saldo,
+  // col10=createdAt, col11=destinos, col12=ccLP, col13=ccEcom,
+  // col14=ccSocial, col15=socialPosts, col16=socialWeek, col17=status,
+  // col18=observacoes, col19=cancelado, col20=rechargeAmount,
+  // col21=dailySpend, col22=lastRecharge, col23=priorityStatus,
+  // col24=statusChangedAt, col25=hasCard, col26=whatsappGroup,
+  // col27=whatsappGroupName, col28=criativoAccountId, col29=clientType
   sh.getRange(row, 2).setValue(body.name||'');
   sh.getRange(row, 3).setValue(body.drive||'');
   sh.getRange(row, 4).setValue(body.instagram||'');
   sh.getRange(row, 5).setValue(body.site||'');
   sh.getRange(row, 6).setValue(body.entrou||'');
   sh.getRange(row, 7).setValue(body.destino||'');
-  sh.getRange(row, 9).setValue(JSON.stringify(body.destinos||[]));
-  sh.getRange(row, 10).setValue(body.ccLP||'');
-  sh.getRange(row, 11).setValue(body.ccEcom||'');
-  sh.getRange(row, 12).setValue(body.ccSocial||'');
-  sh.getRange(row, 25).setValue(body.whatsappGroup||'');
-  sh.getRange(row, 26).setValue(body.whatsappGroupName||'');
-  // AB=28, AC=29 (1-indexed no getRange)
-  sh.getRange(row, 28).setValue(body.criativoAccountId||'');
-  sh.getRange(row, 29).setValue(body.clientType||'');
+  sh.getRange(row, 11).setValue(JSON.stringify(body.destinos||[])); // destinos = col11
+  sh.getRange(row, 12).setValue(body.ccLP||'');                     // ccLP = col12
+  sh.getRange(row, 13).setValue(body.ccEcom||'');                   // ccEcom = col13
+  sh.getRange(row, 14).setValue(body.ccSocial||'');                 // ccSocial = col14
+  sh.getRange(row, 26).setValue(body.whatsappGroup||'');            // whatsappGroup = col26
+  sh.getRange(row, 27).setValue(body.whatsappGroupName||'');        // whatsappGroupName = col27
+  sh.getRange(row, 28).setValue(body.criativoAccountId||'');        // criativoAccountId = col28
+  sh.getRange(row, 29).setValue(body.clientType||'');               // clientType = col29
   return { ok: true };
 }
 
@@ -165,8 +202,8 @@ function updateClientStatus(body) {
   var sh = getSheet('clients');
   var row = findRowById(sh, body.id);
   if (row < 0) return { error: 'Not found' };
-  sh.getRange(row, 15).setValue(body.status);
-  sh.getRange(row, 22).setValue(body.statusChangedAt||new Date().toISOString().slice(0,10));
+  sh.getRange(row, 17).setValue(body.status);           // col17=status
+  sh.getRange(row, 24).setValue(body.statusChangedAt||new Date().toISOString().slice(0,10)); // col24=statusChangedAt
   return { ok: true };
 }
 
@@ -174,7 +211,7 @@ function updateClientNotes(body) {
   var sh = getSheet('clients');
   var row = findRowById(sh, body.id);
   if (row < 0) return { error: 'Not found' };
-  sh.getRange(row, 16).setValue(body.observacoes||'');
+  sh.getRange(row, 18).setValue(body.observacoes||'');  // col18=observacoes
   return { ok: true };
 }
 
@@ -182,7 +219,7 @@ function setClientPriority(body) {
   var sh = getSheet('clients');
   var row = findRowById(sh, body.id);
   if (row < 0) return { error: 'Not found' };
-  sh.getRange(row, 21).setValue(body.priorityStatus);
+  sh.getRange(row, 23).setValue(body.priorityStatus);   // col23=priorityStatus
   return { ok: true };
 }
 
@@ -190,9 +227,9 @@ function setClientFinance(body) {
   var sh = getSheet('clients');
   var row = findRowById(sh, body.id);
   if (row < 0) return { error: 'Not found' };
-  sh.getRange(row, 18).setValue(body.rechargeAmount||0);
-  sh.getRange(row, 19).setValue(body.dailySpend||0);
-  sh.getRange(row, 20).setValue(body.lastRecharge||'');
+  sh.getRange(row, 20).setValue(body.rechargeAmount||0);// col20=rechargeAmount
+  sh.getRange(row, 21).setValue(body.dailySpend||0);    // col21=dailySpend
+  sh.getRange(row, 22).setValue(body.lastRecharge||''); // col22=lastRecharge
   return { ok: true };
 }
 
@@ -200,7 +237,7 @@ function setClientCard(body) {
   var sh = getSheet('clients');
   var row = findRowById(sh, body.id);
   if (row < 0) return { error: 'Not found' };
-  sh.getRange(row, 23).setValue(body.hasCard);
+  sh.getRange(row, 25).setValue(body.hasCard);          // col25=hasCard
   return { ok: true };
 }
 
@@ -208,7 +245,7 @@ function cancelClient(body) {
   var sh = getSheet('clients');
   var row = findRowById(sh, body.id);
   if (row < 0) return { error: 'Not found' };
-  sh.getRange(row, 17).setValue(body.cancelado);
+  sh.getRange(row, 19).setValue(body.cancelado);        // col19=cancelado
   return { ok: true };
 }
 
@@ -224,14 +261,14 @@ function incrementSocialPost(body) {
   var sh = getSheet('clients');
   var row = findRowById(sh, body.id);
   if (row < 0) return { error: 'Not found' };
-  var currentPosts = sh.getRange(row, 13).getValue() || 0;
+  var currentPosts = sh.getRange(row, 15).getValue() || 0; // col15=socialPosts
   var currentWeek = getCurrentWeek();
-  var sheetWeek = sh.getRange(row, 14).getValue() || '';
+  var sheetWeek = sh.getRange(row, 16).getValue() || '';   // col16=socialWeek
   if (sheetWeek !== currentWeek) {
     currentPosts = 0;
-    sh.getRange(row, 14).setValue(currentWeek);
+    sh.getRange(row, 16).setValue(currentWeek);            // col16=socialWeek
   }
-  sh.getRange(row, 13).setValue(currentPosts + 1);
+  sh.getRange(row, 15).setValue(currentPosts + 1);         // col15=socialPosts
   return { ok: true };
 }
 
