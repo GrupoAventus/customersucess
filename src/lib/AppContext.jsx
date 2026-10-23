@@ -121,13 +121,20 @@ export function AppProvider({ children }) {
       try { setReports(await fetchReports()) } catch (e) { console.error(e) }
       try { setAgenda(await fetchAgenda()) } catch (e) { console.error(e) }
       try { setPipeline(await fetchPipeline()) } catch (e) { console.error(e) }
-      try {
-        const url = import.meta.env.VITE_SCRIPT_URL
-        const res = await fetch(`${url}?action=getAiInsights`)
-        const json = await res.json()
-        if (Array.isArray(json)) setAiInsights(json)
-      } catch (e) { console.error(e) }
-      try { setMetaStatus(await fetchMetaStatus()) } catch (e) { console.error(e) }
+      // Chamadas independentes em paralelo — metaStatus não espera aiInsights
+      await Promise.allSettled([
+        (async () => {
+          try {
+            const url = import.meta.env.VITE_SCRIPT_URL
+            const res = await fetch(`${url}?action=getAiInsights`)
+            const json = await res.json()
+            if (Array.isArray(json)) setAiInsights(json)
+          } catch (e) { console.error(e) }
+        })(),
+        (async () => {
+          try { setMetaStatus(await fetchMetaStatus()) } catch (e) { console.error(e) }
+        })(),
+      ])
     } catch (e) { console.error('Load error:', e) }
     setLoading(false)
   }, [])
