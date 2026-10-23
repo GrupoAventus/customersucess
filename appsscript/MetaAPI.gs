@@ -454,13 +454,12 @@ function checkMetaAccountsHourly() {
       var campJson = metaGet_(campUrl);
       var activeCampaigns = (campJson.data || []).length;
 
-      // 2. Saldo da conta (em centavos → converter para reais)
+      // 2. Saldo da conta
       var acctUrl = META_API_BASE + '/' + acctParam
-        + '?fields=balance,amount_spent,currency,account_status'
+        + '?fields=balance,currency'
         + '&access_token=' + token;
       var acctJson = metaGet_(acctUrl);
-      // balance da Meta API vem em centavos para contas BRL → dividir por 100
-      var balance = (parseFloat(acctJson.balance) || 0) / 100;
+      var balance = parseFloat(acctJson.balance) || 0;
 
       var lowBalance = balance < 50;
 
