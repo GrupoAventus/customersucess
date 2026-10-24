@@ -670,54 +670,26 @@ function runPredictiveAI() {
       var campaigns = (m7.campaigns || []).map(function(c) { return c.name; }).join(', ') || 'Nenhuma';
       var activeCampaigns = (m7.campaigns || []).filter(function(c) { return c.status === 'ACTIVE'; }).length;
 
-      var prompt =
-        'Você é um sistema de inteligência preditiva especializado em performance de mídia paga (Meta Ads).\n' +
-        'Seu objetivo é identificar padrões históricos e prever com precisão o que vai acontecer nos próximos 3 a 7 dias.\n\n' +
+      var systemPrompt =
+        'Você é um analisador de performance de mídia paga. Responda SEMPRE neste formato exato, sem exceções:\n\n' +
+        'PADRÃO IDENTIFICADO: [1 linha]\n' +
+        'SIMILARIDADE HISTÓRICA: [Período DD/MM a DD/MM / Cliente X — o que aconteceu naquele período e o resultado]\n' +
+        'PREVISÃO 3 DIAS:\n• [item 1]\n• [item 2]\n• [item 3]\n' +
+        'PREVISÃO 7 DIAS:\n• [item 1]\n• [item 2]\n' +
+        'CONFIANÇA: [Alto/Médio/Baixo] — [1 frase]\n' +
+        '⚠️ ALERTA: [REGRA: só escreva uma frase de alerta se houver tendência de piora CONCRETA nas métricas — CPM subindo, ROAS caindo, CTR em queda, frequência acima de 2.5. Se a campanha estiver estável ou melhorando, escreva apenas a palavra: Nenhum]\n' +
+        'AÇÃO AGORA:\n• [ação 1 com prazo]\n• [ação 2 com prazo]\n\n' +
+        'PROIBIDO: asteriscos (**), cerquilha (##), travessão decorativo (---), itálico, negrito, qualquer markdown. Use apenas texto simples e o caractere • para listas.';
 
-        '## DADOS DO CLIENTE ATUAL\n' +
-        'Nome: ' + client.name + '\n' +
-        'Objetivo da campanha: ' + objetivoLabel + '\n' +
-        'IMPORTANTE: Avalie APENAS o KPI do objetivo acima. Não mencione métricas de outros objetivos como problema.\n' +
-        'Conta Meta: ' + client.criativoAccountId + '\n' +
-        'Campanhas ativas: ' + activeCampaigns + ' | Nomes: ' + campaigns + '\n\n' +
-
-        '## MÉTRICAS ATUAIS (últimos 7 dias)\n' + metrics7 + '\n\n' +
-        '## MÉTRICAS DOS ÚLTIMOS 14 DIAS\n' + metrics14 + '\n\n' +
-        '## MÉTRICAS DOS ÚLTIMOS 30 DIAS\n' + metrics30 + '\n\n' +
-
-        '## HISTÓRICO DE PADRÕES (previsões anteriores deste e de outros clientes)\n' +
-        historicalPatterns + '\n\n' +
-
-        '---\n\n' +
-        '## SUA MISSÃO\n\n' +
-
-        '1. IDENTIFICAÇÃO DE PADRÃO\n' +
-        'Analise a trajetória das métricas dos últimos 7 dias em relação aos 14 e 30 dias.\n' +
-        'Identifique se há um padrão reconhecível: queda de ROAS, aumento de CPM, fadiga criativa, saturação de público, sazonalidade, etc.\n' +
-        'Compare esse padrão com os históricos fornecidos. Existe algum período anterior — deste ou de outro cliente — onde o comportamento era parecido?\n\n' +
-
-        '2. PREVISÃO\n' +
-        'Com base no padrão identificado e no que aconteceu historicamente depois dele:\n' +
-        '- O que provavelmente vai acontecer nos próximos 3 dias?\n' +
-        '- E nos próximos 7 dias?\n' +
-        '- Qual métrica vai se mover primeiro e em qual direção?\n' +
-        '- Qual é o nível de confiança dessa previsão (baixo / médio / alto) e por quê?\n\n' +
-
-        '3. ALERTAS CRÍTICOS\n' +
-        'Se houver sinais de deterioração iminente (ROAS em queda, CPM subindo, CTR caindo, frequência alta), declare como ALERTA VERMELHO com urgência e impacto estimado em reais.\n\n' +
-
-        '4. AÇÃO RECOMENDADA\n' +
-        'Uma ação concreta e específica que deve ser tomada AGORA para aproveitar o padrão positivo ou evitar o negativo. Não seja genérico — cite métricas, valores e prazo.\n\n' +
-
-        '## FORMATO DE RESPOSTA\n\n' +
-        'IMPORTANTE: NÃO use markdown. NÃO use **, ##, ---, _texto_, ou qualquer formatação especial. Apenas texto simples e o caractere • para listas.\n\n' +
-        'PADRÃO IDENTIFICADO: [nome do padrão em 1 linha direta]\n' +
-        'SIMILARIDADE HISTÓRICA: [1-2 frases diretas sobre quando esse padrão apareceu antes e o que aconteceu depois]\n' +
-        'PREVISÃO 3 DIAS: [use • para cada item, ex: • Resultado esperado X]\n' +
-        'PREVISÃO 7 DIAS: [use • para cada item]\n' +
-        'CONFIANÇA: [Alto/Médio/Baixo] — [1 frase justificando]\n' +
-        '⚠️ ALERTA: [SOMENTE se houver sinal real de problema iminente, descreva em 1-2 frases. Se estiver saudável, escreva apenas: Nenhum]\n' +
-        'AÇÃO AGORA: [use • para cada ação, cite métricas e prazo]';
+      var userPrompt =
+        'CLIENTE: ' + client.name + '\n' +
+        'OBJETIVO: ' + objetivoLabel + ' (avalie APENAS este KPI)\n' +
+        'CONTA META: ' + client.criativoAccountId + '\n' +
+        'CAMPANHAS ATIVAS: ' + activeCampaigns + ' | ' + campaigns + '\n\n' +
+        'MÉTRICAS 7 DIAS: ' + metrics7 + '\n' +
+        'MÉTRICAS 14 DIAS: ' + metrics14 + '\n' +
+        'MÉTRICAS 30 DIAS: ' + metrics30 + '\n\n' +
+        'HISTÓRICO DE PADRÕES:\n' + historicalPatterns;
 
       // Chama Claude
       var claudeResp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
@@ -729,8 +701,9 @@ function runPredictiveAI() {
         },
         payload: JSON.stringify({
           model: 'claude-haiku-4-5',
-          max_tokens: 800,
-          messages: [{ role: 'user', content: prompt }]
+          max_tokens: 1200,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }]
         }),
         muteHttpExceptions: true
       });
@@ -848,28 +821,26 @@ function runPredictiveAINow() {
       var campaigns = (m7.campaigns || []).map(function(c) { return c.name; }).join(', ') || 'Nenhuma';
       var activeCampaigns = (m7.campaigns || []).filter(function(c) { return c.status === 'ACTIVE'; }).length;
 
-      var prompt =
-        'Você é um sistema de inteligência preditiva especializado em performance de mídia paga (Meta Ads).\n' +
-        'Seu objetivo é identificar padrões históricos e prever com precisão o que vai acontecer nos próximos 3 a 7 dias.\n\n' +
-        '## DADOS DO CLIENTE ATUAL\n' +
-        'Nome: ' + client.name + '\n' +
-        'Objetivo da campanha: ' + objetivoLabelNow + '\n' +
-        'IMPORTANTE: Avalie APENAS o KPI do objetivo acima. Não mencione métricas de outros objetivos como problema.\n' +
-        'Conta Meta: ' + client.criativoAccountId + '\n' +
-        'Campanhas ativas: ' + activeCampaigns + ' | Nomes: ' + campaigns + '\n\n' +
-        '## MÉTRICAS ATUAIS (últimos 7 dias)\n' + fmtMetrics(m7) + '\n\n' +
-        '## MÉTRICAS DOS ÚLTIMOS 14 DIAS\n' + fmtMetrics(m14) + '\n\n' +
-        '## MÉTRICAS DOS ÚLTIMOS 30 DIAS\n' + fmtMetrics(m30) + '\n\n' +
-        '## HISTÓRICO DE PADRÕES\n' + historicalPatterns + '\n\n---\n\n' +
-        '## FORMATO DE RESPOSTA\n\n' +
-        'IMPORTANTE: NÃO use markdown. NÃO use **, ##, ---, _texto_, ou qualquer formatação especial. Apenas texto simples e o caractere • para listas.\n\n' +
-        'PADRÃO IDENTIFICADO: [nome do padrão em 1 linha direta]\n' +
-        'SIMILARIDADE HISTÓRICA: [1-2 frases diretas sobre quando esse padrão apareceu antes e o que aconteceu depois]\n' +
-        'PREVISÃO 3 DIAS: [use • para cada item, ex: • Resultado esperado X]\n' +
-        'PREVISÃO 7 DIAS: [use • para cada item]\n' +
-        'CONFIANÇA: [Alto/Médio/Baixo] — [1 frase justificando]\n' +
-        '⚠️ ALERTA: [SOMENTE se houver sinal real de problema iminente, descreva em 1-2 frases. Se estiver saudável, escreva apenas: Nenhum]\n' +
-        'AÇÃO AGORA: [use • para cada ação, cite métricas e prazo]';
+      var systemPromptNow =
+        'Você é um analisador de performance de mídia paga. Responda SEMPRE neste formato exato, sem exceções:\n\n' +
+        'PADRÃO IDENTIFICADO: [1 linha]\n' +
+        'SIMILARIDADE HISTÓRICA: [Período DD/MM a DD/MM / Cliente X — o que aconteceu naquele período e o resultado]\n' +
+        'PREVISÃO 3 DIAS:\n• [item 1]\n• [item 2]\n• [item 3]\n' +
+        'PREVISÃO 7 DIAS:\n• [item 1]\n• [item 2]\n' +
+        'CONFIANÇA: [Alto/Médio/Baixo] — [1 frase]\n' +
+        '⚠️ ALERTA: [REGRA: só escreva uma frase de alerta se houver tendência de piora CONCRETA nas métricas — CPM subindo, ROAS caindo, CTR em queda, frequência acima de 2.5. Se a campanha estiver estável ou melhorando, escreva apenas a palavra: Nenhum]\n' +
+        'AÇÃO AGORA:\n• [ação 1 com prazo]\n• [ação 2 com prazo]\n\n' +
+        'PROIBIDO: asteriscos (**), cerquilha (##), travessão decorativo (---), itálico, negrito, qualquer markdown. Use apenas texto simples e o caractere • para listas.';
+
+      var userPromptNow =
+        'CLIENTE: ' + client.name + '\n' +
+        'OBJETIVO: ' + objetivoLabelNow + ' (avalie APENAS este KPI)\n' +
+        'CONTA META: ' + client.criativoAccountId + '\n' +
+        'CAMPANHAS ATIVAS: ' + activeCampaigns + ' | ' + campaigns + '\n\n' +
+        'MÉTRICAS 7 DIAS: ' + fmtMetrics(m7) + '\n' +
+        'MÉTRICAS 14 DIAS: ' + fmtMetrics(m14) + '\n' +
+        'MÉTRICAS 30 DIAS: ' + fmtMetrics(m30) + '\n\n' +
+        'HISTÓRICO DE PADRÕES:\n' + historicalPatterns;
 
       var claudeResp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -880,8 +851,9 @@ function runPredictiveAINow() {
         },
         payload: JSON.stringify({
           model: 'claude-haiku-4-5',
-          max_tokens: 800,
-          messages: [{ role: 'user', content: prompt }]
+          max_tokens: 1200,
+          system: systemPromptNow,
+          messages: [{ role: 'user', content: userPromptNow }]
         }),
         muteHttpExceptions: true
       });
