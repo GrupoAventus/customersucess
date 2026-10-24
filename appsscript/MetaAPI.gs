@@ -682,8 +682,9 @@ function buildPortfolioContext_(clients, token, maxMonths) {
 }
 
 // ─── buildCurrentMetrics_ ────────────────────────────────────
-// Monta bloco de métricas recentes do cliente sendo analisado
-function buildCurrentMetrics_(client, objetivo) {
+// Monta bloco de métricas recentes do cliente sendo analisado.
+// objetivo é detectado PRIMEIRO a partir dos dados reais de m7.
+function buildCurrentMetrics_(client) {
   function dateStr(daysAgo) {
     var d = new Date();
     d.setDate(d.getDate() - daysAgo);
@@ -694,20 +695,26 @@ function buildCurrentMetrics_(client, objetivo) {
   var m14 = getMetricsMeta(client.criativoAccountId, dateStr(14), todayStr);
   var m30 = getMetricsMeta(client.criativoAccountId, dateStr(30), todayStr);
 
+  // Detecta objetivo a partir dos dados reais ANTES de formatar
+  var totals7  = m7.totals || {};
+  var objetivo = detectObjetivo_(totals7, client.clientType);
+
   function fmtM(m) {
     if (m.error) return 'Erro: ' + m.error;
     var t = m.totals || {};
-    if (objetivo === 'ecommerce') {
-      return 'Gasto: R$' + t.spend + ' | CPM: R$' + t.cpm + ' | CTR: ' + t.ctr + '% | CPC: R$' + t.cpc +
-        ' | Freq: ' + t.frequency + ' | Compras: ' + t.purchases + ' | Receita: R$' + t.purchaseValue + ' | ROAS: ' + t.roas + ' | Custo/compra: R$' + t.cpa;
-    } else if (objetivo === 'messages') {
-      var cpMsg = (parseFloat(t.messages) || 0) > 0 ? 'R$' + (parseFloat(t.spend) / parseFloat(t.messages)).toFixed(2) : 'N/A';
-      return 'Gasto: R$' + t.spend + ' | CPM: R$' + t.cpm + ' | CTR: ' + t.ctr + '% | CPC: R$' + t.cpc +
-        ' | Freq: ' + t.frequency + ' | Conversas: ' + t.messages + ' | Custo/conversa: ' + cpMsg;
-    } else {
-      return 'Gasto: R$' + t.spend + ' | CPM: R$' + t.cpm + ' | CTR: ' + t.ctr + '% | CPC: R$' + t.cpc +
-        ' | Freq: ' + t.frequency + ' | Leads: ' + t.leads + ' | Custo/lead: R$' + t.cpa;
+    // Mostra TODAS as conversões independente do objetivo detectado,
+    // para não esconder dados reais do Claude
+    var base = 'Gasto: R$' + t.spend + ' | CPM: R$' + t.cpm + ' | CTR: ' + t.ctr + '% | CPC: R$' + t.cpc + ' | Freq: ' + t.frequency;
+    if (parseFloat(t.purchases) > 0) base += ' | Compras: ' + t.purchases + ' | Receita: R$' + t.purchaseValue + ' | ROAS: ' + t.roas;
+    if (parseFloat(t.messages)  > 0) {
+      var cpMsg = parseFloat(t.spend) > 0 && parseFloat(t.messages) > 0 ? 'R$' + (parseFloat(t.spend) / parseFloat(t.messages)).toFixed(2) : 'N/A';
+      base += ' | Conversas: ' + t.messages + ' | Custo/conversa: ' + cpMsg;
     }
+    if (parseFloat(t.leads) > 0) base += ' | Leads: ' + t.leads + ' | Custo/lead: R$' + t.cpa;
+    if (parseFloat(t.purchases) === 0 && parseFloat(t.messages) === 0 && parseFloat(t.leads) === 0) {
+      base += ' | Conversoes: 0 (campanha de trafego/alcance)';
+    }
+    return base;
   }
 
   var campaigns = (m7.campaigns || []).map(function(c) { return c.name; }).join(', ') || 'Nenhuma';
@@ -716,7 +723,8 @@ function buildCurrentMetrics_(client, objetivo) {
     metrics14: fmtM(m14),
     metrics30: fmtM(m30),
     campaigns: campaigns,
-    totals7:   m7.totals || {}
+    totals7:   totals7,
+    objetivo:  objetivo
   };
 }
 
@@ -743,8 +751,13 @@ function buildClaudePrompts_(client, objetivo, current, portfolioContext) {
     '1. SIMILARIDADE HISTÓRICA: cite APENAS períodos e clientes que aparecem nos dados fornecidos. ' +
     'Se encontrar um padrão semelhante real, cite: "Semana de DD/MM/AAAA, cliente X tinha CPM R$X e CTR X% — resultado: [o que aconteceu na semana seguinte nos dados]". ' +
     'Se não houver similaridade real, escreva: Sem similaridade direta identificada nos dados disponíveis.\n' +
-    '2. ALERTA: só se houver tendência de piora CONCRETA nos dados — CPM subindo, ROAS caindo, CTR em queda nas últimas 2+ semanas, frequência acima de 2.5. Se estável ou melhorando, escreva apenas: Nenhum\n' +
-    '3. PROIBIDO: asteriscos (**), cerquilha (##), travessão decorativo (---), itálico, negrito, qualquer markdown. Apenas texto simples e o caractere • para listas.\n\n' +
+    '2. ALERTA: CRITÉRIO RIGOROSO — só escreva alerta se houver piora SUSTENTADA nas últimas 3 semanas consecutivas: ' +
+    'CPM subindo semana a semana, OU CTR caindo semana a semana, OU ROAS caindo, OU frequência acima de 2.5. ' +
+    'Variação pontual de 1 semana NAO é alerta. Campanha de trafego/alcance sem conversoes NAO é alerta (é o objetivo dela). ' +
+    'Se a campanha estiver estavel, dentro da media historica, ou melhorando, escreva apenas a palavra: Nenhum\n' +
+    '3. OBJETIVO DO CLIENTE: respeite o objetivo declarado — nao classifique como alerta a ausencia de um KPI que nao e o objetivo da campanha. ' +
+    'Ex: campanha de mensagens sem leads NAO e problema. Campanha de ecommerce sem compras SIM e problema.\n' +
+    '4. PROIBIDO: asteriscos (**), cerquilha (##), travessão decorativo (---), itálico, negrito, qualquer markdown. Apenas texto simples e o caractere • para listas.\n\n' +
     'Responda SEMPRE neste formato exato:\n\n' +
     'PADRÃO IDENTIFICADO: [1 linha descrevendo o que os dados mostram]\n' +
     'SIMILARIDADE HISTÓRICA: [cite período e cliente real dos dados, ou "Sem similaridade direta identificada"]\n' +
@@ -803,8 +816,8 @@ function runPredictiveAI() {
     try {
       Logger.log('[PredictiveAI] Analisando: ' + client.name);
 
-      var current  = buildCurrentMetrics_(client, null);
-      var objetivo = detectObjetivo_(current.totals7, client.clientType);
+      var current  = buildCurrentMetrics_(client);
+      var objetivo = current.objetivo;
       var prompts  = buildClaudePrompts_(client, objetivo, current, portfolioContext);
 
       var claudeResp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
@@ -862,8 +875,8 @@ function runPredictiveAINow() {
 
   clients.forEach(function(client) {
     try {
-      var current  = buildCurrentMetrics_(client, null);
-      var objetivo = detectObjetivo_(current.totals7, client.clientType);
+      var current  = buildCurrentMetrics_(client);
+      var objetivo = current.objetivo;
       var prompts  = buildClaudePrompts_(client, objetivo, current, portfolioContext);
 
       var claudeResp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
