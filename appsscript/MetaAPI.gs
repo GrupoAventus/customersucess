@@ -56,8 +56,16 @@ function parseInsight_(ins) {
                   sumAction_(actions, 'onsite_conversion.lead_grouped');
   var purchases = sumAction_(actions, 'purchase') +
                   sumAction_(actions, 'offsite_conversion.fb_pixel_purchase');
+  // Mensagens: cobre Click-to-WhatsApp, Messenger e variantes de janela de atribuição
   var messages  = sumAction_(actions, 'onsite_conversion.messaging_conversation_started_7d') +
-                  sumAction_(actions, 'onsite_conversion.total_messaging_connection');
+                  sumAction_(actions, 'onsite_conversion.total_messaging_connection') +
+                  sumAction_(actions, 'omni_initiated_conversation') +
+                  sumAction_(actions, 'omni_messaging_engagement') +
+                  sumAction_(actions, 'contact') +
+                  sumAction_(actions, 'onsite_conversion.lead_grouped');
+  // Remove duplas: se lead_grouped já foi contado em leads, não contar de novo em messages
+  // (lead_grouped pode aparecer nos dois — mantemos apenas em leads para não duplicar)
+  messages = Math.max(0, messages - sumAction_(actions, 'onsite_conversion.lead_grouped'));
   var lpv       = sumAction_(actions, 'landing_page_view');
 
   var purchaseValue = sumAction_(actionValues, 'purchase') +

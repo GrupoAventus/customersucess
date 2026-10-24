@@ -1147,6 +1147,13 @@ function sendSnapshot(period) {
       var t = result.totals || {};
       var spend = parseFloat(t.spend) || 0;
 
+      // Debug: loga os totais para diagnóstico quando métricas de conversão vêm zeradas
+      if (spend > 0 && parseFloat(t.leads || 0) === 0 && parseFloat(t.messages || 0) === 0 && parseFloat(t.purchases || 0) === 0) {
+        Logger.log('[SNAPSHOT DEBUG] ' + client.name + ' | spend=R$' + spend +
+          ' | leads=' + t.leads + ' | messages=' + t.messages + ' | purchases=' + t.purchases +
+          ' | tipo=' + client.clientType);
+      }
+
       var conversion = buildConversionBlock(t, client.clientType, spend);
 
       var message =
