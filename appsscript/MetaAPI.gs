@@ -709,14 +709,15 @@ function runPredictiveAI() {
         '4. AÇÃO RECOMENDADA\n' +
         'Uma ação concreta e específica que deve ser tomada AGORA para aproveitar o padrão positivo ou evitar o negativo. Não seja genérico — cite métricas, valores e prazo.\n\n' +
 
-        '## FORMATO DE RESPOSTA (sempre nesse formato exato):\n\n' +
-        'PADRÃO IDENTIFICADO: [nome do padrão em 1 linha]\n' +
-        'SIMILARIDADE HISTÓRICA: [quando e onde esse padrão apareceu antes, e o que aconteceu depois]\n' +
-        'PREVISÃO 3 DIAS: [o que vai acontecer]\n' +
-        'PREVISÃO 7 DIAS: [o que vai acontecer]\n' +
-        'CONFIANÇA: [baixo/médio/alto] — [justificativa em 1 linha]\n' +
-        '⚠️ ALERTA: [se houver, descreva — caso contrário escreva "Nenhum"]\n' +
-        'AÇÃO AGORA: [ação específica com prazo]';
+        '## FORMATO DE RESPOSTA\n\n' +
+        'IMPORTANTE: NÃO use markdown. NÃO use **, ##, ---, _texto_, ou qualquer formatação especial. Apenas texto simples e o caractere • para listas.\n\n' +
+        'PADRÃO IDENTIFICADO: [nome do padrão em 1 linha direta]\n' +
+        'SIMILARIDADE HISTÓRICA: [1-2 frases diretas sobre quando esse padrão apareceu antes e o que aconteceu depois]\n' +
+        'PREVISÃO 3 DIAS: [use • para cada item, ex: • Resultado esperado X]\n' +
+        'PREVISÃO 7 DIAS: [use • para cada item]\n' +
+        'CONFIANÇA: [Alto/Médio/Baixo] — [1 frase justificando]\n' +
+        '⚠️ ALERTA: [SOMENTE se houver sinal real de problema iminente, descreva em 1-2 frases. Se estiver saudável, escreva apenas: Nenhum]\n' +
+        'AÇÃO AGORA: [use • para cada ação, cite métricas e prazo]';
 
       // Chama Claude
       var claudeResp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
@@ -860,14 +861,15 @@ function runPredictiveAINow() {
         '## MÉTRICAS DOS ÚLTIMOS 14 DIAS\n' + fmtMetrics(m14) + '\n\n' +
         '## MÉTRICAS DOS ÚLTIMOS 30 DIAS\n' + fmtMetrics(m30) + '\n\n' +
         '## HISTÓRICO DE PADRÕES\n' + historicalPatterns + '\n\n---\n\n' +
-        '## FORMATO DE RESPOSTA (sempre nesse formato exato):\n\n' +
-        'PADRÃO IDENTIFICADO: [nome do padrão em 1 linha]\n' +
-        'SIMILARIDADE HISTÓRICA: [quando e onde esse padrão apareceu antes, e o que aconteceu depois]\n' +
-        'PREVISÃO 3 DIAS: [o que vai acontecer]\n' +
-        'PREVISÃO 7 DIAS: [o que vai acontecer]\n' +
-        'CONFIANÇA: [baixo/médio/alto] — [justificativa em 1 linha]\n' +
-        '⚠️ ALERTA: [se houver, descreva — caso contrário escreva "Nenhum"]\n' +
-        'AÇÃO AGORA: [ação específica com prazo]';
+        '## FORMATO DE RESPOSTA\n\n' +
+        'IMPORTANTE: NÃO use markdown. NÃO use **, ##, ---, _texto_, ou qualquer formatação especial. Apenas texto simples e o caractere • para listas.\n\n' +
+        'PADRÃO IDENTIFICADO: [nome do padrão em 1 linha direta]\n' +
+        'SIMILARIDADE HISTÓRICA: [1-2 frases diretas sobre quando esse padrão apareceu antes e o que aconteceu depois]\n' +
+        'PREVISÃO 3 DIAS: [use • para cada item, ex: • Resultado esperado X]\n' +
+        'PREVISÃO 7 DIAS: [use • para cada item]\n' +
+        'CONFIANÇA: [Alto/Médio/Baixo] — [1 frase justificando]\n' +
+        '⚠️ ALERTA: [SOMENTE se houver sinal real de problema iminente, descreva em 1-2 frases. Se estiver saudável, escreva apenas: Nenhum]\n' +
+        'AÇÃO AGORA: [use • para cada ação, cite métricas e prazo]';
 
       var claudeResp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',

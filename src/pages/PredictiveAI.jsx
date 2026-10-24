@@ -3,12 +3,43 @@ import { useApp } from '../lib/AppContext'
 
 const SCRIPT_URL = import.meta.env.VITE_SCRIPT_URL || ''
 
+// Remove markdown que o Claude às vezes adiciona mesmo com instrução para não usar
+function cleanText(str) {
+  if (!str) return ''
+  return str
+    .replace(/\*\*(.+?)\*\*/g, '$1')  // **bold** → bold
+    .replace(/\*(.+?)\*/g, '$1')       // *italic* → italic
+    .replace(/#{1,6}\s*/g, '')         // ## títulos
+    .replace(/^---+$/gm, '')           // --- separadores
+    .replace(/^>\s*/gm, '')            // > blockquotes
+    .trim()
+}
+
+// Renderiza texto com bullets (• ou - no início de linha) como lista visual
+function TextWithBullets({ text, style }) {
+  if (!text) return <span style={style}>—</span>
+  const clean = cleanText(text)
+  const lines = clean.split('\n').map(l => l.trim()).filter(Boolean)
+  const hasBullets = lines.some(l => l.startsWith('•') || l.startsWith('-'))
+  if (!hasBullets || lines.length <= 1) {
+    return <span style={style}>{clean}</span>
+  }
+  return (
+    <ul style={{ margin: 0, paddingLeft: 16, ...style }}>
+      {lines.map((line, i) => {
+        const content = line.replace(/^[•\-]\s*/, '')
+        return <li key={i} style={{ marginBottom: 2 }}>{content}</li>
+      })}
+    </ul>
+  )
+}
+
 // Parseia o texto do Claude no formato estruturado
 function parseInsight(text) {
   const get = (label) => {
     const regex = new RegExp(label + ':?\\s*(.+?)(?=\\n[A-ZÇÃÕ⚠️]|$)', 'si')
     const m = text.match(regex)
-    return m ? m[1].trim() : ''
+    return m ? cleanText(m[1].trim()) : ''
   }
   return {
     padrao:       get('PADRÃO IDENTIFICADO'),
@@ -20,6 +51,13 @@ function parseInsight(text) {
     acao:         get('AÇÃO AGORA'),
     raw:          text,
   }
+}
+
+// Verifica se tem alerta real (ignora "Nenhum" com ou sem markdown)
+function checkHasAlert(alertaRaw) {
+  if (!alertaRaw || !alertaRaw.trim()) return false
+  const clean = cleanText(alertaRaw).toLowerCase().trim()
+  return clean !== 'nenhum' && clean !== ''
 }
 
 function ConfidenceBadge({ text }) {
@@ -38,7 +76,7 @@ function ConfidenceBadge({ text }) {
 function InsightCard({ client, insight, createdAt }) {
   const [expanded, setExpanded] = useState(false)
   const parsed = parseInsight(insight)
-  const hasAlert = parsed.alerta && parsed.alerta.toLowerCase() !== 'nenhum' && parsed.alerta.trim() !== ''
+  const hasAlert = checkHasAlert(parsed.alerta)
   const date = createdAt ? new Date(createdAt).toLocaleDateString('pt-BR') : ''
 
   return (
@@ -73,18 +111,18 @@ function InsightCard({ client, insight, createdAt }) {
       {/* Padrão */}
       <div style={{ marginBottom: 10 }}>
         <div style={{ fontSize: 11, color: '#666', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>Padrão identificado</div>
-        <div style={{ fontSize: 13, color: 'var(--fg)' }}>{parsed.padrao || '—'}</div>
+        <div style={{ fontSize: 13, color: 'var(--fg)', fontWeight: 500 }}>{parsed.padrao || '—'}</div>
       </div>
 
       {/* Previsões lado a lado */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
         <div style={{ background: 'var(--bg-hover)', borderRadius: 10, padding: '10px 12px' }}>
-          <div style={{ fontSize: 10, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>📅 Próximos 3 dias</div>
-          <div style={{ fontSize: 12, color: 'var(--fg)', lineHeight: 1.5 }}>{parsed.prev3 || '—'}</div>
+          <div style={{ fontSize: 10, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>📅 Próximos 3 dias</div>
+          <TextWithBullets text={parsed.prev3} style={{ fontSize: 12, color: 'var(--fg)', lineHeight: 1.6 }} />
         </div>
         <div style={{ background: 'var(--bg-hover)', borderRadius: 10, padding: '10px 12px' }}>
-          <div style={{ fontSize: 10, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>📅 Próximos 7 dias</div>
-          <div style={{ fontSize: 12, color: 'var(--fg)', lineHeight: 1.5 }}>{parsed.prev7 || '—'}</div>
+          <div style={{ fontSize: 10, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>📅 Próximos 7 dias</div>
+          <TextWithBullets text={parsed.prev7} style={{ fontSize: 12, color: 'var(--fg)', lineHeight: 1.6 }} />
         </div>
       </div>
 
@@ -98,8 +136,8 @@ function InsightCard({ client, insight, createdAt }) {
 
       {/* Ação agora */}
       <div style={{ background: 'rgba(99,153,34,0.08)', border: '1px solid var(--green)', borderRadius: 10, padding: '10px 14px' }}>
-        <div style={{ fontSize: 10, color: 'var(--green)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>⚡ Ação agora</div>
-        <div style={{ fontSize: 12, color: 'var(--fg)', lineHeight: 1.5 }}>{parsed.acao || '—'}</div>
+        <div style={{ fontSize: 10, color: 'var(--green)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>⚡ Ação agora</div>
+        <TextWithBullets text={parsed.acao} style={{ fontSize: 12, color: 'var(--fg)', lineHeight: 1.6 }} />
       </div>
 
       {/* Expandido: similaridade histórica + raw */}
@@ -107,10 +145,7 @@ function InsightCard({ client, insight, createdAt }) {
         <div style={{ marginTop: 12 }}>
           <div style={{ background: 'var(--bg-hover)', borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
             <div style={{ fontSize: 10, color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>🔍 Similaridade histórica</div>
-            <div style={{ fontSize: 12, color: 'var(--fg)', lineHeight: 1.5 }}>{parsed.similaridade || '—'}</div>
-          </div>
-          <div style={{ fontSize: 10, color: '#444', fontFamily: 'monospace', whiteSpace: 'pre-wrap', background: '#0a0a0a', borderRadius: 8, padding: 10 }}>
-            {parsed.raw}
+            <div style={{ fontSize: 12, color: 'var(--fg)', lineHeight: 1.6 }}>{parsed.similaridade || '—'}</div>
           </div>
         </div>
       )}
@@ -163,7 +198,7 @@ export default function PredictiveAI() {
 
   const filtered = insights.filter(i => {
     const parsed = parseInsight(i.insight || '')
-    const hasAlert = parsed.alerta && parsed.alerta.toLowerCase() !== 'nenhum' && parsed.alerta.trim() !== ''
+    const hasAlert = checkHasAlert(parsed.alerta)
     if (filter === 'alert') return hasAlert
     if (filter === 'noalert') return !hasAlert
     return true
@@ -171,10 +206,8 @@ export default function PredictiveAI() {
 
   // Alertas primeiro
   const sorted = [...filtered].sort((a, b) => {
-    const aAlert = parseInsight(a.insight || '').alerta
-    const bAlert = parseInsight(b.insight || '').alerta
-    const aHas = aAlert && aAlert.toLowerCase() !== 'nenhum'
-    const bHas = bAlert && bAlert.toLowerCase() !== 'nenhum'
+    const aHas = checkHasAlert(parseInsight(a.insight || '').alerta)
+    const bHas = checkHasAlert(parseInsight(b.insight || '').alerta)
     if (aHas && !bHas) return -1
     if (!aHas && bHas) return 1
     return new Date(b.createdAt) - new Date(a.createdAt)
@@ -182,7 +215,7 @@ export default function PredictiveAI() {
 
   const alertCount = insights.filter(i => {
     const p = parseInsight(i.insight || '')
-    return p.alerta && p.alerta.toLowerCase() !== 'nenhum' && p.alerta.trim() !== ''
+    return checkHasAlert(p.alerta)
   }).length
 
   return (
