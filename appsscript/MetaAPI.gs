@@ -460,15 +460,26 @@ function checkMetaAccountsHourly() {
       var campJson = metaGet_(campUrl);
       var activeCampaigns = (campJson.data || []).length;
 
-      // 2. Saldo da conta
+      // 2. Saldo da conta — usa funding_source_details.display_string que tem o valor real em BRL
       var acctUrl = META_API_BASE + '/' + acctParam
-        + '?fields=balance,funding_source_details,currency'
+        + '?fields=funding_source_details,currency'
         + '&access_token=' + token;
       var acctJson = metaGet_(acctUrl);
-      Logger.log('[MONITOR] ' + client.name + ' | balance=' + acctJson.balance + ' | funding_source_details=' + JSON.stringify(acctJson.funding_source_details) + ' | currency=' + acctJson.currency);
-      var balance = parseFloat(acctJson.balance) || 0;
+      var fsd = acctJson.funding_source_details || {};
+      var displayString = fsd.display_string || '';
+      // Extrai valor do "Saldo disponível (R$119,48 BRL)" — tipo 20 = pré-pago
+      var balanceMatch = displayString.match(/R\$([0-9.,]+)\s*BRL/);
+      var balance = 0;
+      if (balanceMatch) {
+        // Converte "119,48" → 119.48
+        balance = parseFloat(balanceMatch[1].replace('.', '').replace(',', '.')) || 0;
+      }
+      // Tipo 1 = cartão de crédito — não tem saldo pré-pago para alertar
+      var isCartao = fsd.type === 1;
+      Logger.log('[MONITOR] ' + client.name + ' | saldo=R$' + balance.toFixed(2) + ' | tipo=' + fsd.type + ' | cartao=' + isCartao);
 
-      var lowBalance = balance < 50;
+      // Contas cartão (tipo 1) não têm saldo pré-pago — não alertar
+      var lowBalance = !isCartao && balance < 50;
 
       // 3. Atualiza Kanban se sem campanha ativa e cliente estava em "Campanha ativa"
       var currentStatus = String(client.status || '');
