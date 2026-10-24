@@ -416,8 +416,14 @@ function checkMetaAccountsHourly() {
   var token = PropertiesService.getScriptProperties().getProperty('META_TOKEN');
   if (!token) { Logger.log('META_TOKEN não configurado'); return; }
 
-  var clients = sheetToObjects(getSheet('clients')).filter(function(c) {
-    return c.criativoAccountId && c.cancelado !== true && c.cancelado !== 'TRUE';
+  var allClients = sheetToObjects(getSheet('clients'));
+  Logger.log('[MONITOR] Total de clientes no sheet: ' + allClients.length);
+  var clients = allClients.filter(function(c) {
+    var hasConta = !!c.criativoAccountId;
+    var cancelado = c.cancelado;
+    var ativo = cancelado !== true && cancelado !== 'TRUE' && cancelado !== 'true';
+    Logger.log('[MONITOR] ' + c.name + ' | criativoAccountId=' + c.criativoAccountId + ' | cancelado=' + cancelado + ' | passa=' + (hasConta && ativo));
+    return hasConta && ativo;
   });
 
   if (clients.length === 0) { Logger.log('Nenhum cliente com conta Meta vinculada'); return; }
