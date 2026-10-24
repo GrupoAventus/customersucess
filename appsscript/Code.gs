@@ -999,11 +999,27 @@ function sendDailyReport() {
   }
 
   var sent = 0;
+  var skipped = 0;
   activeClients.forEach(function(client) {
     try {
       var result = getMetricsMeta(client.criativoAccountId, yesterdayStr, yesterdayStr);
+
+      // Se houve erro na API, loga e pula
+      if (result.error) {
+        Logger.log('Relatório diário ' + client.name + ': erro na API — ' + result.error);
+        skipped++;
+        return;
+      }
+
       var t = result.totals || {};
       var spend = parseFloat(t.spend) || 0;
+
+      // Sem gasto ontem = sem campanha rodando, não envia relatório vazio
+      if (spend <= 0) {
+        Logger.log('Relatório diário ' + client.name + ': sem gasto ontem, pulando');
+        skipped++;
+        return;
+      }
 
       var conversion = buildConversionBlock(t, client.clientType, spend);
 
@@ -1024,7 +1040,7 @@ function sendDailyReport() {
     }
   });
 
-  Logger.log('Relatório diário enviado para ' + sent + ' grupos de clientes');
+  Logger.log('Relatório diário: ' + sent + ' enviados, ' + skipped + ' pulados (sem gasto ou erro)');
 }
 
 function sendWeeklyReport() {
@@ -1054,11 +1070,27 @@ function sendWeeklyReport() {
   }
 
   var sent = 0;
+  var skipped = 0;
   activeClients.forEach(function(client) {
     try {
       var result = getMetricsMeta(client.criativoAccountId, sinceStr, untilStr);
+
+      // Se houve erro na API, loga e pula
+      if (result.error) {
+        Logger.log('Relatório semanal ' + client.name + ': erro na API — ' + result.error);
+        skipped++;
+        return;
+      }
+
       var t = result.totals || {};
       var spend = parseFloat(t.spend) || 0;
+
+      // Sem gasto na semana = sem campanha rodando, não envia relatório vazio
+      if (spend <= 0) {
+        Logger.log('Relatório semanal ' + client.name + ': sem gasto na semana, pulando');
+        skipped++;
+        return;
+      }
 
       var conversion = buildConversionBlock(t, client.clientType, spend);
 
@@ -1079,7 +1111,7 @@ function sendWeeklyReport() {
     }
   });
 
-  Logger.log('Relatório semanal enviado para ' + sent + ' grupos de clientes');
+  Logger.log('Relatório semanal: ' + sent + ' enviados, ' + skipped + ' pulados (sem gasto ou erro)');
 }
 
 function sendSnapshotNoon() {
