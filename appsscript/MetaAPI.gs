@@ -8,6 +8,69 @@ var META_TOKEN = PropertiesService.getScriptProperties().getProperty('META_TOKEN
 var META_API_VERSION = 'v21.0';
 var META_API_BASE    = 'https://graph.facebook.com/' + META_API_VERSION;
 
+// ──────────────────────────────────────────────────────────────
+// DEBUG: Execute esta função manualmente no Apps Script para ver
+// exatamente o que a Meta retorna para uma conta no dia atual.
+// Coloca o criativoAccountId do cliente que está com problema.
+// ──────────────────────────────────────────────────────────────
+function debugMetaRawToday() {
+  var token = PropertiesService.getScriptProperties().getProperty('META_TOKEN');
+  // Busca o Proflex na sheet clients
+  var clients = sheetToObjects(getSheet('clients'));
+  var proflex = clients.find(function(c) {
+    return (c.name || '').toLowerCase().indexOf('proflex') >= 0 ||
+           (c.name || '').toLowerCase().indexOf('profflex') >= 0;
+  });
+
+  if (!proflex) {
+    Logger.log('[DEBUG] Cliente Proflex não encontrado na sheet. Clientes disponíveis: ' +
+      clients.map(function(c){ return c.name; }).join(', '));
+    return;
+  }
+
+  Logger.log('[DEBUG] Cliente encontrado: ' + proflex.name + ' | accountId: ' + proflex.criativoAccountId + ' | tipo: ' + proflex.clientType);
+
+  var todayStr = new Date().toISOString().slice(0, 10);
+  Logger.log('[DEBUG] Buscando data: ' + todayStr);
+
+  var actId = (proflex.criativoAccountId || '').replace(/^act_/i, '');
+  var acctParam = 'act_' + actId;
+
+  // Testa com date_preset=today (diferente do time_range)
+  var urlPreset = META_API_BASE + '/' + acctParam + '/insights'
+    + '?level=campaign'
+    + '&date_preset=today'
+    + '&fields=spend,impressions,clicks,reach,actions,campaign_name'
+    + '&access_token=' + token;
+
+  Logger.log('[DEBUG] URL preset=today: ' + urlPreset.replace(token, 'TOKEN_OCULTO'));
+
+  try {
+    var res = UrlFetchApp.fetch(urlPreset, { muteHttpExceptions: true });
+    var txt = res.getContentText();
+    Logger.log('[DEBUG] Resposta date_preset=today: ' + txt.substring(0, 2000));
+  } catch(e) {
+    Logger.log('[DEBUG] Erro: ' + e.message);
+  }
+
+  // Testa com time_range normal
+  var urlRange = META_API_BASE + '/' + acctParam + '/insights'
+    + '?level=campaign'
+    + '&fields=spend,impressions,clicks,reach,actions,campaign_name'
+    + '&time_range=' + encodeURIComponent(JSON.stringify({ since: todayStr, until: todayStr }))
+    + '&access_token=' + token;
+
+  Logger.log('[DEBUG] URL time_range=hoje: ' + urlRange.replace(token, 'TOKEN_OCULTO'));
+
+  try {
+    var res2 = UrlFetchApp.fetch(urlRange, { muteHttpExceptions: true });
+    var txt2 = res2.getContentText();
+    Logger.log('[DEBUG] Resposta time_range=hoje: ' + txt2.substring(0, 2000));
+  } catch(e2) {
+    Logger.log('[DEBUG] Erro: ' + e2.message);
+  }
+}
+
 // Campos de insights que queremos buscar
 var META_INSIGHT_FIELDS = [
   'spend',
