@@ -465,6 +465,7 @@ function checkMetaAccountsHourly() {
         + '?fields=balance,currency'
         + '&access_token=' + token;
       var acctJson = metaGet_(acctUrl);
+      Logger.log('[MONITOR] ' + client.name + ' | balance_raw=' + acctJson.balance + ' | currency=' + acctJson.currency);
       var balance = parseFloat(acctJson.balance) || 0;
 
       var lowBalance = balance < 50;
