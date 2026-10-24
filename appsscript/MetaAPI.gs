@@ -612,13 +612,168 @@ function getMetaStatus() {
   };
 }
 
+// ─── buildPortfolioContext_ ───────────────────────────────────
+// Puxar histórico semanal real de todos os clientes via Meta API
+// (até 36 meses). Retorna string formatada para o prompt do Claude.
+// Divide em lotes para não estourar o tempo de execução do Apps Script.
+function buildPortfolioContext_(clients, token, maxMonths) {
+  maxMonths = maxMonths || 36;
+
+  // Data inicial: maxMonths atrás
+  var startDate = new Date();
+  startDate.setMonth(startDate.getMonth() - maxMonths);
+  var startStr = startDate.toISOString().slice(0, 10);
+  var endStr   = new Date().toISOString().slice(0, 10);
+
+  var lines = ['=== HISTÓRICO REAL DE PERFORMANCE (últimos ' + maxMonths + ' meses, semana a semana) ==='];
+
+  clients.forEach(function(client) {
+    if (!client.criativoAccountId) return;
+    try {
+      var actId     = String(client.criativoAccountId).replace(/^act_/i, '');
+      var acctParam = 'act_' + actId;
+
+      // Puxar dados semanais (time_increment=7)
+      var url = META_API_BASE + '/' + acctParam + '/insights'
+        + '?level=account'
+        + '&fields=spend,impressions,clicks,reach,actions,action_values,website_purchase_roas,purchase_roas,ctr,cpm,cpc,frequency'
+        + '&time_increment=7'
+        + '&time_range=' + encodeURIComponent(JSON.stringify({ since: startStr, until: endStr }))
+        + '&limit=200'
+        + '&access_token=' + token;
+
+      var data = fetchAllPages_(url);
+      if (!data || data.length === 0) {
+        lines.push('\nCLIENTE: ' + client.name + ' — sem dados históricos disponíveis.');
+        return;
+      }
+
+      lines.push('\nCLIENTE: ' + client.name + ' (conta ' + client.criativoAccountId + ')');
+
+      data.forEach(function(ins) {
+        var m = parseInsight_(ins);
+        var spend = parseFloat(m.spend) || 0;
+        if (spend <= 0) return; // pula semanas sem gasto
+
+        var semana = (ins.date_start || '').slice(0, 10) + ' a ' + (ins.date_stop || '').slice(0, 10);
+        var conv = (parseFloat(m.purchases) || 0) + (parseFloat(m.messages) || 0) + (parseFloat(m.leads) || 0);
+
+        lines.push(
+          semana +
+          ' | Gasto: R$' + m.spend +
+          ' | CPM: R$' + m.cpm +
+          ' | CTR: ' + m.ctr + '%' +
+          ' | CPC: R$' + m.cpc +
+          ' | Freq: ' + m.frequency +
+          ' | Conversões: ' + Math.round(conv) +
+          (parseFloat(m.roas) > 0 ? ' | ROAS: ' + m.roas : '') +
+          (parseFloat(m.leads) > 0 ? ' | Leads: ' + m.leads : '') +
+          (parseFloat(m.messages) > 0 ? ' | Msgs: ' + m.messages : '') +
+          (parseFloat(m.purchases) > 0 ? ' | Compras: ' + m.purchases : '')
+        );
+      });
+
+    } catch(e) {
+      lines.push('\nCLIENTE: ' + client.name + ' — erro ao buscar histórico: ' + e.message);
+    }
+  });
+
+  return lines.join('\n');
+}
+
+// ─── buildCurrentMetrics_ ────────────────────────────────────
+// Monta bloco de métricas recentes do cliente sendo analisado
+function buildCurrentMetrics_(client, objetivo) {
+  function dateStr(daysAgo) {
+    var d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    return d.toISOString().slice(0, 10);
+  }
+  var todayStr = dateStr(0);
+  var m7  = getMetricsMeta(client.criativoAccountId, dateStr(7),  todayStr);
+  var m14 = getMetricsMeta(client.criativoAccountId, dateStr(14), todayStr);
+  var m30 = getMetricsMeta(client.criativoAccountId, dateStr(30), todayStr);
+
+  function fmtM(m) {
+    if (m.error) return 'Erro: ' + m.error;
+    var t = m.totals || {};
+    if (objetivo === 'ecommerce') {
+      return 'Gasto: R$' + t.spend + ' | CPM: R$' + t.cpm + ' | CTR: ' + t.ctr + '% | CPC: R$' + t.cpc +
+        ' | Freq: ' + t.frequency + ' | Compras: ' + t.purchases + ' | Receita: R$' + t.purchaseValue + ' | ROAS: ' + t.roas + ' | Custo/compra: R$' + t.cpa;
+    } else if (objetivo === 'messages') {
+      var cpMsg = (parseFloat(t.messages) || 0) > 0 ? 'R$' + (parseFloat(t.spend) / parseFloat(t.messages)).toFixed(2) : 'N/A';
+      return 'Gasto: R$' + t.spend + ' | CPM: R$' + t.cpm + ' | CTR: ' + t.ctr + '% | CPC: R$' + t.cpc +
+        ' | Freq: ' + t.frequency + ' | Conversas: ' + t.messages + ' | Custo/conversa: ' + cpMsg;
+    } else {
+      return 'Gasto: R$' + t.spend + ' | CPM: R$' + t.cpm + ' | CTR: ' + t.ctr + '% | CPC: R$' + t.cpc +
+        ' | Freq: ' + t.frequency + ' | Leads: ' + t.leads + ' | Custo/lead: R$' + t.cpa;
+    }
+  }
+
+  var campaigns = (m7.campaigns || []).map(function(c) { return c.name; }).join(', ') || 'Nenhuma';
+  return {
+    metrics7:  fmtM(m7),
+    metrics14: fmtM(m14),
+    metrics30: fmtM(m30),
+    campaigns: campaigns,
+    totals7:   m7.totals || {}
+  };
+}
+
+// ─── detectObjetivo_ ─────────────────────────────────────────
+function detectObjetivo_(totals7, clientType) {
+  if ((parseFloat(totals7.purchases) || 0) > 0) return 'ecommerce';
+  if ((parseFloat(totals7.messages)  || 0) > 0) return 'messages';
+  if ((parseFloat(totals7.leads)     || 0) > 0) return 'leads';
+  var ct = String(clientType || '').toLowerCase();
+  return ct === 'ecommerce' ? 'ecommerce' : 'messages';
+}
+
+// ─── buildClaudePrompts_ ─────────────────────────────────────
+function buildClaudePrompts_(client, objetivo, current, portfolioContext) {
+  var objetivoLabel = objetivo === 'ecommerce' ? 'E-commerce (KPI principal: Compras, ROAS, Receita)'
+    : objetivo === 'messages' ? 'Mensagens/WhatsApp (KPI principal: Conversas iniciadas, Custo por conversa)'
+    : 'Leads (KPI principal: Leads gerados, Custo por lead)';
+
+  var systemPrompt =
+    'Você é um especialista em mídia paga com acesso ao histórico REAL de performance de uma carteira de clientes.\n\n' +
+    'Seu trabalho é analisar o cliente indicado, cruzar seus dados atuais com o histórico real de TODOS os clientes da carteira, ' +
+    'identificar padrões que realmente aconteceram e fazer previsões baseadas nesses padrões concretos.\n\n' +
+    'REGRAS DE OURO:\n' +
+    '1. SIMILARIDADE HISTÓRICA: cite APENAS períodos e clientes que aparecem nos dados fornecidos. ' +
+    'Se encontrar um padrão semelhante real, cite: "Semana de DD/MM/AAAA, cliente X tinha CPM R$X e CTR X% — resultado: [o que aconteceu na semana seguinte nos dados]". ' +
+    'Se não houver similaridade real, escreva: Sem similaridade direta identificada nos dados disponíveis.\n' +
+    '2. ALERTA: só se houver tendência de piora CONCRETA nos dados — CPM subindo, ROAS caindo, CTR em queda nas últimas 2+ semanas, frequência acima de 2.5. Se estável ou melhorando, escreva apenas: Nenhum\n' +
+    '3. PROIBIDO: asteriscos (**), cerquilha (##), travessão decorativo (---), itálico, negrito, qualquer markdown. Apenas texto simples e o caractere • para listas.\n\n' +
+    'Responda SEMPRE neste formato exato:\n\n' +
+    'PADRÃO IDENTIFICADO: [1 linha descrevendo o que os dados mostram]\n' +
+    'SIMILARIDADE HISTÓRICA: [cite período e cliente real dos dados, ou "Sem similaridade direta identificada"]\n' +
+    'PREVISÃO 3 DIAS:\n• [previsão 1 baseada nos dados]\n• [previsão 2]\n• [previsão 3]\n' +
+    'PREVISÃO 7 DIAS:\n• [previsão 1]\n• [previsão 2]\n' +
+    'CONFIANÇA: [Alto/Médio/Baixo] — [1 frase justificando com base nos dados]\n' +
+    '⚠️ ALERTA: [frase de alerta ou a palavra Nenhum]\n' +
+    'AÇÃO AGORA:\n• [ação 1 com prazo]\n• [ação 2 com prazo]';
+
+  var userPrompt =
+    '=== CLIENTE A ANALISAR ===\n' +
+    'Nome: ' + client.name + '\n' +
+    'Objetivo: ' + objetivoLabel + '\n' +
+    'Campanhas ativas: ' + current.campaigns + '\n\n' +
+    'MÉTRICAS RECENTES:\n' +
+    'Últimos 7 dias:  ' + current.metrics7  + '\n' +
+    'Últimos 14 dias: ' + current.metrics14 + '\n' +
+    'Últimos 30 dias: ' + current.metrics30 + '\n\n' +
+    portfolioContext + '\n\n' +
+    'Com base nos dados históricos reais acima, analise o cliente ' + client.name + ' e gere a previsão conforme o formato solicitado.';
+
+  return { system: systemPrompt, user: userPrompt };
+}
+
 // ─── runPredictiveAI ─────────────────────────────────────────
 // Roda toda segunda-feira via trigger.
-// Para cada cliente com conta Meta vinculada:
-//   1. Busca métricas dos últimos 7, 14 e 30 dias via Meta API
-//   2. Busca histórico de previsões de todos os clientes (padrões anteriores)
-//   3. Chama Claude com prompt preditivo avançado
-//   4. Salva previsão na aba ai_insights com period='predictive'
+// 1. Puxar histórico real de 36 meses de TODOS os clientes via Meta API
+// 2. Para cada cliente: buscar métricas recentes + chamar Claude com contexto real
+// 3. Salvar previsão na aba ai_insights
 function runPredictiveAI() {
   var today = new Date();
   if (today.getDay() !== 1) {
@@ -635,163 +790,43 @@ function runPredictiveAI() {
   var clients = sheetToObjects(getSheet('clients')).filter(function(c) {
     return c.criativoAccountId && !c.cancelado && c.cancelado !== 'TRUE';
   });
-
   if (clients.length === 0) { Logger.log('[PredictiveAI] Nenhum cliente com conta Meta'); return; }
 
-  // Datas dos períodos
-  function dateStr(daysAgo) {
-    var d = new Date();
-    d.setDate(d.getDate() - daysAgo);
-    return d.toISOString().slice(0, 10);
-  }
-  var today7  = dateStr(7);
-  var today14 = dateStr(14);
-  var today30 = dateStr(30);
-  var todayStr = dateStr(0);
-
-  // Busca histórico de TODOS os clientes (para comparação de padrões)
-  var allInsights = sheetToObjects(getSheet('ai_insights'))
-    .filter(function(r) { return r.period === 'predictive'; })
-    .map(function(r) {
-      return '[' + (r.createdAt || '').slice(0,10) + '] ' + (r.clientId || '') + ': ' + (r.insight || '').slice(0, 300);
-    });
-  var historicalPatterns = allInsights.length > 0
-    ? allInsights.slice(-30).join('\n') // últimas 30 previsões de todos os clientes
-    : 'Nenhum histórico disponível ainda (primeira execução).';
+  Logger.log('[PredictiveAI] Puxando histórico real de ' + clients.length + ' clientes (36 meses)...');
+  var portfolioContext = buildPortfolioContext_(clients, token, 36);
+  Logger.log('[PredictiveAI] Contexto montado: ' + portfolioContext.length + ' caracteres');
 
   var sh = getSheet('ai_insights');
-  if (sh.getLastRow() === 0) {
-    sh.appendRow(['id', 'clientId', 'period', 'insight', 'createdAt']);
-  }
+  if (sh.getLastRow() === 0) sh.appendRow(['id', 'clientId', 'period', 'insight', 'createdAt']);
 
   clients.forEach(function(client) {
     try {
-      Logger.log('[PredictiveAI] Processando: ' + client.name);
+      Logger.log('[PredictiveAI] Analisando: ' + client.name);
 
-      // Busca métricas dos 3 períodos
-      var m7  = getMetricsMeta(client.criativoAccountId, today7,  todayStr);
-      var m14 = getMetricsMeta(client.criativoAccountId, today14, todayStr);
-      var m30 = getMetricsMeta(client.criativoAccountId, today30, todayStr);
+      var current  = buildCurrentMetrics_(client, null);
+      var objetivo = detectObjetivo_(current.totals7, client.clientType);
+      var prompts  = buildClaudePrompts_(client, objetivo, current, portfolioContext);
 
-      // Detecta objetivo real pelas métricas (não depende de campo manual)
-      var t7 = m7.totals || {};
-      var objetivo;
-      if ((parseFloat(t7.purchases) || 0) > 0) {
-        objetivo = 'ecommerce'; // tem compras → e-commerce
-      } else if ((parseFloat(t7.messages) || 0) > 0) {
-        objetivo = 'messages';  // tem mensagens → conversas
-      } else if ((parseFloat(t7.leads) || 0) > 0) {
-        objetivo = 'leads';     // tem leads → geração de leads
-      } else {
-        // Sem conversões ainda — usa clientType como fallback
-        var ct = String(client.clientType || '').toLowerCase();
-        objetivo = ct === 'ecommerce' ? 'ecommerce' : 'messages';
-      }
-
-      var objetivoLabel = objetivo === 'ecommerce' ? 'E-commerce (KPI: Compras, ROAS, Receita)'
-        : objetivo === 'messages' ? 'Conversas por mensagem (KPI: Mensagens iniciadas, Custo por mensagem)'
-        : 'Geração de leads (KPI: Leads, Custo por lead)';
-
-      function fmtMetrics(m) {
-        if (m.error) return 'Erro: ' + m.error;
-        var t = m.totals || {};
-        if (objetivo === 'ecommerce') {
-          return 'Gasto: R$' + t.spend +
-            ' | Impressões: ' + t.impressions +
-            ' | Cliques: ' + t.clicks +
-            ' | CTR: ' + t.ctr + '%' +
-            ' | CPM: R$' + t.cpm +
-            ' | Compras: ' + t.purchases +
-            ' | Receita: R$' + t.purchaseValue +
-            ' | ROAS: ' + t.roas +
-            ' | Custo/compra: R$' + t.cpa +
-            ' | Alcance: ' + t.reach +
-            ' | Frequência: ' + t.frequency;
-        } else if (objetivo === 'messages') {
-          var cpMsg = (parseFloat(t.messages) || 0) > 0
-            ? 'R$' + (parseFloat(t.spend) / parseFloat(t.messages)).toFixed(2)
-            : 'N/A';
-          return 'Gasto: R$' + t.spend +
-            ' | Impressões: ' + t.impressions +
-            ' | Cliques: ' + t.clicks +
-            ' | CTR: ' + t.ctr + '%' +
-            ' | CPM: R$' + t.cpm +
-            ' | Conversas iniciadas: ' + t.messages +
-            ' | Custo por conversa: ' + cpMsg +
-            ' | Alcance: ' + t.reach +
-            ' | Frequência: ' + t.frequency;
-        } else {
-          return 'Gasto: R$' + t.spend +
-            ' | Impressões: ' + t.impressions +
-            ' | Cliques: ' + t.clicks +
-            ' | CTR: ' + t.ctr + '%' +
-            ' | CPM: R$' + t.cpm +
-            ' | Leads: ' + t.leads +
-            ' | Custo por lead: R$' + t.cpa +
-            ' | Alcance: ' + t.reach +
-            ' | Frequência: ' + t.frequency;
-        }
-      }
-
-      var metrics7  = fmtMetrics(m7);
-      var metrics14 = fmtMetrics(m14);
-      var metrics30 = fmtMetrics(m30);
-
-      // Campanhas ativas
-      var campaigns = (m7.campaigns || []).map(function(c) { return c.name; }).join(', ') || 'Nenhuma';
-      var activeCampaigns = (m7.campaigns || []).filter(function(c) { return c.status === 'ACTIVE'; }).length;
-
-      var systemPrompt =
-        'Você é um analisador de performance de mídia paga. Responda SEMPRE neste formato exato, sem exceções:\n\n' +
-        'PADRÃO IDENTIFICADO: [1 linha]\n' +
-        'SIMILARIDADE HISTÓRICA: [Período DD/MM a DD/MM / Cliente X — o que aconteceu naquele período e o resultado]\n' +
-        'PREVISÃO 3 DIAS:\n• [item 1]\n• [item 2]\n• [item 3]\n' +
-        'PREVISÃO 7 DIAS:\n• [item 1]\n• [item 2]\n' +
-        'CONFIANÇA: [Alto/Médio/Baixo] — [1 frase]\n' +
-        '⚠️ ALERTA: [REGRA: só escreva uma frase de alerta se houver tendência de piora CONCRETA nas métricas — CPM subindo, ROAS caindo, CTR em queda, frequência acima de 2.5. Se a campanha estiver estável ou melhorando, escreva apenas a palavra: Nenhum]\n' +
-        'AÇÃO AGORA:\n• [ação 1 com prazo]\n• [ação 2 com prazo]\n\n' +
-        'PROIBIDO: asteriscos (**), cerquilha (##), travessão decorativo (---), itálico, negrito, qualquer markdown. Use apenas texto simples e o caractere • para listas.';
-
-      var userPrompt =
-        'CLIENTE: ' + client.name + '\n' +
-        'OBJETIVO: ' + objetivoLabel + ' (avalie APENAS este KPI)\n' +
-        'CONTA META: ' + client.criativoAccountId + '\n' +
-        'CAMPANHAS ATIVAS: ' + activeCampaigns + ' | ' + campaigns + '\n\n' +
-        'MÉTRICAS 7 DIAS: ' + metrics7 + '\n' +
-        'MÉTRICAS 14 DIAS: ' + metrics14 + '\n' +
-        'MÉTRICAS 30 DIAS: ' + metrics30 + '\n\n' +
-        'HISTÓRICO DE PADRÕES:\n' + historicalPatterns;
-
-      // Chama Claude
       var claudeResp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': claudeApiKey,
-          'anthropic-version': '2023-06-01'
-        },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': claudeApiKey, 'anthropic-version': '2023-06-01' },
         payload: JSON.stringify({
           model: 'claude-haiku-4-5',
           max_tokens: 1200,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userPrompt }]
+          system: prompts.system,
+          messages: [{ role: 'user', content: prompts.user }]
         }),
         muteHttpExceptions: true
       });
 
-      var claudeData = JSON.parse(claudeResp.getContentText());
+      var claudeData  = JSON.parse(claudeResp.getContentText());
       var insightText = (claudeData.content && claudeData.content[0]) ? claudeData.content[0].text : '';
 
-      if (!insightText) {
-        Logger.log('[PredictiveAI] Claude não retornou previsão para ' + client.name);
-        return;
-      }
+      if (!insightText) { Logger.log('[PredictiveAI] Claude sem resposta para ' + client.name); return; }
 
-      // Salva na aba ai_insights com period='predictive'
-      var id = genId();
-      var now = new Date().toISOString();
-      sh.appendRow([id, client.id, 'predictive', insightText, now]);
+      sh.appendRow([genId(), client.id, 'predictive', insightText, new Date().toISOString()]);
       Logger.log('[PredictiveAI] Previsão salva para ' + client.name);
+      Utilities.sleep(1000);
 
     } catch(err) {
       Logger.log('[PredictiveAI] Erro em ' + client.name + ': ' + err.message);
@@ -802,8 +837,7 @@ function runPredictiveAI() {
 }
 
 // ─── runPredictiveAINow ──────────────────────────────────────
-// Versão manual do runPredictiveAI, sem verificação de dia da semana.
-// Acionada pelo botão "Gerar agora" no CRM.
+// Versão manual, acionada pelo botão "Gerar agora" no CRM.
 function runPredictiveAINow() {
   var claudeApiKey = PropertiesService.getScriptProperties().getProperty('CLAUDE_API_KEY');
   if (!claudeApiKey) return { error: 'CLAUDE_API_KEY não configurada nas propriedades do script.' };
@@ -814,122 +848,37 @@ function runPredictiveAINow() {
   var clients = sheetToObjects(getSheet('clients')).filter(function(c) {
     return c.criativoAccountId && !c.cancelado && c.cancelado !== 'TRUE';
   });
-
   if (clients.length === 0) return { error: 'Nenhum cliente com conta Meta vinculada.' };
 
-  function dateStr(daysAgo) {
-    var d = new Date();
-    d.setDate(d.getDate() - daysAgo);
-    return d.toISOString().slice(0, 10);
-  }
-  var today7  = dateStr(7);
-  var today14 = dateStr(14);
-  var today30 = dateStr(30);
-  var todayStr = dateStr(0);
-
-  var allInsights = sheetToObjects(getSheet('ai_insights'))
-    .filter(function(r) { return r.period === 'predictive'; })
-    .map(function(r) {
-      return '[' + (r.createdAt || '').slice(0,10) + '] ' + (r.clientId || '') + ': ' + (r.insight || '').slice(0, 300);
-    });
-  var historicalPatterns = allInsights.length > 0
-    ? allInsights.slice(-30).join('\n')
-    : 'Nenhum histórico disponível ainda (primeira execução).';
+  Logger.log('[PredictiveAI Manual] Puxando histórico real de ' + clients.length + ' clientes (36 meses)...');
+  var portfolioContext = buildPortfolioContext_(clients, token, 36);
+  Logger.log('[PredictiveAI Manual] Contexto: ' + portfolioContext.length + ' caracteres');
 
   var sh = getSheet('ai_insights');
-  if (sh.getLastRow() === 0) {
-    sh.appendRow(['id', 'clientId', 'period', 'insight', 'createdAt']);
-  }
+  if (sh.getLastRow() === 0) sh.appendRow(['id', 'clientId', 'period', 'insight', 'createdAt']);
 
   var processed = 0;
-  var errors = [];
+  var errors    = [];
 
   clients.forEach(function(client) {
     try {
-      var m7  = getMetricsMeta(client.criativoAccountId, today7,  todayStr);
-      var m14 = getMetricsMeta(client.criativoAccountId, today14, todayStr);
-      var m30 = getMetricsMeta(client.criativoAccountId, today30, todayStr);
-
-      // Detecta objetivo real pelas métricas
-      var t7now = m7.totals || {};
-      var objetivoNow;
-      if ((parseFloat(t7now.purchases) || 0) > 0) {
-        objetivoNow = 'ecommerce';
-      } else if ((parseFloat(t7now.messages) || 0) > 0) {
-        objetivoNow = 'messages';
-      } else if ((parseFloat(t7now.leads) || 0) > 0) {
-        objetivoNow = 'leads';
-      } else {
-        var ct2 = String(client.clientType || '').toLowerCase();
-        objetivoNow = ct2 === 'ecommerce' ? 'ecommerce' : 'messages';
-      }
-
-      var objetivoLabelNow = objetivoNow === 'ecommerce' ? 'E-commerce (KPI: Compras, ROAS, Receita)'
-        : objetivoNow === 'messages' ? 'Conversas por mensagem (KPI: Mensagens iniciadas, Custo por mensagem)'
-        : 'Geração de leads (KPI: Leads, Custo por lead)';
-
-      function fmtMetrics(m) {
-        if (m.error) return 'Erro: ' + m.error;
-        var t = m.totals || {};
-        if (objetivoNow === 'ecommerce') {
-          return 'Gasto: R$' + t.spend + ' | Impressões: ' + t.impressions + ' | Cliques: ' + t.clicks +
-            ' | CTR: ' + t.ctr + '% | CPM: R$' + t.cpm + ' | Compras: ' + t.purchases +
-            ' | Receita: R$' + t.purchaseValue + ' | ROAS: ' + t.roas + ' | Custo/compra: R$' + t.cpa +
-            ' | Alcance: ' + t.reach + ' | Frequência: ' + t.frequency;
-        } else if (objetivoNow === 'messages') {
-          var cpMsg2 = (parseFloat(t.messages) || 0) > 0
-            ? 'R$' + (parseFloat(t.spend) / parseFloat(t.messages)).toFixed(2) : 'N/A';
-          return 'Gasto: R$' + t.spend + ' | Impressões: ' + t.impressions + ' | Cliques: ' + t.clicks +
-            ' | CTR: ' + t.ctr + '% | CPM: R$' + t.cpm + ' | Conversas iniciadas: ' + t.messages +
-            ' | Custo por conversa: ' + cpMsg2 + ' | Alcance: ' + t.reach + ' | Frequência: ' + t.frequency;
-        } else {
-          return 'Gasto: R$' + t.spend + ' | Impressões: ' + t.impressions + ' | Cliques: ' + t.clicks +
-            ' | CTR: ' + t.ctr + '% | CPM: R$' + t.cpm + ' | Leads: ' + t.leads +
-            ' | Custo por lead: R$' + t.cpa + ' | Alcance: ' + t.reach + ' | Frequência: ' + t.frequency;
-        }
-      }
-
-      var campaigns = (m7.campaigns || []).map(function(c) { return c.name; }).join(', ') || 'Nenhuma';
-      var activeCampaigns = (m7.campaigns || []).filter(function(c) { return c.status === 'ACTIVE'; }).length;
-
-      var systemPromptNow =
-        'Você é um analisador de performance de mídia paga. Responda SEMPRE neste formato exato, sem exceções:\n\n' +
-        'PADRÃO IDENTIFICADO: [1 linha]\n' +
-        'SIMILARIDADE HISTÓRICA: [Período DD/MM a DD/MM / Cliente X — o que aconteceu naquele período e o resultado]\n' +
-        'PREVISÃO 3 DIAS:\n• [item 1]\n• [item 2]\n• [item 3]\n' +
-        'PREVISÃO 7 DIAS:\n• [item 1]\n• [item 2]\n' +
-        'CONFIANÇA: [Alto/Médio/Baixo] — [1 frase]\n' +
-        '⚠️ ALERTA: [REGRA: só escreva uma frase de alerta se houver tendência de piora CONCRETA nas métricas — CPM subindo, ROAS caindo, CTR em queda, frequência acima de 2.5. Se a campanha estiver estável ou melhorando, escreva apenas a palavra: Nenhum]\n' +
-        'AÇÃO AGORA:\n• [ação 1 com prazo]\n• [ação 2 com prazo]\n\n' +
-        'PROIBIDO: asteriscos (**), cerquilha (##), travessão decorativo (---), itálico, negrito, qualquer markdown. Use apenas texto simples e o caractere • para listas.';
-
-      var userPromptNow =
-        'CLIENTE: ' + client.name + '\n' +
-        'OBJETIVO: ' + objetivoLabelNow + ' (avalie APENAS este KPI)\n' +
-        'CONTA META: ' + client.criativoAccountId + '\n' +
-        'CAMPANHAS ATIVAS: ' + activeCampaigns + ' | ' + campaigns + '\n\n' +
-        'MÉTRICAS 7 DIAS: ' + fmtMetrics(m7) + '\n' +
-        'MÉTRICAS 14 DIAS: ' + fmtMetrics(m14) + '\n' +
-        'MÉTRICAS 30 DIAS: ' + fmtMetrics(m30) + '\n\n' +
-        'HISTÓRICO DE PADRÕES:\n' + historicalPatterns;
+      var current  = buildCurrentMetrics_(client, null);
+      var objetivo = detectObjetivo_(current.totals7, client.clientType);
+      var prompts  = buildClaudePrompts_(client, objetivo, current, portfolioContext);
 
       var claudeResp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': claudeApiKey,
-          'anthropic-version': '2023-06-01'
-        },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': claudeApiKey, 'anthropic-version': '2023-06-01' },
         payload: JSON.stringify({
           model: 'claude-haiku-4-5',
           max_tokens: 1200,
-          system: systemPromptNow,
-          messages: [{ role: 'user', content: userPromptNow }]
+          system: prompts.system,
+          messages: [{ role: 'user', content: prompts.user }]
         }),
         muteHttpExceptions: true
       });
 
-      var claudeData = JSON.parse(claudeResp.getContentText());
+      var claudeData  = JSON.parse(claudeResp.getContentText());
       var insightText = (claudeData.content && claudeData.content[0]) ? claudeData.content[0].text : '';
 
       if (insightText) {
@@ -938,7 +887,7 @@ function runPredictiveAINow() {
         Logger.log('[PredictiveAI Manual] Previsão salva para ' + client.name);
       }
 
-      Utilities.sleep(1000); // evita rate limit
+      Utilities.sleep(1000);
 
     } catch(err) {
       errors.push(client.name + ': ' + err.message);
@@ -946,12 +895,7 @@ function runPredictiveAINow() {
     }
   });
 
-  return {
-    ok: true,
-    processed: processed,
-    total: clients.length,
-    errors: errors
-  };
+  return { ok: true, processed: processed, total: clients.length, errors: errors };
 }
 
 // ─── getPredictiveInsights ────────────────────────────────────
