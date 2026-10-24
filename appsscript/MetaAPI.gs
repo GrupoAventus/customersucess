@@ -460,12 +460,12 @@ function checkMetaAccountsHourly() {
       var campJson = metaGet_(campUrl);
       var activeCampaigns = (campJson.data || []).length;
 
-      // 2. Saldo da conta
+      // 2. Saldo da conta — pede balance, funding_source_details e prepay_balance para ver qual campo tem o valor certo
       var acctUrl = META_API_BASE + '/' + acctParam
-        + '?fields=balance,currency'
+        + '?fields=balance,prepay_balance,funding_source_details,currency'
         + '&access_token=' + token;
       var acctJson = metaGet_(acctUrl);
-      Logger.log('[MONITOR] ' + client.name + ' | balance_raw=' + acctJson.balance + ' | currency=' + acctJson.currency);
+      Logger.log('[MONITOR] ' + client.name + ' | balance=' + acctJson.balance + ' | prepay_balance=' + acctJson.prepay_balance + ' | funding_source_details=' + JSON.stringify(acctJson.funding_source_details) + ' | currency=' + acctJson.currency);
       var balance = parseFloat(acctJson.balance) || 0;
 
       var lowBalance = balance < 50;
