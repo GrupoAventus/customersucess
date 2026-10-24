@@ -546,11 +546,14 @@ function checkMetaAccountsHourly() {
         balance = parseFloat(balanceMatch[1].replace('.', '').replace(',', '.')) || 0;
       }
       // Tipo 1 = cartão de crédito — não tem saldo pré-pago para alertar
-      var isCartao = fsd.type === 1;
+      // Compara como string também pois a API pode retornar "1" ou 1
+      var isCartao = fsd.type === 1 || fsd.type === '1' || String(fsd.type) === '1';
       Logger.log('[MONITOR] ' + client.name + ' | saldo=R$' + balance.toFixed(2) + ' | tipo=' + fsd.type + ' | cartao=' + isCartao);
 
       // Contas cartão (tipo 1) não têm saldo pré-pago — não alertar
-      var lowBalance = !isCartao && balance < 50;
+      // Tipo 20 = pré-pago (prepaid). Se não for explicitamente pré-pago, não alertar.
+      var isPrepago = String(fsd.type) === '20';
+      var lowBalance = isPrepago && balance < 50;
 
       // 3. Atualiza Kanban se sem campanha ativa e cliente estava em "Campanha ativa"
       var currentStatus = String(client.status || '');
