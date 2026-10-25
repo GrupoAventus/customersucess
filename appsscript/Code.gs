@@ -67,11 +67,11 @@ function doGet(e) {
     else if (action === 'getAlerts')     out = getAlerts();
     else if (action === 'getPipeline')   out = getPipeline();
     else if (action === 'getMetrics') {
-      out = getMetricsMeta(p.accountId, p.startDate, p.endDate);
+      out = getMetricsMeta(p.accountId, p.startDate, p.endDate, p.datePreset || null);
     }
     else if (action === 'getMetricsHistory')  out = getMetricsHistory(p.clientId);
     else if (action === 'getAllAccountsMetrics') {
-      out = getAllAccountsMetricsMeta(p.startDate, p.endDate);
+      out = getAllAccountsMetricsMeta(p.startDate, p.endDate, p.datePreset || null);
     }
     else if (action === 'getMetaAccounts') out = getMetaAccounts();
     else if (action === 'getMetaStatus')        out = getMetaStatus();

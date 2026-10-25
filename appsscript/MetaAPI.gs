@@ -204,7 +204,8 @@ function fetchAllPages_(url) {
 // ─── getMetricsMeta ──────────────────────────────────────────
 // Equivalente ao getMetrics() do Detrics, mas via Meta API.
 // accountId = ID numérico da conta (ex: "act_123456789")
-function getMetricsMeta(accountId, startDate, endDate) {
+// datePreset: se 'today', usa date_preset=today em vez de time_range (mais confiável para o dia atual)
+function getMetricsMeta(accountId, startDate, endDate, datePreset) {
   if (!accountId) return { error: 'accountId required' };
   if (!META_TOKEN) return { error: 'META_TOKEN não configurado. Vá em Apps Script > Configurações > Propriedades do script e adicione META_TOKEN.' };
 
@@ -212,11 +213,17 @@ function getMetricsMeta(accountId, startDate, endDate) {
     var actId = accountId.replace(/^act_/i, '');
     var acctParam = 'act_' + actId;
 
+    // Parâmetro de período: usa date_preset=today quando disponível (dados em tempo real)
+    // ou time_range para períodos históricos
+    var periodParam = datePreset
+      ? ('&date_preset=' + datePreset)
+      : ('&time_range=' + encodeURIComponent(JSON.stringify({ since: startDate, until: endDate })));
+
     // 1. Insights totais da conta no período (nível campanha)
     var insightsUrl = META_API_BASE + '/' + acctParam + '/insights'
       + '?level=campaign'
       + '&fields=' + encodeURIComponent(META_INSIGHT_FIELDS)
-      + '&time_range=' + encodeURIComponent(JSON.stringify({ since: startDate, until: endDate }))
+      + periodParam
       + '&limit=100'
       + '&access_token=' + META_TOKEN;
 
@@ -319,7 +326,7 @@ function getMetricsMeta(accountId, startDate, endDate) {
       + '?level=account'
       + '&fields=spend,impressions,clicks,inline_link_clicks,reach,actions,action_values,website_purchase_roas,purchase_roas'
       + '&time_increment=1'
-      + '&time_range=' + encodeURIComponent(JSON.stringify({ since: startDate, until: endDate }))
+      + periodParam
       + '&limit=100'
       + '&access_token=' + META_TOKEN;
 
@@ -378,7 +385,7 @@ function getMetricsMeta(accountId, startDate, endDate) {
 // ─── getAllAccountsMetricsMeta ────────────────────────────────
 // Equivalente ao getAllAccountsMetrics() mas via Meta API.
 // Recebe lista de ad_account_ids dos clientes cadastrados.
-function getAllAccountsMetricsMeta(startDate, endDate) {
+function getAllAccountsMetricsMeta(startDate, endDate, datePreset) {
   if (!META_TOKEN) return { error: 'META_TOKEN não configurado.' };
 
   try {
@@ -390,6 +397,11 @@ function getAllAccountsMetricsMeta(startDate, endDate) {
 
     if (clients.length === 0) return { accounts: [], period: { start: startDate, end: endDate }, source: 'meta_api' };
 
+    // Parâmetro de período
+    var periodParam = datePreset
+      ? ('&date_preset=' + datePreset)
+      : ('&time_range=' + encodeURIComponent(JSON.stringify({ since: startDate, until: endDate })));
+
     var accounts = [];
 
     clients.forEach(function(client) {
@@ -400,7 +412,7 @@ function getAllAccountsMetricsMeta(startDate, endDate) {
         var url = META_API_BASE + '/' + acctParam + '/insights'
           + '?level=account'
           + '&fields=' + encodeURIComponent(META_INSIGHT_FIELDS)
-          + '&time_range=' + encodeURIComponent(JSON.stringify({ since: startDate, until: endDate }))
+          + periodParam
           + '&access_token=' + META_TOKEN;
 
         var data = fetchAllPages_(url);

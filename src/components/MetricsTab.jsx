@@ -271,28 +271,31 @@ function OverviewTab({ period, customStart, customEnd, refreshKey }) {
   const [visibleCols, setVisibleCols] = useState(['spend', 'conversions', 'roas', 'ctr', 'leads'])
 
   const getDateRange = useCallback(() => {
-    const today = new Date()
-    const fmtD = d => d.toISOString().slice(0, 10)
-    if (period === 'custom') return { start: customStart, end: customEnd }
-    if (period === 'today') return { start: fmtD(today), end: fmtD(today) }
+    // Usa fuso de SP para não gerar data errada à noite
+    const todaySP = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+    const fmtD = d => d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+    if (period === 'custom') return { start: customStart, end: customEnd, preset: null }
+    if (period === 'today') return { start: todaySP, end: todaySP, preset: 'today' }
     if (period === 'month') {
-      const start = new Date(today.getFullYear(), today.getMonth(), 1)
-      return { start: fmtD(start), end: fmtD(today) }
+      const now = new Date()
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
+      return { start: fmtD(firstDay), end: todaySP, preset: null }
     }
     const days = parseInt(period)
-    const end = new Date(today)
-    const start = new Date(today)
+    const end = new Date()
+    const start = new Date()
     start.setDate(start.getDate() - (days - 1))
-    return { start: fmtD(start), end: fmtD(end) }
+    return { start: fmtD(start), end: fmtD(end), preset: null }
   }, [period, customStart, customEnd])
 
   const load = useCallback(async () => {
-    const { start, end } = getDateRange()
+    const { start, end, preset } = getDateRange()
     if (!start || !end) return
     setLoading(true)
     setError('')
     try {
-      const res  = await fetch(`${SCRIPT_URL}?action=getAllAccountsMetrics&startDate=${start}&endDate=${end}`)
+      const presetParam = preset ? `&datePreset=${preset}` : ''
+      const res  = await fetch(`${SCRIPT_URL}?action=getAllAccountsMetrics&startDate=${start}&endDate=${end}${presetParam}`)
       const json = await res.json()
       if (json.error) throw new Error(json.error)
       setData(json)
@@ -470,28 +473,30 @@ function ClientTab({ period, customStart, customEnd, refreshKey }) {
     : null
 
   const getDateRange = useCallback(() => {
-    const today = new Date()
-    const fmtD = d => d.toISOString().slice(0, 10)
-    if (period === 'custom') return { start: customStart, end: customEnd }
-    if (period === 'today') return { start: fmtD(today), end: fmtD(today) }
+    const todaySP = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+    const fmtD = d => d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+    if (period === 'custom') return { start: customStart, end: customEnd, preset: null }
+    if (period === 'today') return { start: todaySP, end: todaySP, preset: 'today' }
     if (period === 'month') {
-      const start = new Date(today.getFullYear(), today.getMonth(), 1)
-      return { start: fmtD(start), end: fmtD(today) }
+      const now = new Date()
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
+      return { start: fmtD(firstDay), end: todaySP, preset: null }
     }
     const days = parseInt(period)
-    const end = new Date(today)
-    const start = new Date(today)
+    const end = new Date()
+    const start = new Date()
     start.setDate(start.getDate() - (days - 1))
-    return { start: fmtD(start), end: fmtD(end) }
+    return { start: fmtD(start), end: fmtD(end), preset: null }
   }, [period, customStart, customEnd])
 
   const loadMetrics = useCallback(async () => {
     if (!selectedAccount) return
     setLoading(true)
     setError('')
-    const { start, end } = getDateRange()
+    const { start, end, preset } = getDateRange()
     try {
-      const res  = await fetch(`${SCRIPT_URL}?action=getMetrics&accountId=${encodeURIComponent(selectedAccount.id)}&startDate=${start}&endDate=${end}`)
+      const presetParam = preset ? `&datePreset=${preset}` : ''
+      const res  = await fetch(`${SCRIPT_URL}?action=getMetrics&accountId=${encodeURIComponent(selectedAccount.id)}&startDate=${start}&endDate=${end}${presetParam}`)
       const json = await res.json()
       if (json.error) throw new Error(json.error)
       if (json.daily) json.daily = fillDailyGaps(json.daily, start, end)
