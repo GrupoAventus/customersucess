@@ -109,16 +109,29 @@ function sumAction_(actions, type) {
   return total;
 }
 
+// Retorna o valor do PRIMEIRO tipo de action que existir na lista (em ordem de prioridade).
+// A Meta devolve a mesma conversão em vários tipos ao mesmo tempo
+// (ex: 'purchase' JÁ INCLUI 'offsite_conversion.fb_pixel_purchase').
+// Somar os tipos contava a mesma compra 2x — por isso o valor de venda aparecia dobrado.
+function firstAction_(actions, types) {
+  if (!actions) return 0;
+  for (var i = 0; i < types.length; i++) {
+    var found = actions.some(function(a) { return a.action_type === types[i]; });
+    if (found) return sumAction_(actions, types[i]);
+  }
+  return 0;
+}
+
+var PURCHASE_TYPES_ = ['purchase', 'omni_purchase', 'offsite_conversion.fb_pixel_purchase'];
+var LEAD_TYPES_     = ['lead', 'onsite_conversion.lead_grouped', 'offsite_conversion.fb_pixel_lead'];
+
 // Converte array de insights da Meta em objeto com nossas métricas
 function parseInsight_(ins) {
   var actions      = ins.actions || [];
   var actionValues = ins.action_values || [];
 
-  var leads     = sumAction_(actions, 'lead') +
-                  sumAction_(actions, 'offsite_conversion.fb_pixel_lead') +
-                  sumAction_(actions, 'onsite_conversion.lead_grouped');
-  var purchases = sumAction_(actions, 'purchase') +
-                  sumAction_(actions, 'offsite_conversion.fb_pixel_purchase');
+  var leads     = firstAction_(actions, LEAD_TYPES_);
+  var purchases = firstAction_(actions, PURCHASE_TYPES_);
   // Mensagens: SOMENTE conversas iniciadas (Click-to-WhatsApp / Messenger).
   // NÃO incluir omni_messaging_engagement (engajamento geral) nem contact (qualquer contato)
   // pois inflam o número com interações que não são conversas novas.
@@ -139,8 +152,7 @@ function parseInsight_(ins) {
   else messages = msgConn + msgOmni;
   var lpv       = sumAction_(actions, 'landing_page_view');
 
-  var purchaseValue = sumAction_(actionValues, 'purchase') +
-                      sumAction_(actionValues, 'offsite_conversion.fb_pixel_purchase');
+  var purchaseValue = firstAction_(actionValues, PURCHASE_TYPES_);
 
   var spend = parseFloat(ins.spend) || 0;
   var roas  = 0;
@@ -344,6 +356,7 @@ function getMetricsMeta(accountId, startDate, endDate, datePreset) {
         reach:        parseFloat(m.reach)        || 0,
         leads:        parseFloat(m.leads)        || 0,
         purchases:    parseFloat(m.purchases)    || 0,
+        purchaseValue: parseFloat(m.purchaseValue) || 0,
         messages:     parseFloat(m.messages)     || 0,
         ctr:          parseFloat(m.ctr)          || 0,
         cpm:          parseFloat(m.cpm)          || 0,
@@ -421,7 +434,7 @@ function getAllAccountsMetricsMeta(startDate, endDate, datePreset) {
             accountName: client.name || client.criativoAccountId,
             clientId:    client.id || '',
             spend: '0', impressions: 0, clicks: 0, linkClicks: 0,
-            reach: 0, leads: 0, purchases: 0, conversions: 0,
+            reach: 0, leads: 0, purchases: 0, purchaseValue: '0', conversions: 0,
             messages: 0, roas: '0', ctr: '0', cpm: '0', cpc: '0', cpa: '0', cpl: '0'
           });
           return;
@@ -464,6 +477,7 @@ function getAllAccountsMetricsMeta(startDate, endDate, datePreset) {
           reach:       Math.round(totals.reach),
           leads:       Math.round(totals.leads),
           purchases:   Math.round(totals.purchases),
+          purchaseValue: totals.purchaseValue.toFixed(2),
           conversions: Math.round(conv),
           messages:    Math.round(totals.messages),
           roas:        roas.toFixed(2),

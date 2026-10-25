@@ -979,12 +979,21 @@ function buildConversionBlock(t, clientType, spend) {
   return lines.join('\n');
 }
 
+// Data (yyyy-MM-dd) no fuso de São Paulo, deslocada em N dias (0 = hoje, -1 = ontem).
+// toISOString() usa UTC e, depois das 21h, já devolvia o dia seguinte.
+function spDateStr_(offsetDays) {
+  var d = new Date(Date.now() + (offsetDays || 0) * 86400000);
+  return Utilities.formatDate(d, 'America/Sao_Paulo', 'yyyy-MM-dd');
+}
+function spDateLabel_(dateStr) {
+  var p = dateStr.split('-');
+  return p[2] + '/' + p[1] + '/' + p[0];
+}
+
 function sendDailyReport() {
   var clients = sheetToObjects(getSheet('clients'));
-  var today = new Date();
-  var yesterday = new Date(today.getTime() - 86400000);
-  var yesterdayStr = yesterday.toISOString().slice(0, 10);
-  var dateLabel = yesterday.toLocaleDateString('pt-BR') + ' - ' + yesterday.toLocaleDateString('pt-BR');
+  var yesterdayStr = spDateStr_(-1);
+  var dateLabel = spDateLabel_(yesterdayStr) + ' - ' + spDateLabel_(yesterdayStr);
 
   var activeClients = clients.filter(function(c) {
     return c.status === 'Campanha ativa' &&
@@ -1044,19 +1053,16 @@ function sendDailyReport() {
 }
 
 function sendWeeklyReport() {
-  var today = new Date();
-  var dayOfWeek = today.getDay();
+  var dayOfWeek = parseInt(Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'u'), 10); // 1 = segunda
   if (dayOfWeek !== 1) {
     Logger.log('Relatório semanal só roda às segundas-feiras');
     return;
   }
 
   var clients = sheetToObjects(getSheet('clients'));
-  var lastMonday = new Date(today.getTime() - 7 * 86400000);
-  var lastSunday = new Date(today.getTime() - 1 * 86400000);
-  var sinceStr = lastMonday.toISOString().slice(0, 10);
-  var untilStr = lastSunday.toISOString().slice(0, 10);
-  var dateLabel = lastMonday.toLocaleDateString('pt-BR') + ' - ' + lastSunday.toLocaleDateString('pt-BR');
+  var sinceStr = spDateStr_(-7);
+  var untilStr = spDateStr_(-1);
+  var dateLabel = spDateLabel_(sinceStr) + ' - ' + spDateLabel_(untilStr);
 
   var activeClients = clients.filter(function(c) {
     return c.criativoAccountId &&
@@ -1124,8 +1130,8 @@ function sendSnapshotEvening() {
 
 function sendSnapshot(period) {
   var clients = sheetToObjects(getSheet('clients'));
-  var todayStr = new Date().toISOString().slice(0, 10);
-  var todayLabel = new Date().toLocaleDateString('pt-BR');
+  var todayStr = spDateStr_(0);
+  var todayLabel = spDateLabel_(todayStr);
   var periodTitle = period === 'meio-dia' ? '⚡ Snapshot Meio-dia' : '⚡ Snapshot Fim de Tarde';
 
   var activeClients = clients.filter(function(c) {
@@ -1144,8 +1150,20 @@ function sendSnapshot(period) {
   activeClients.forEach(function(client) {
     try {
       var result = getMetricsMeta(client.criativoAccountId, todayStr, todayStr);
+
+      if (result.error) {
+        Logger.log('Snapshot ' + period + ' ' + client.name + ': erro na API — ' + result.error);
+        return;
+      }
+
       var t = result.totals || {};
       var spend = parseFloat(t.spend) || 0;
+
+      // Sem gasto hoje = não envia o relatório de hoje
+      if (spend <= 0) {
+        Logger.log('Snapshot ' + period + ' ' + client.name + ': sem gasto hoje, pulando');
+        return;
+      }
 
       // Debug: loga os totais para diagnóstico quando métricas de conversão vêm zeradas
       if (spend > 0 && parseFloat(t.leads || 0) === 0 && parseFloat(t.messages || 0) === 0 && parseFloat(t.purchases || 0) === 0) {

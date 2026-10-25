@@ -18,6 +18,7 @@ const METRICS_META = [
   { key: 'leads',       label: 'Leads',          unit: '',    format: 'number'   },
   { key: 'messages',    label: 'Conversas',      unit: '',    format: 'number'   },
   { key: 'purchases',   label: 'Compras',        unit: '',    format: 'number'   },
+  { key: 'purchaseValue', label: 'Valor vendido', unit: 'R$',  format: 'currency' },
   { key: 'roas',        label: 'ROAS',           unit: 'x',   format: 'decimal'  },
   { key: 'cpa',         label: 'CPA',            unit: 'R$',  format: 'currency' },
   { key: 'cpl',         label: 'CPL (conversa)', unit: 'R$',  format: 'currency' },
@@ -41,6 +42,7 @@ const OVERVIEW_COLS = [
   { key: 'leads',       label: 'Leads',       format: 'number'   },
   { key: 'messages',    label: 'Conversas',   format: 'number'   },
   { key: 'purchases',   label: 'Compras',     format: 'number'   },
+  { key: 'purchaseValue', label: 'Valor vendido', format: 'currency' },
   { key: 'impressions', label: 'Impressões',  format: 'number'   },
   { key: 'cpm',         label: 'CPM',         format: 'currency' },
   { key: 'cpl',         label: 'CPL',         format: 'currency' },
@@ -66,7 +68,7 @@ function fillDailyGaps(daily, startDate, endDate) {
   const end    = new Date(endDate   + 'T12:00:00Z')
   const byDate = {}
   daily.forEach(d => { if (d.date) byDate[d.date] = d })
-  const ZERO = { spend: 0, impressions: 0, clicks: 0, linkClicks: 0, reach: 0, leads: 0, purchases: 0, messages: 0, ctr: 0, cpm: 0, cpc: 0, roas: 0, cpa: 0 }
+  const ZERO = { spend: 0, impressions: 0, clicks: 0, linkClicks: 0, reach: 0, leads: 0, purchases: 0, purchaseValue: 0, messages: 0, ctr: 0, cpm: 0, cpc: 0, roas: 0, cpa: 0 }
   while (cursor <= end) {
     const key = cursor.toISOString().slice(0, 10)
     result.push(byDate[key] ? byDate[key] : { ...ZERO, date: key })
@@ -346,13 +348,14 @@ function OverviewTab({ period, customStart, customEnd, refreshKey }) {
     acc.clicks      += parseFloat(a.clicks)      || 0
     acc.leads       += parseFloat(a.leads)       || 0
     acc.purchases   += parseFloat(a.purchases)   || 0
+    acc.purchaseValue += parseFloat(a.purchaseValue) || 0
     acc.conversions += parseFloat(a.conversions) || 0
     acc.messages    += parseFloat(a.messages)    || 0
     return acc
-  }, { spend: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0, conversions: 0, messages: 0 })
+  }, { spend: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0, purchaseValue: 0, conversions: 0, messages: 0 })
   grand.ctr = grand.impressions > 0 ? ((grand.clicks / grand.impressions) * 100).toFixed(2) : '0'
   grand.cpm = grand.impressions > 0 ? ((grand.spend  / grand.impressions) * 1000).toFixed(2) : '0'
-  grand.roas = '—'
+  grand.roas = grand.spend > 0 && grand.purchaseValue > 0 ? (grand.purchaseValue / grand.spend).toFixed(2) : '—'
   grand.cpl  = grand.messages > 0 ? (grand.spend / grand.messages).toFixed(2) : '0'
 
   const shownCols = OVERVIEW_COLS.filter(c => visibleCols.includes(c.key))
@@ -671,6 +674,7 @@ function ClientTab({ period, customStart, customEnd, refreshKey }) {
                         { label: 'CPM',        value: `R$ ${parseFloat(ins.cpm || 0).toFixed(2)}` },
                         parseInt(ins.leads)     > 0 && { label: 'Leads',    value: ins.leads },
                         parseInt(ins.purchases) > 0 && { label: 'Compras',  value: ins.purchases },
+                        parseFloat(ins.purchaseValue) > 0 && { label: 'Valor vendido', value: `R$ ${parseFloat(ins.purchaseValue).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
                         parseInt(ins.messages)  > 0 && { label: 'Conversas',value: ins.messages },
                       ].filter(Boolean).map(stat => (
                         <div key={stat.label} style={{ background: '#111', borderRadius: 6, padding: '6px 8px' }}>
