@@ -119,16 +119,24 @@ function parseInsight_(ins) {
                   sumAction_(actions, 'onsite_conversion.lead_grouped');
   var purchases = sumAction_(actions, 'purchase') +
                   sumAction_(actions, 'offsite_conversion.fb_pixel_purchase');
-  // Mensagens: cobre Click-to-WhatsApp, Messenger e variantes de janela de atribuição
+  // Mensagens: SOMENTE conversas iniciadas (Click-to-WhatsApp / Messenger).
+  // NÃO incluir omni_messaging_engagement (engajamento geral) nem contact (qualquer contato)
+  // pois inflam o número com interações que não são conversas novas.
   var messages  = sumAction_(actions, 'onsite_conversion.messaging_conversation_started_7d') +
+                  sumAction_(actions, 'onsite_conversion.messaging_conversation_started_30d') +
                   sumAction_(actions, 'onsite_conversion.total_messaging_connection') +
-                  sumAction_(actions, 'omni_initiated_conversation') +
-                  sumAction_(actions, 'omni_messaging_engagement') +
-                  sumAction_(actions, 'contact') +
-                  sumAction_(actions, 'onsite_conversion.lead_grouped');
-  // Remove duplas: se lead_grouped já foi contado em leads, não contar de novo em messages
-  // (lead_grouped pode aparecer nos dois — mantemos apenas em leads para não duplicar)
-  messages = Math.max(0, messages - sumAction_(actions, 'onsite_conversion.lead_grouped'));
+                  sumAction_(actions, 'omni_initiated_conversation');
+  // Garante sem duplas entre variantes de janela de atribuição — pega o maior valor se ambos existirem
+  var msg7d  = sumAction_(actions, 'onsite_conversion.messaging_conversation_started_7d');
+  var msg30d = sumAction_(actions, 'onsite_conversion.messaging_conversation_started_30d');
+  var msgConn = sumAction_(actions, 'onsite_conversion.total_messaging_connection');
+  var msgOmni = sumAction_(actions, 'omni_initiated_conversation');
+  // Usa o maior entre as variantes de janela (7d/30d) + conexão + omni, sem somar ambas as janelas
+  messages = Math.max(msg7d, msg30d) + msgConn + msgOmni;
+  // Remove dupla com msgConn se for o mesmo evento
+  // Na prática: prefere messaging_conversation_started_Xd; total_messaging_connection é fallback
+  if (msg7d > 0 || msg30d > 0) messages = Math.max(msg7d, msg30d) + msgOmni;
+  else messages = msgConn + msgOmni;
   var lpv       = sumAction_(actions, 'landing_page_view');
 
   var purchaseValue = sumAction_(actionValues, 'purchase') +
@@ -154,6 +162,8 @@ function parseInsight_(ins) {
   var cpm = impressions > 0 ? (spend / impressions * 1000) : parseFloat(ins.cpm) || 0;
   var cpc = clicks > 0      ? (spend / clicks)             : parseFloat(ins.cpc) || 0;
   var cpa = (leads + purchases) > 0 ? spend / (leads + purchases) : 0;
+  // CPL = Custo por conversa iniciada (mensagens WhatsApp/Messenger)
+  var cpl = messages > 0 ? spend / messages : 0;
 
   return {
     spend:         spend.toFixed(2),
@@ -171,7 +181,8 @@ function parseInsight_(ins) {
     ctr:           ctr.toFixed(2),
     cpm:           cpm.toFixed(2),
     cpc:           cpc.toFixed(2),
-    cpa:           cpa.toFixed(2)
+    cpa:           cpa.toFixed(2),
+    cpl:           cpl.toFixed(2)
   };
 }
 
@@ -300,6 +311,7 @@ function getMetricsMeta(accountId, startDate, endDate) {
     var gtCpc  = gt.clicks > 0 ? (gt.spend / gt.clicks).toFixed(2) : '0';
     var gtRoas = gt.roasCount > 0 ? (gt.roasSum / gt.roasCount).toFixed(2) : '0';
     var gtCpa  = (gt.leads + gt.purchases) > 0 ? (gt.spend / (gt.leads + gt.purchases)).toFixed(2) : '0';
+    var gtCpl  = gt.messages > 0 ? (gt.spend / gt.messages).toFixed(2) : '0';
     var gtFreq = gt.freqCount > 0 ? (gt.freqSum / gt.freqCount).toFixed(2) : '0';
 
     // 5. Breakdown diário (time_increment=1) — para gráficos
@@ -330,7 +342,8 @@ function getMetricsMeta(accountId, startDate, endDate) {
         cpm:          parseFloat(m.cpm)          || 0,
         cpc:          parseFloat(m.cpc)          || 0,
         roas:         parseFloat(m.roas)         || 0,
-        cpa:          parseFloat(m.cpa)          || 0
+        cpa:          parseFloat(m.cpa)          || 0,
+        cpl:          parseFloat(m.cpl)          || 0
       };
     });
     daily.sort(function(a, b) { return a.date < b.date ? -1 : 1; });
@@ -351,7 +364,7 @@ function getMetricsMeta(accountId, startDate, endDate) {
         purchases:     Math.round(gt.purchases),
         messages:      Math.round(gt.messages),
         purchaseValue: gt.purchaseValue.toFixed(2),
-        roas: gtRoas, ctr: gtCtr, cpm: gtCpm, cpc: gtCpc, cpa: gtCpa
+        roas: gtRoas, ctr: gtCtr, cpm: gtCpm, cpc: gtCpc, cpa: gtCpa, cpl: gtCpl
       },
       period: { start: startDate, end: endDate },
       source: 'meta_api'
@@ -397,7 +410,7 @@ function getAllAccountsMetricsMeta(startDate, endDate) {
             clientId:    client.id || '',
             spend: '0', impressions: 0, clicks: 0, linkClicks: 0,
             reach: 0, leads: 0, purchases: 0, conversions: 0,
-            messages: 0, roas: '0', ctr: '0', cpm: '0', cpc: '0', cpa: '0'
+            messages: 0, roas: '0', ctr: '0', cpm: '0', cpc: '0', cpa: '0', cpl: '0'
           });
           return;
         }
@@ -445,7 +458,8 @@ function getAllAccountsMetricsMeta(startDate, endDate) {
           ctr:         impr > 0 ? (totals.clicks / impr * 100).toFixed(2) : '0',
           cpm:         impr > 0 ? (spend / impr * 1000).toFixed(2) : '0',
           cpc:         totals.clicks > 0 ? (spend / totals.clicks).toFixed(2) : '0',
-          cpa:         conv > 0 ? (spend / conv).toFixed(2) : '0'
+          cpa:         conv > 0 ? (spend / conv).toFixed(2) : '0',
+          cpl:         totals.messages > 0 ? (spend / totals.messages).toFixed(2) : '0'
         });
 
       } catch(e) {

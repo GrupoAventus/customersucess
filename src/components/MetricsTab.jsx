@@ -20,6 +20,7 @@ const METRICS_META = [
   { key: 'purchases',   label: 'Compras',        unit: '',    format: 'number'   },
   { key: 'roas',        label: 'ROAS',           unit: 'x',   format: 'decimal'  },
   { key: 'cpa',         label: 'CPA',            unit: 'R$',  format: 'currency' },
+  { key: 'cpl',         label: 'CPL (conversa)', unit: 'R$',  format: 'currency' },
 ]
 
 const PERIOD_OPTIONS = [
@@ -42,6 +43,7 @@ const OVERVIEW_COLS = [
   { key: 'purchases',   label: 'Compras',     format: 'number'   },
   { key: 'impressions', label: 'Impressões',  format: 'number'   },
   { key: 'cpm',         label: 'CPM',         format: 'currency' },
+  { key: 'cpl',         label: 'CPL',         format: 'currency' },
 ]
 
 function fmt(value, format) {
@@ -348,6 +350,7 @@ function OverviewTab({ period, customStart, customEnd, refreshKey }) {
   grand.ctr = grand.impressions > 0 ? ((grand.clicks / grand.impressions) * 100).toFixed(2) : '0'
   grand.cpm = grand.impressions > 0 ? ((grand.spend  / grand.impressions) * 1000).toFixed(2) : '0'
   grand.roas = '—'
+  grand.cpl  = grand.messages > 0 ? (grand.spend / grand.messages).toFixed(2) : '0'
 
   const shownCols = OVERVIEW_COLS.filter(c => visibleCols.includes(c.key))
 
