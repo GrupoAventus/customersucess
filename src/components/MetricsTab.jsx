@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import DateRangePicker from './DateRangePicker'
 import { useApp } from '../lib/AppContext'
 
 const SCRIPT_URL = import.meta.env.VITE_SCRIPT_URL
@@ -739,11 +740,19 @@ export default function MetricsTab() {
           </button>
         </div>
 
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
           <select value={period} onChange={e => setPeriod(e.target.value)}
             style={{ background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '6px 10px', color: 'var(--text)', fontSize: 12 }}>
             {PERIOD_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
+          {period === 'custom' && (
+            <DateRangePicker
+              start={customStart}
+              end={customEnd}
+              autoOpen
+              onChange={(s, e) => { setCustomStart(s); setCustomEnd(e) }}
+            />
+          )}
           <button
             onClick={() => setRefreshKey(k => k + 1)}
             title="Atualizar dados"
@@ -759,22 +768,6 @@ export default function MetricsTab() {
           </button>
         </div>
       </div>
-
-      {/* Datas personalizadas */}
-      {period === 'custom' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Data início</div>
-            <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
-              style={{ width: '100%', background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', color: 'var(--text)', fontSize: 13 }} />
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Data fim</div>
-            <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
-              style={{ width: '100%', background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', color: 'var(--text)', fontSize: 13 }} />
-          </div>
-        </div>
-      )}
 
       {/* Conteúdo da aba */}
       {activeTab === 'overview'

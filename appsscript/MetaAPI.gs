@@ -164,6 +164,12 @@ function parseInsight_(ins) {
     roas = purchaseValue / spend;
   }
 
+  // Algumas contas (ex: i9, Green) trazem o ROAS mas não trazem o valor em action_values.
+  // Nesse caso o valor vendido é reconstruído a partir do ROAS: valor = ROAS × investimento.
+  if (purchaseValue <= 0 && roas > 0 && spend > 0) {
+    purchaseValue = roas * spend;
+  }
+
   var impressions = parseFloat(ins.impressions) || 0;
   var clicks      = parseFloat(ins.clicks)      || 0;
   var linkClicks  = parseFloat(ins.inline_link_clicks) || 0;
