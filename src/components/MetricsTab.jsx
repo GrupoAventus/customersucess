@@ -61,6 +61,14 @@ function fmt(value, format) {
   return n.toLocaleString('pt-BR')
 }
 
+// Valor vendido = Investimento × ROAS (calculado aqui, não depende do Apps Script)
+function withSoldValue(row) {
+  if (!row) return row
+  const spend = parseFloat(row.spend) || 0
+  const roas  = parseFloat(row.roas)  || 0
+  return { ...row, purchaseValue: (spend * roas).toFixed(2) }
+}
+
 // Preenche dias faltantes no array daily com zeros (Meta só retorna dias com gasto)
 function fillDailyGaps(daily, startDate, endDate) {
   if (!daily || !startDate || !endDate) return daily || []
@@ -301,6 +309,7 @@ function OverviewTab({ period, customStart, customEnd, refreshKey }) {
       const res  = await fetch(`${SCRIPT_URL}?action=getAllAccountsMetrics&startDate=${start}&endDate=${end}${presetParam}`)
       const json = await res.json()
       if (json.error) throw new Error(json.error)
+      if (Array.isArray(json.accounts)) json.accounts = json.accounts.map(withSoldValue)
       setData(json)
     } catch (e) {
       setError('Erro: ' + e.message)
@@ -503,7 +512,9 @@ function ClientTab({ period, customStart, customEnd, refreshKey }) {
       const res  = await fetch(`${SCRIPT_URL}?action=getMetrics&accountId=${encodeURIComponent(selectedAccount.id)}&startDate=${start}&endDate=${end}${presetParam}`)
       const json = await res.json()
       if (json.error) throw new Error(json.error)
-      if (json.daily) json.daily = fillDailyGaps(json.daily, start, end)
+      if (json.totals)   json.totals   = withSoldValue(json.totals)
+      if (Array.isArray(json.insights)) json.insights = json.insights.map(withSoldValue)
+      if (json.daily)    json.daily    = fillDailyGaps(json.daily.map(withSoldValue), start, end)
       setData(json)
       if (linkedClient) {
         const hRes  = await fetch(`${SCRIPT_URL}?action=getMetricsHistory&clientId=${linkedClient.id}`)
