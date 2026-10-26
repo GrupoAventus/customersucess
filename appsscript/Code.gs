@@ -1035,6 +1035,16 @@ function sendDailyReport() {
         return;
       }
 
+      // Recalcula ROAS igual ao dashboard: purchaseValue / spend
+      // (dashboard usa withSoldValue: purchaseValue = spend × roas, depois grand.roas = purchaseValue / spend)
+      var tPurchaseValue = parseFloat(t.purchaseValue) || 0;
+      var tRoasFromApi   = parseFloat(t.roas) || 0;
+      if (tPurchaseValue <= 0 && tRoasFromApi > 0) tPurchaseValue = tRoasFromApi * spend;
+      t = Object.assign({}, t, {
+        purchaseValue: tPurchaseValue.toFixed(2),
+        roas: spend > 0 && tPurchaseValue > 0 ? (tPurchaseValue / spend).toFixed(2) : t.roas
+      });
+
       var conversion = buildConversionBlock(t, client.clientType, spend);
 
       var message =
@@ -1103,6 +1113,15 @@ function sendWeeklyReport() {
         return;
       }
 
+      // Recalcula ROAS igual ao dashboard: purchaseValue / spend
+      var tPurchaseValue = parseFloat(t.purchaseValue) || 0;
+      var tRoasFromApi   = parseFloat(t.roas) || 0;
+      if (tPurchaseValue <= 0 && tRoasFromApi > 0) tPurchaseValue = tRoasFromApi * spend;
+      t = Object.assign({}, t, {
+        purchaseValue: tPurchaseValue.toFixed(2),
+        roas: spend > 0 && tPurchaseValue > 0 ? (tPurchaseValue / spend).toFixed(2) : t.roas
+      });
+
       var conversion = buildConversionBlock(t, client.clientType, spend);
 
       var message =
@@ -1169,6 +1188,15 @@ function sendSnapshot(period) {
         Logger.log('Snapshot ' + period + ' ' + client.name + ': sem gasto hoje, pulando');
         return;
       }
+
+      // Recalcula ROAS igual ao dashboard: purchaseValue / spend
+      var tPurchaseValue = parseFloat(t.purchaseValue) || 0;
+      var tRoasFromApi   = parseFloat(t.roas) || 0;
+      if (tPurchaseValue <= 0 && tRoasFromApi > 0) tPurchaseValue = tRoasFromApi * spend;
+      t = Object.assign({}, t, {
+        purchaseValue: tPurchaseValue.toFixed(2),
+        roas: spend > 0 && tPurchaseValue > 0 ? (tPurchaseValue / spend).toFixed(2) : t.roas
+      });
 
       // Debug: loga os totais para diagnóstico quando métricas de conversão vêm zeradas
       if (spend > 0 && parseFloat(t.leads || 0) === 0 && parseFloat(t.messages || 0) === 0 && parseFloat(t.purchases || 0) === 0) {
