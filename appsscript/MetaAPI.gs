@@ -101,18 +101,25 @@ function debugMetaRawToday() {
     Logger.log('  Linhas retornadas: ' + (r3.data || []).length);
   } catch(e) { Logger.log('Erro: ' + e.message); }
 
-  // Teste 6: chama getAllAccountsMetricsMeta com date_preset=today e loga o purchases da Green
-  Logger.log('--- TESTE 6: getAllAccountsMetricsMeta date_preset=today (simula o que o painel "hoje" chama) ---');
+  // Teste 6: chama getAllAccountsMetricsMeta com ontem (time_range) — exatamente como o painel "ontem" chama
+  Logger.log('--- TESTE 6: getAllAccountsMetricsMeta time_range=ontem (simula o painel quando período=ontem) ---');
   try {
-    var result = getAllAccountsMetricsMeta(null, null, 'today');
-    var greenAccount = (result.accounts || []).find(function(a) {
+    var result = getAllAccountsMetricsMeta(yStr, yStr, null);
+    Logger.log('  Total de contas no resultado: ' + (result.accounts || []).length);
+    // Loga TODAS as contas que têm purchases > 0
+    (result.accounts || []).forEach(function(a) {
+      if (parseFloat(a.purchases) > 0) {
+        Logger.log('  CONTA: ' + a.accountName + ' | purchases=' + a.purchases + ' | spend=' + a.spend);
+      }
+    });
+    // Conta quantas vezes GREEN aparece
+    var greens = (result.accounts || []).filter(function(a) {
       return (a.accountName || '').toUpperCase().indexOf('GREEN') >= 0;
     });
-    if (greenAccount) {
-      Logger.log('  GREEN purchases = ' + greenAccount.purchases + ' | spend = ' + greenAccount.spend);
-    } else {
-      Logger.log('  GREEN não encontrada no resultado. Contas: ' + (result.accounts || []).map(function(a){ return a.accountName + '=' + a.purchases; }).join(', '));
-    }
+    Logger.log('  Entradas GREEN no array: ' + greens.length);
+    greens.forEach(function(g, i) {
+      Logger.log('  GREEN[' + i + '] purchases=' + g.purchases + ' clientId=' + g.clientId);
+    });
   } catch(e2) { Logger.log('Erro Teste 6: ' + e2.message); }
 
   // Teste 4: simula EXATAMENTE o que getAllAccountsMetricsMeta faz (level=account + META_INSIGHT_FIELDS + unified)
