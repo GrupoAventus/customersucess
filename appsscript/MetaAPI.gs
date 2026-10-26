@@ -10,30 +10,29 @@ var META_API_BASE    = 'https://graph.facebook.com/' + META_API_VERSION;
 
 // ──────────────────────────────────────────────────────────────
 // DEBUG: Execute esta função manualmente no Apps Script para ver
-// exatamente o que a Meta retorna para uma conta no dia atual.
-// Coloca o criativoAccountId do cliente que está com problema.
+// exatamente o que a Meta retorna no campo actions de um cliente.
+// Loga todos os action_types e values para entender duplicatas.
 // ──────────────────────────────────────────────────────────────
 function debugMetaRawToday() {
   var token = PropertiesService.getScriptProperties().getProperty('META_TOKEN');
-  // Busca o Proflex na sheet clients
+  // Busca o cliente pelo nome — troque 'green' pelo nome correto
   var clients = sheetToObjects(getSheet('clients'));
-  var proflex = clients.find(function(c) {
-    return (c.name || '').toLowerCase().indexOf('proflex') >= 0 ||
-           (c.name || '').toLowerCase().indexOf('profflex') >= 0;
+  var target = clients.find(function(c) {
+    return (c.name || '').toLowerCase().indexOf('green') >= 0;
   });
 
-  if (!proflex) {
-    Logger.log('[DEBUG] Cliente Proflex não encontrado na sheet. Clientes disponíveis: ' +
+  if (!target) {
+    Logger.log('[DEBUG] Cliente não encontrado. Clientes disponíveis: ' +
       clients.map(function(c){ return c.name; }).join(', '));
     return;
   }
 
-  Logger.log('[DEBUG] Cliente encontrado: ' + proflex.name + ' | accountId: ' + proflex.criativoAccountId + ' | tipo: ' + proflex.clientType);
+  Logger.log('[DEBUG] Cliente: ' + target.name + ' | accountId: ' + target.criativoAccountId);
 
   var todayStr = new Date().toISOString().slice(0, 10);
-  Logger.log('[DEBUG] Buscando data: ' + todayStr);
+  Logger.log('[DEBUG] Data: ' + todayStr);
 
-  var actId = (proflex.criativoAccountId || '').replace(/^act_/i, '');
+  var actId = (target.criativoAccountId || '').replace(/^act_/i, '');
   var acctParam = 'act_' + actId;
 
   // Testa com date_preset=today (diferente do time_range)
@@ -90,10 +89,10 @@ var META_INSIGHT_FIELDS = [
   'campaign_id'
 ].join(',');
 
-// Janela de atribuição padrão: 7d_click + 1d_view
-// Sem esse parâmetro a Meta retorna múltiplas entradas por action_type (1d_click, 7d_click, etc.)
-// e a soma ficaria inflada vs. o que o Gerenciador de Anúncios mostra.
-var META_ATTRIBUTION_WINDOWS = '&action_attribution_windows=%5B%227d_click%22%2C%221d_view%22%5D';
+// use_unified_attribution_setting=true faz a Meta retornar UMA linha por action_type,
+// usando a janela de atribuição configurada na conta — exatamente o que o Gerenciador de Anúncios mostra.
+// NÃO usar action_attribution_windows=[...]: retorna múltiplas linhas por tipo (1 por janela) e sumAction_ somaria todas.
+var META_ATTRIBUTION_WINDOWS = '&use_unified_attribution_setting=true';
 
 // ─── Helpers ─────────────────────────────────────────────────
 
