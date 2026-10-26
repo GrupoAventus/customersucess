@@ -727,12 +727,16 @@ function checkMetaAccountsHourly() {
 
       // 4. Alerta WhatsApp se saldo baixo — envia UMA VEZ por ciclo de recarga, no grupo do squad
       if (lowBalance) {
-        // Determina grupo de destino: squad configurado > grupo do cliente
+        // Determina grupo de destino: SOMENTE grupo do squad — nunca grupo do cliente
         var DESTINO_SQUAD_META = { 'Squad 1': 'squad1', 'Squad 2': 'squad2' };
         var clientDestinoMeta = String(client.destino || '');
         var squadIdMeta = DESTINO_SQUAD_META[clientDestinoMeta] || null;
         var alertGroupMeta = squadIdMeta ? getSquadAlertGroup_(squadIdMeta) : null;
-        var targetGroupMeta = alertGroupMeta || client.whatsappGroup || null;
+        // PROTEÇÃO: se não encontrou grupo de squad, NÃO envia — apenas loga e pula
+        if (!alertGroupMeta) {
+          Logger.log('[MONITOR] ' + client.name + ' → saldo baixo, mas destino="' + clientDestinoMeta + '" não tem squad configurado — ALERTA NÃO ENVIADO (verifique campo destino na planilha)');
+        }
+        var targetGroupMeta = alertGroupMeta; // nunca usa whatsappGroup do cliente
 
         if (targetGroupMeta) {
           var props = PropertiesService.getScriptProperties();

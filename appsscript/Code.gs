@@ -1211,12 +1211,17 @@ function checkBalanceAndStatus() {
     if (client.cancelado === true || client.cancelado === 'TRUE') return;
     if (client.status !== 'Campanha ativa') return;
 
-    // Determina o grupo de destino: usa grupo do squad (se configurado), senão grupo do cliente
+    // Determina o grupo de destino: SOMENTE grupo do squad — nunca grupo do cliente
     var clientDestino = String(client.destino || '');
     var squadId = DESTINO_SQUAD[clientDestino] || null;
     var alertGroup = squadId ? getSquadAlertGroup_(squadId) : null;
-    var targetGroup = alertGroup || client.whatsappGroup || null;
-    if (!targetGroup) return; // sem grupo configurado → pula
+    // PROTEÇÃO: se não encontrou grupo de squad, NÃO envia — apenas loga e pula
+    if (!alertGroup) {
+      Logger.log('Alerta de saldo: ' + client.name + ' → destino="' + clientDestino + '" não tem squad configurado — ALERTA NÃO ENVIADO (verifique campo destino na planilha)');
+      return;
+    }
+    var targetGroup = alertGroup; // nunca usa whatsappGroup do cliente
+    if (!targetGroup) return; // segurança extra
 
     var recharge = parseFloat(client.rechargeAmount) || 0;
     var daily = parseFloat(client.dailySpend) || 0;
