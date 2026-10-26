@@ -9,19 +9,60 @@ import NotificationBanner from '../components/NotificationBanner'
 import { Btn, SectionHeader } from '../components/UI'
 import { fetchSquadConfig, setSquadConfigSheet } from '../lib/sheets'
 
+const EVOLUTION_URL = 'https://evolution-api-production-73dff.up.railway.app'
+const EVOLUTION_KEY = 'aventus2024'
+const EVOLUTION_INSTANCE = 'aventuscs'
+
 // Modal de configuração de grupo de avisos de saldo
 function SquadAlertConfigModal({ squadId, squadLabel, currentGroupId, currentGroupName, onSave, onClose }) {
-  const [groupId, setGroupId] = useState(currentGroupId || '')
-  const [groupName, setGroupName] = useState(currentGroupName || '')
+  const [selectedGroupId, setSelectedGroupId] = useState(currentGroupId || '')
+  const [selectedGroupName, setSelectedGroupName] = useState(currentGroupName || '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  // Seletor de grupos WhatsApp
+  const [groups, setGroups] = useState([])
+  const [loadingGroups, setLoadingGroups] = useState(false)
+  const [groupSearch, setGroupSearch] = useState('')
+  const [showGroupList, setShowGroupList] = useState(false)
+
+  const loadGroups = async () => {
+    setLoadingGroups(true)
+    try {
+      const res = await fetch(
+        `${EVOLUTION_URL}/group/fetchAllGroups/${EVOLUTION_INSTANCE}?getParticipants=false`,
+        { headers: { 'apikey': EVOLUTION_KEY } }
+      )
+      const data = await res.json()
+      const sorted = data.filter(g => g.subject).sort((a, b) => a.subject.localeCompare(b.subject))
+      setGroups(sorted)
+      setShowGroupList(true)
+    } catch (e) {
+      console.error(e)
+      setError('Erro ao carregar grupos do WhatsApp')
+    }
+    setLoadingGroups(false)
+  }
+
+  const selectGroup = (group) => {
+    setSelectedGroupId(group.id)
+    setSelectedGroupName(group.subject)
+    setShowGroupList(false)
+    setGroupSearch('')
+    setError('')
+  }
+
+  const filteredGroups = groups.filter(g =>
+    g.subject?.toLowerCase().includes(groupSearch.toLowerCase())
+  )
+
   const handleSave = async () => {
+    if (!selectedGroupId) { setError('Selecione um grupo primeiro'); return }
     setSaving(true)
     setError('')
     try {
-      await setSquadConfigSheet(squadId, groupId.trim(), groupName.trim())
-      onSave({ alertGroupId: groupId.trim(), alertGroupName: groupName.trim() })
+      await setSquadConfigSheet(squadId, selectedGroupId, selectedGroupName)
+      onSave({ alertGroupId: selectedGroupId, alertGroupName: selectedGroupName })
       onClose()
     } catch (e) {
       setError('Erro ao salvar: ' + e.message)
@@ -37,9 +78,10 @@ function SquadAlertConfigModal({ squadId, squadLabel, currentGroupId, currentGro
     }} onClick={onClose}>
       <div style={{
         background: '#111', border: '0.5px solid #2a2a2a', borderRadius: 14,
-        padding: '24px 28px', width: 420, maxWidth: '90vw'
+        padding: '24px 28px', width: 460, maxWidth: '90vw'
       }} onClick={e => e.stopPropagation()}>
 
+        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <div>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#eee' }}>
@@ -55,42 +97,88 @@ function SquadAlertConfigModal({ squadId, squadLabel, currentGroupId, currentGro
           </button>
         </div>
 
+        {/* Seletor de grupo */}
         <div style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 6 }}>
-            ID do Grupo WhatsApp
-          </label>
-          <input
-            value={groupId}
-            onChange={e => setGroupId(e.target.value)}
-            placeholder="120363...@g.us"
-            style={{
-              width: '100%', background: '#1a1a1a', border: '0.5px solid #2a2a2a',
-              borderRadius: 8, padding: '9px 12px', fontSize: 13, color: '#eee',
-              outline: 'none', boxSizing: 'border-box'
-            }}
-          />
-          <div style={{ fontSize: 10, color: '#444', marginTop: 4 }}>
-            Para descobrir o ID: envie uma mensagem no grupo pelo WhatsApp Web e copie o número que aparece na URL (formato: 120363...@g.us)
+          <div style={{ fontSize: 11, color: '#888', marginBottom: 8 }}>Grupo do WhatsApp</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{
+              flex: 1, padding: '9px 12px', background: '#141414',
+              border: `0.5px solid ${selectedGroupId ? 'var(--green)' : '#2a2a2a'}`,
+              borderRadius: 8, fontSize: 13,
+              color: selectedGroupId ? 'var(--green)' : '#555'
+            }}>
+              {selectedGroupName || 'Nenhum grupo selecionado'}
+            </div>
+            {selectedGroupId && (
+              <button
+                onClick={() => { setSelectedGroupId(''); setSelectedGroupName('') }}
+                style={{ background: 'none', border: '0.5px solid #333', borderRadius: 6, color: '#666', cursor: 'pointer', padding: '0 10px' }}
+              >
+                <i className="ti ti-x" />
+              </button>
+            )}
+            <button
+              onClick={loadGroups}
+              disabled={loadingGroups}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '0 14px', borderRadius: 8, fontSize: 12, fontWeight: 500,
+                border: '0.5px solid #2a2a2a', background: '#1a1a1a',
+                color: loadingGroups ? '#555' : '#ccc', cursor: loadingGroups ? 'not-allowed' : 'pointer',
+                flexShrink: 0, whiteSpace: 'nowrap'
+              }}
+            >
+              <i className="ti ti-brand-whatsapp" />
+              {loadingGroups ? 'Carregando...' : 'Selecionar'}
+            </button>
           </div>
+
+          {/* Lista de grupos */}
+          {showGroupList && (
+            <div style={{ marginTop: 8, background: '#141414', border: '0.5px solid #2a2a2a', borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ padding: 8, borderBottom: '0.5px solid #2a2a2a' }}>
+                <input
+                  placeholder="Buscar grupo..."
+                  value={groupSearch}
+                  onChange={e => setGroupSearch(e.target.value)}
+                  autoFocus
+                  style={{
+                    width: '100%', background: '#1a1a1a', border: '0.5px solid #2a2a2a',
+                    borderRadius: 6, padding: '7px 10px', fontSize: 13, color: '#eee',
+                    outline: 'none', boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+              <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+                {filteredGroups.length === 0 ? (
+                  <div style={{ padding: 12, fontSize: 13, color: '#444' }}>Nenhum grupo encontrado</div>
+                ) : filteredGroups.map(g => (
+                  <div
+                    key={g.id}
+                    onClick={() => selectGroup(g)}
+                    style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 13, color: '#ccc', borderBottom: '0.5px solid #1a1a1a' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#1f1f1f'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <i className="ti ti-users" style={{ marginRight: 8, color: '#555' }} />
+                    {g.subject}
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: 8, borderTop: '0.5px solid #2a2a2a' }}>
+                <button
+                  onClick={() => setShowGroupList(false)}
+                  style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 12 }}
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 6 }}>
-            Nome do grupo (para referência)
-          </label>
-          <input
-            value={groupName}
-            onChange={e => setGroupName(e.target.value)}
-            placeholder="Ex: Squad 2 — Interno"
-            style={{
-              width: '100%', background: '#1a1a1a', border: '0.5px solid #2a2a2a',
-              borderRadius: 8, padding: '9px 12px', fontSize: 13, color: '#eee',
-              outline: 'none', boxSizing: 'border-box'
-            }}
-          />
-        </div>
-
-        {currentGroupId && (
+        {/* Status atual */}
+        {currentGroupId && !showGroupList && (
           <div style={{
             background: '#0d1a0d', border: '0.5px solid #1a3a1a', borderRadius: 8,
             padding: '8px 12px', marginBottom: 16, fontSize: 12
@@ -100,7 +188,7 @@ function SquadAlertConfigModal({ squadId, squadLabel, currentGroupId, currentGro
           </div>
         )}
 
-        {!currentGroupId && (
+        {!currentGroupId && !showGroupList && (
           <div style={{
             background: '#1a1205', border: '0.5px solid #3a2a05', borderRadius: 8,
             padding: '8px 12px', marginBottom: 16, fontSize: 12, color: '#aa8830'
@@ -120,10 +208,11 @@ function SquadAlertConfigModal({ squadId, squadLabel, currentGroupId, currentGro
           }}>
             Cancelar
           </button>
-          <button onClick={handleSave} disabled={saving || !groupId.trim()} style={{
-            background: saving ? '#1a1a1a' : 'var(--orange)', border: 'none',
+          <button onClick={handleSave} disabled={saving || !selectedGroupId} style={{
+            background: saving || !selectedGroupId ? '#1a1a1a' : 'var(--orange)', border: 'none',
             borderRadius: 8, padding: '8px 18px', fontSize: 13, fontWeight: 600,
-            color: saving ? '#555' : '#000', cursor: saving || !groupId.trim() ? 'not-allowed' : 'pointer'
+            color: saving || !selectedGroupId ? '#555' : '#000',
+            cursor: saving || !selectedGroupId ? 'not-allowed' : 'pointer'
           }}>
             {saving ? 'Salvando...' : 'Salvar'}
           </button>
