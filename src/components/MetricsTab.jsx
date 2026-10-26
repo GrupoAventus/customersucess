@@ -309,7 +309,13 @@ function OverviewTab({ period, customStart, customEnd, refreshKey }) {
       const res  = await fetch(`${SCRIPT_URL}?action=getAllAccountsMetrics&startDate=${start}&endDate=${end}${presetParam}`)
       const json = await res.json()
       if (json.error) throw new Error(json.error)
-      if (Array.isArray(json.accounts)) json.accounts = json.accounts.map(withSoldValue)
+      if (Array.isArray(json.accounts)) json.accounts = json.accounts.map(a => {
+        const acc = withSoldValue(a)
+        // Meta retorna 2 linhas duplicadas para level=account; divide por 2 para corrigir
+        acc.purchases     = Math.round((parseFloat(acc.purchases)     || 0) / 2)
+        acc.purchaseValue = ((parseFloat(acc.purchaseValue) || 0) / 2)
+        return acc
+      })
       setData(json)
     } catch (e) {
       setError('Erro: ' + e.message)
