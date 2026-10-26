@@ -109,6 +109,18 @@ function debugMetaRawToday() {
     + '&time_range=' + encodeURIComponent(JSON.stringify({ since: yStr, until: yStr }))
     + '&use_unified_attribution_setting=true'
     + '&access_token=' + token2;
+  // Teste 5: verifica duplicatas na sheet de clientes
+  Logger.log('--- TESTE 5: clientes com act_1426604835601599 na sheet ---');
+  var allClients = sheetToObjects(getSheet('clients'));
+  var greenEntries = allClients.filter(function(c) {
+    return (c.criativoAccountId || '') === 'act_1426604835601599' ||
+           (c.name || '').toUpperCase().indexOf('GREEN') >= 0;
+  });
+  Logger.log('  Total de entradas GREEN na sheet: ' + greenEntries.length);
+  greenEntries.forEach(function(c, i) {
+    Logger.log('  [' + i + '] id=' + c.id + ' name=' + c.name + ' accountId=' + c.criativoAccountId + ' cancelado=' + c.cancelado);
+  });
+
   Logger.log('--- TESTE 4: igual ao getAllAccountsMetricsMeta (level=account + todos os campos) ---');
   try {
     var r4 = JSON.parse(UrlFetchApp.fetch(url4, { muteHttpExceptions: true }).getContentText());
