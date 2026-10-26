@@ -925,10 +925,11 @@ function buildConversionBlock(t, clientType, spend) {
   clientType = clientType || 'lead';
   var lines = [];
   if (clientType === 'ecommerce') {
-    var purchases    = parseFloat(t.purchases || 0);
+    // Divide por 2: Meta retorna 2 linhas duplicadas para level=account
+    var purchases    = Math.round(parseFloat(t.purchases || 0) / 2);
     var roas         = parseFloat(t.roas || 0);
     // Receita: usa purchaseValue se disponível, senão calcula por ROAS × investimento
-    var purchaseVal  = parseFloat(t.purchaseValue || t.purchase_value || 0);
+    var purchaseVal  = parseFloat(t.purchaseValue || t.purchase_value || 0) / 2;
     if (purchaseVal === 0 && roas > 0 && spend > 0) purchaseVal = roas * spend;
     var cpa          = purchases > 0 ? spend / purchases : 0;
     var reach        = parseFloat(t.reach || 0);
@@ -1429,8 +1430,9 @@ function weeklyAiAnalysis() {
       var clientType = client.clientType || 'lead';
 
       if (clientType === 'ecommerce') {
-        var purchases = parseFloat(t.purchases)    || 0;
-        var revenue   = parseFloat(t.purchaseValue) || 0;
+        // Divide por 2: Meta retorna 2 linhas duplicadas para level=account
+        var purchases = Math.round(parseFloat(t.purchases)    || 0) / 2;
+        var revenue   = (parseFloat(t.purchaseValue) || 0) / 2;
         var roasRaw   = parseFloat(t.roas)          || 0;
         var roas      = roasRaw > 0 ? roasRaw.toFixed(2) : '0';
         extraMetrics = '\n- Compras: ' + purchases + '\n- Receita: R$' + revenue.toFixed(2) + '\n- ROAS: ' + roas + 'x';
