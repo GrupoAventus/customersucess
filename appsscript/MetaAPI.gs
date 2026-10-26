@@ -90,6 +90,11 @@ var META_INSIGHT_FIELDS = [
   'campaign_id'
 ].join(',');
 
+// Janela de atribuição padrão: 7d_click + 1d_view
+// Sem esse parâmetro a Meta retorna múltiplas entradas por action_type (1d_click, 7d_click, etc.)
+// e a soma ficaria inflada vs. o que o Gerenciador de Anúncios mostra.
+var META_ATTRIBUTION_WINDOWS = '&action_attribution_windows=%5B%227d_click%22%2C%221d_view%22%5D';
+
 // ─── Helpers ─────────────────────────────────────────────────
 
 function metaGet_(url) {
@@ -244,6 +249,7 @@ function getMetricsMeta(accountId, startDate, endDate, datePreset) {
       + '?level=campaign'
       + '&fields=' + encodeURIComponent(META_INSIGHT_FIELDS)
       + periodParam
+      + META_ATTRIBUTION_WINDOWS
       + '&limit=100'
       + '&access_token=' + META_TOKEN;
 
@@ -347,6 +353,7 @@ function getMetricsMeta(accountId, startDate, endDate, datePreset) {
       + '&fields=spend,impressions,clicks,inline_link_clicks,reach,actions,action_values,website_purchase_roas,purchase_roas'
       + '&time_increment=1'
       + periodParam
+      + META_ATTRIBUTION_WINDOWS
       + '&limit=100'
       + '&access_token=' + META_TOKEN;
 
@@ -434,6 +441,7 @@ function getAllAccountsMetricsMeta(startDate, endDate, datePreset) {
           + '?level=account'
           + '&fields=' + encodeURIComponent(META_INSIGHT_FIELDS)
           + periodParam
+          + META_ATTRIBUTION_WINDOWS
           + '&access_token=' + META_TOKEN;
 
         var data = fetchAllPages_(url);
@@ -721,6 +729,7 @@ function buildPortfolioContext_(clients, token, maxMonths) {
         + '&fields=spend,impressions,clicks,reach,actions,action_values,website_purchase_roas,purchase_roas,ctr,cpm,cpc,frequency'
         + '&time_increment=7'
         + '&time_range=' + encodeURIComponent(JSON.stringify({ since: startStr, until: endStr }))
+        + META_ATTRIBUTION_WINDOWS
         + '&limit=200'
         + '&access_token=' + token;
 
