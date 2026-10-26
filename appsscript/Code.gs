@@ -1263,17 +1263,33 @@ function checkBalanceAndStatus() {
 }
 
 // ===================== SQUAD CONFIG =====================
-// Armazena configurações por squad (ex: grupo WhatsApp para avisos de saldo)
-// Chaves no ScriptProperties: squadConfig_squad1, squadConfig_squad2 (JSON)
+// Armazena configurações por squad na aba "squad_config" da planilha
+// Colunas: squadId | alertGroupId | alertGroupName
+// A aba é criada automaticamente se não existir
+
+function getSquadConfigSheet_() {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sh = ss.getSheetByName('squad_config');
+  if (!sh) {
+    sh = ss.insertSheet('squad_config');
+    sh.appendRow(['squadId', 'alertGroupId', 'alertGroupName']);
+  }
+  return sh;
+}
 
 function getSquadConfig() {
-  var props = PropertiesService.getScriptProperties();
-  var squads = ['squad1', 'squad2'];
+  var sh = getSquadConfigSheet_();
+  var rows = sh.getDataRange().getValues();
   var result = {};
-  squads.forEach(function(s) {
-    var raw = props.getProperty('squadConfig_' + s);
-    result[s] = raw ? JSON.parse(raw) : {};
-  });
+  // pula o cabeçalho (linha 0)
+  for (var i = 1; i < rows.length; i++) {
+    var sid = String(rows[i][0] || '').trim();
+    if (!sid) continue;
+    result[sid] = {
+      alertGroupId:   String(rows[i][1] || ''),
+      alertGroupName: String(rows[i][2] || ''),
+    };
+  }
   return { config: result };
 }
 
@@ -1281,22 +1297,35 @@ function setSquadConfig(body) {
   // body: { squadId: 'squad1', alertGroupId: '120363...@g.us', alertGroupName: 'Squad 1 — Interno' }
   var squadId = body.squadId || '';
   if (!squadId) return { error: 'squadId obrigatório' };
-  var props = PropertiesService.getScriptProperties();
-  var raw = props.getProperty('squadConfig_' + squadId);
-  var current = raw ? JSON.parse(raw) : {};
-  if (body.alertGroupId !== undefined) current.alertGroupId   = body.alertGroupId;
-  if (body.alertGroupName !== undefined) current.alertGroupName = body.alertGroupName;
-  props.setProperty('squadConfig_' + squadId, JSON.stringify(current));
-  return { ok: true, squadId: squadId, config: current };
+
+  var sh = getSquadConfigSheet_();
+  var rows = sh.getDataRange().getValues();
+  var targetRow = -1;
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]).trim() === squadId) { targetRow = i + 1; break; }
+  }
+
+  var alertGroupId   = body.alertGroupId   !== undefined ? body.alertGroupId   : '';
+  var alertGroupName = body.alertGroupName !== undefined ? body.alertGroupName : '';
+
+  if (targetRow > 0) {
+    sh.getRange(targetRow, 1, 1, 3).setValues([[squadId, alertGroupId, alertGroupName]]);
+  } else {
+    sh.appendRow([squadId, alertGroupId, alertGroupName]);
+  }
+  return { ok: true, squadId: squadId, alertGroupId: alertGroupId, alertGroupName: alertGroupName };
 }
 
 // Retorna o grupo de alertas configurado para um squad (ou null se não configurado)
 function getSquadAlertGroup_(squadId) {
-  var props = PropertiesService.getScriptProperties();
-  var raw = props.getProperty('squadConfig_' + squadId);
-  if (!raw) return null;
-  var cfg = JSON.parse(raw);
-  return cfg.alertGroupId || null;
+  var sh = getSquadConfigSheet_();
+  var rows = sh.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]).trim() === squadId) {
+      return String(rows[i][1] || '') || null;
+    }
+  }
+  return null;
 }
 
 // ===================== AI INSIGHTS (Fase C) =====================
