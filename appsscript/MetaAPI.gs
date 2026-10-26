@@ -101,6 +101,20 @@ function debugMetaRawToday() {
     Logger.log('  Linhas retornadas: ' + (r3.data || []).length);
   } catch(e) { Logger.log('Erro: ' + e.message); }
 
+  // Teste 6: chama getAllAccountsMetricsMeta com date_preset=today e loga o purchases da Green
+  Logger.log('--- TESTE 6: getAllAccountsMetricsMeta date_preset=today (simula o que o painel "hoje" chama) ---');
+  try {
+    var result = getAllAccountsMetricsMeta(null, null, 'today');
+    var greenAccount = (result.accounts || []).find(function(a) {
+      return (a.accountName || '').toUpperCase().indexOf('GREEN') >= 0;
+    });
+    if (greenAccount) {
+      Logger.log('  GREEN purchases = ' + greenAccount.purchases + ' | spend = ' + greenAccount.spend);
+    } else {
+      Logger.log('  GREEN não encontrada no resultado. Contas: ' + (result.accounts || []).map(function(a){ return a.accountName + '=' + a.purchases; }).join(', '));
+    }
+  } catch(e2) { Logger.log('Erro Teste 6: ' + e2.message); }
+
   // Teste 4: simula EXATAMENTE o que getAllAccountsMetricsMeta faz (level=account + META_INSIGHT_FIELDS + unified)
   var fullFields = 'spend,impressions,reach,clicks,inline_link_clicks,ctr,cpm,cpc,frequency,actions,action_values,website_purchase_roas,purchase_roas';
   var url4 = META_API_BASE + '/' + acctParam + '/insights'
