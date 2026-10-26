@@ -311,9 +311,8 @@ function OverviewTab({ period, customStart, customEnd, refreshKey }) {
       if (json.error) throw new Error(json.error)
       if (Array.isArray(json.accounts)) json.accounts = json.accounts.map(a => {
         const acc = withSoldValue(a)
-        // Meta retorna 2 linhas duplicadas para level=account; divide por 2 para corrigir
-        acc.purchases     = Math.round((parseFloat(acc.purchases)     || 0) / 2)
-        acc.purchaseValue = ((parseFloat(acc.purchaseValue) || 0) / 2)
+        // MetaAPI.gs já usa Math.max para desduplicar purchases/purchaseValue
+        // Não dividir por 2 aqui — os valores chegam corretos do backend
         return acc
       })
       setData(json)
