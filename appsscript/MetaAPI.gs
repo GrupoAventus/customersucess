@@ -556,7 +556,12 @@ function getAllAccountsMetricsMeta(startDate, endDate, datePreset) {
           return;
         }
 
-        // Agrega todas as linhas (pode vir mais de uma se houver paginação por campanha)
+        // level=account retorna UMA linha com o total da conta.
+        // Em casos raros a Meta pode retornar mais de uma linha (ex: paginação interna).
+        // Para conversões (purchases, leads, messages) usamos o MAIOR valor entre as linhas
+        // em vez de somar — evita dobrar a contagem se a Meta duplicar a linha.
+        // Para spend/impressões/cliques somamos normalmente (são particionados por campanha
+        // quando há múltiplas linhas e não se duplicam).
         var totals = {
           spend: 0, impressions: 0, clicks: 0, linkClicks: 0,
           reach: 0, lpv: 0, leads: 0, purchases: 0, messages: 0,
@@ -571,10 +576,11 @@ function getAllAccountsMetricsMeta(startDate, endDate, datePreset) {
           totals.clicks       += parseFloat(m.clicks)       || 0;
           totals.linkClicks   += parseFloat(m.linkClicks)   || 0;
           totals.reach        += parseFloat(m.reach)        || 0;
-          totals.leads        += parseFloat(m.leads)        || 0;
-          totals.purchases    += parseFloat(m.purchases)    || 0;
-          totals.messages     += parseFloat(m.messages)     || 0;
-          totals.purchaseValue += parseFloat(m.purchaseValue) || 0;
+          // Conversões: usa Math.max para não dobrar se a Meta retornar linhas duplicadas
+          totals.purchases    = Math.max(totals.purchases,    parseFloat(m.purchases)    || 0);
+          totals.leads        = Math.max(totals.leads,        parseFloat(m.leads)        || 0);
+          totals.messages     = Math.max(totals.messages,     parseFloat(m.messages)     || 0);
+          totals.purchaseValue = Math.max(totals.purchaseValue, parseFloat(m.purchaseValue) || 0);
           if (roas > 0 && spend > 0) { totals.roasSum += roas * spend; totals.roasCount += spend; }
         });
 
