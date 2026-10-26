@@ -20,9 +20,11 @@ function debugMetaRawToday() {
   // Lista todos os clientes para facilitar escolha
   Logger.log('Clientes disponíveis: ' + clients.map(function(c){ return c.name + ' (' + c.criativoAccountId + ')'; }).join(' | '));
 
-  // Pega o primeiro cliente com accountId definido (troque indexOf pelo nome que quer testar)
+  // GREEN FLIP FLOPS — cliente com problema de contagem dobrada
+  // Hardcode o accountId para garantir que pegamos o certo
   var target = clients.find(function(c) {
-    return c.criativoAccountId && c.criativoAccountId.length > 3;
+    return (c.criativoAccountId || '') === 'act_1426604835601599' ||
+           (c.name || '').toUpperCase().indexOf('GREEN') >= 0;
   });
 
   if (!target) { Logger.log('Nenhum cliente com accountId encontrado'); return; }
@@ -96,6 +98,43 @@ function debugMetaRawToday() {
       });
     });
     Logger.log('  TOTAL offsite_conversion.fb_pixel_purchase = ' + total3);
+    Logger.log('  Linhas retornadas: ' + (r3.data || []).length);
+  } catch(e) { Logger.log('Erro: ' + e.message); }
+
+  // Teste 4: simula EXATAMENTE o que getAllAccountsMetricsMeta faz (level=account + META_INSIGHT_FIELDS + unified)
+  var fullFields = 'spend,impressions,reach,clicks,inline_link_clicks,ctr,cpm,cpc,frequency,actions,action_values,website_purchase_roas,purchase_roas';
+  var url4 = META_API_BASE + '/' + acctParam + '/insights'
+    + '?level=account'
+    + '&fields=' + encodeURIComponent(fullFields)
+    + '&time_range=' + encodeURIComponent(JSON.stringify({ since: yStr, until: yStr }))
+    + '&use_unified_attribution_setting=true'
+    + '&access_token=' + token2;
+  Logger.log('--- TESTE 4: igual ao getAllAccountsMetricsMeta (level=account + todos os campos) ---');
+  try {
+    var r4 = JSON.parse(UrlFetchApp.fetch(url4, { muteHttpExceptions: true }).getContentText());
+    Logger.log('  Linhas retornadas: ' + (r4.data || []).length);
+    var total4 = 0;
+    (r4.data || []).forEach(function(row, idx) {
+      Logger.log('  Linha ' + idx + ': spend=' + row.spend + ' date_start=' + row.date_start);
+      (row.actions || []).forEach(function(a) {
+        if (a.action_type.indexOf('purchase') >= 0 || a.action_type === 'omni_purchase') {
+          Logger.log('    action: ' + a.action_type + ' = ' + a.value);
+        }
+      });
+      // Simula o firstAction_ do parseInsight_
+      var actions = row.actions || [];
+      var types = ['offsite_conversion.fb_pixel_purchase', 'omni_purchase', 'purchase'];
+      for (var t = 0; t < types.length; t++) {
+        var found = actions.filter(function(a){ return a.action_type === types[t]; });
+        if (found.length > 0) {
+          var v = found.reduce(function(s,a){ return s + (parseFloat(a.value)||0); }, 0);
+          Logger.log('    firstAction_ escolheu: ' + types[t] + ' = ' + v);
+          total4 += v;
+          break;
+        }
+      }
+    });
+    Logger.log('  TOTAL simulado (firstAction_) = ' + total4);
   } catch(e) { Logger.log('Erro: ' + e.message); }
 }
 
