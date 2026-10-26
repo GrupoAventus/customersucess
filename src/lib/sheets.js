@@ -346,3 +346,13 @@ export async function fetchMetaStatus() {
 export async function saveAiInsight(clientId, insight, period) {
   return callPost({ action: 'saveAiInsight', clientId, insight, period, createdAt: new Date().toISOString() })
 }
+
+// ---- SQUAD CONFIG ----
+export async function fetchSquadConfig() {
+  const data = await callGet('getSquadConfig')
+  return data.config || {}
+}
+
+export async function setSquadConfigSheet(squadId, alertGroupId, alertGroupName) {
+  return callPost({ action: 'setSquadConfig', squadId, alertGroupId, alertGroupName })
+}

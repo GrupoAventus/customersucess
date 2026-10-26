@@ -122,7 +122,8 @@ function firstAction_(actions, types) {
   return 0;
 }
 
-var PURCHASE_TYPES_ = ['purchase', 'omni_purchase', 'offsite_conversion.fb_pixel_purchase'];
+// Ordem importa: firstAction_ pega o primeiro tipo que existir — pixel primeiro pois bate com o Gerenciador
+var PURCHASE_TYPES_ = ['offsite_conversion.fb_pixel_purchase', 'omni_purchase', 'purchase'];
 var LEAD_TYPES_     = ['lead', 'onsite_conversion.lead_grouped', 'offsite_conversion.fb_pixel_lead'];
 
 // Converte array de insights da Meta em objeto com nossas métricas
@@ -131,6 +132,7 @@ function parseInsight_(ins) {
   var actionValues = ins.action_values || [];
 
   var leads     = firstAction_(actions, LEAD_TYPES_);
+  // firstAction_ garante sem dupla contagem; pixel tem prioridade pois é o número do Gerenciador
   var purchases = firstAction_(actions, PURCHASE_TYPES_);
   // Mensagens: SOMENTE conversas iniciadas (Click-to-WhatsApp / Messenger).
   // NÃO incluir omni_messaging_engagement (engajamento geral) nem contact (qualquer contato)
@@ -609,15 +611,46 @@ function checkMetaAccountsHourly() {
         movedToPA++;
       }
 
-      // 4. Alerta WhatsApp se saldo baixo
-      if (lowBalance && client.whatsappGroup) {
-        var msg = '⚠️ *Alerta de Saldo Baixo — AventusCS_*\n\n' +
-          '📉 Saldo da conta Meta: *R$' + balance.toFixed(2) + '*\n' +
-          '💡 Saldo abaixo de R$50 — verifique a recarga!\n\n' +
-          '_Monitoramento automático AventusCS_';
-        sendWhatsApp(client.whatsappGroup, msg);
-        lowBalanceAlerts++;
-        Logger.log('[MONITOR] ' + client.name + ' → saldo R$' + balance.toFixed(2) + ' → alerta enviado');
+      // 4. Alerta WhatsApp se saldo baixo — envia UMA VEZ por ciclo de recarga, no grupo do squad
+      if (lowBalance) {
+        // Determina grupo de destino: squad configurado > grupo do cliente
+        var DESTINO_SQUAD_META = { 'Squad 1': 'squad1', 'Squad 2': 'squad2' };
+        var clientDestinoMeta = String(client.destino || '');
+        var squadIdMeta = DESTINO_SQUAD_META[clientDestinoMeta] || null;
+        var alertGroupMeta = squadIdMeta ? getSquadAlertGroup_(squadIdMeta) : null;
+        var targetGroupMeta = alertGroupMeta || client.whatsappGroup || null;
+
+        if (targetGroupMeta) {
+          var props = PropertiesService.getScriptProperties();
+          var alertKey = 'alertaSaldo_' + client.id;
+          var alertVal = props.getProperty(alertKey) || '';
+          // Formato salvo: "YYYY-MM-DD|lastRecharge"
+          var alertParts = alertVal.split('|');
+          var alertLastRecharge = alertParts[1] || '';
+          var clientLastRecharge = String(client.lastRecharge || '');
+          // Houve recarga = lastRecharge mudou → reseta flag para poder alertar de novo
+          var houveRecarga = clientLastRecharge && alertLastRecharge && alertLastRecharge !== clientLastRecharge;
+          if (houveRecarga) {
+            props.deleteProperty(alertKey);
+            alertVal = '';
+          }
+          // Só envia se ainda não enviou alerta neste ciclo de recarga
+          if (!alertVal) {
+            var msg = '⚠️ *Alerta de Saldo Baixo — AventusCS_*\n\n' +
+              '👤 Cliente: *' + client.name + '*\n' +
+              '📉 Saldo da conta Meta: *R$' + balance.toFixed(2) + '*\n' +
+              '💡 Saldo abaixo de R$50 — verifique a recarga!\n\n' +
+              '_Monitoramento automático AventusCS_';
+            sendWhatsApp(targetGroupMeta, msg);
+            lowBalanceAlerts++;
+            // Grava: data de hoje + lastRecharge atual como referência de ciclo
+            var todayStr = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'yyyy-MM-dd');
+            props.setProperty(alertKey, todayStr + '|' + clientLastRecharge);
+            Logger.log('[MONITOR] ' + client.name + ' → saldo R$' + balance.toFixed(2) + ' → alerta enviado para ' + (alertGroupMeta ? squadIdMeta : 'grupo cliente'));
+          } else {
+            Logger.log('[MONITOR] ' + client.name + ' → saldo baixo, mas alerta já enviado neste ciclo — ignorando');
+          }
+        }
       }
 
       // 5. Upsert na aba meta_status

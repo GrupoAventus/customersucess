@@ -47,6 +47,7 @@ function doGet(e) {
       else if (writeAction === 'dismissAlert')       out = dismissAlert(body);
       else if (writeAction === 'setPipelineStep')    out = setPipelineStep(body);
       else if (writeAction === 'saveAiInsight')      out = saveAiInsight(body);
+      else if (writeAction === 'setSquadConfig')     out = setSquadConfig(body);
       else out = { error: 'Unknown write action: ' + writeAction };
     } catch(err) {
       out = { error: err.message };
@@ -79,6 +80,7 @@ function doGet(e) {
     else if (action === 'getPredictiveInsights') out = getPredictiveInsights();
     else if (action === 'runPredictiveAINow')    out = runPredictiveAINow();
     else if (action === 'getCriativoAccounts') out = getCriativoAccounts();
+    else if (action === 'getSquadConfig')      out = getSquadConfig();
     else out = { error: 'Unknown action: ' + action };
   } catch(err) {
     out = { error: err.message };
@@ -924,8 +926,10 @@ function buildConversionBlock(t, clientType, spend) {
   var lines = [];
   if (clientType === 'ecommerce') {
     var purchases    = parseFloat(t.purchases || 0);
-    var purchaseVal  = parseFloat(t.purchaseValue || t.purchase_value || 0);
     var roas         = parseFloat(t.roas || 0);
+    // Receita: usa purchaseValue se disponível, senão calcula por ROAS × investimento
+    var purchaseVal  = parseFloat(t.purchaseValue || t.purchase_value || 0);
+    if (purchaseVal === 0 && roas > 0 && spend > 0) purchaseVal = roas * spend;
     var cpa          = purchases > 0 ? spend / purchases : 0;
     var reach        = parseFloat(t.reach || 0);
     var addToCart    = parseFloat(t.addToCart || t.add_to_cart || 0);
@@ -1199,11 +1203,19 @@ function checkBalanceAndStatus() {
   var today = new Date();
   var sent = 0;
 
-  // Para cada cliente ativo com whatsappGroup, verifica saldo e envia alerta diretamente no grupo dele
+  // Mapa destino → squadId para buscar grupo de alertas configurado
+  var DESTINO_SQUAD = { 'Squad 1': 'squad1', 'Squad 2': 'squad2' };
+
   clients.forEach(function(client) {
     if (client.cancelado === true || client.cancelado === 'TRUE') return;
     if (client.status !== 'Campanha ativa') return;
-    if (!client.whatsappGroup) return;
+
+    // Determina o grupo de destino: usa grupo do squad (se configurado), senão grupo do cliente
+    var clientDestino = String(client.destino || '');
+    var squadId = DESTINO_SQUAD[clientDestino] || null;
+    var alertGroup = squadId ? getSquadAlertGroup_(squadId) : null;
+    var targetGroup = alertGroup || client.whatsappGroup || null;
+    if (!targetGroup) return; // sem grupo configurado → pula
 
     var recharge = parseFloat(client.rechargeAmount) || 0;
     var daily = parseFloat(client.dailySpend) || 0;
@@ -1212,20 +1224,79 @@ function checkBalanceAndStatus() {
     var days = Math.floor((today - lastRecharge) / 86400000);
     var saldo = Math.max(0, recharge - daily * days);
 
-    // Alerta: saldo vai acabar em menos de 3 dias
+    // Alerta: saldo vai acabar em menos de 3 dias — envia UMA VEZ por ciclo de recarga
     if (daily > 0 && saldo < daily * 3) {
-      var diasRestantes = Math.floor(saldo / daily);
-      var message = '🚨 *Alerta de Saldo — AventusCS_*\n\n' +
-        '⚠️ Saldo estimado: *R$' + saldo.toFixed(2) + '*\n' +
-        '📅 Dias restantes: *' + diasRestantes + ' dia' + (diasRestantes !== 1 ? 's' : '') + '*\n\n' +
-        '_Verifique e solicite recarga se necessário._';
-      sendWhatsApp(client.whatsappGroup, message);
-      sent++;
-      Logger.log('Alerta de saldo enviado para grupo de ' + client.name);
+      var props = PropertiesService.getScriptProperties();
+      var alertKey = 'alertaSaldo_' + client.id;
+      var alertVal = props.getProperty(alertKey) || '';
+      // Formato salvo: "YYYY-MM-DD|lastRecharge"
+      var alertParts = alertVal.split('|');
+      var alertLastRecharge = alertParts[1] || '';
+      var clientLastRecharge = lastRechargeStr;
+      // Se lastRecharge mudou → cliente fez recarga → reseta flag
+      var houveRecarga = clientLastRecharge && alertLastRecharge && alertLastRecharge !== clientLastRecharge;
+      if (houveRecarga) {
+        props.deleteProperty(alertKey);
+        alertVal = '';
+      }
+      // Só envia se ainda não enviou alerta neste ciclo de recarga
+      if (!alertVal) {
+        var diasRestantes = Math.floor(saldo / daily);
+        var message = '🚨 *Alerta de Saldo — AventusCS_*\n\n' +
+          '👤 Cliente: *' + client.name + '*\n' +
+          '⚠️ Saldo estimado: *R$' + saldo.toFixed(2) + '*\n' +
+          '📅 Dias restantes: *' + diasRestantes + ' dia' + (diasRestantes !== 1 ? 's' : '') + '*\n\n' +
+          '_Verifique e solicite recarga se necessário._';
+        sendWhatsApp(targetGroup, message);
+        sent++;
+        // Grava: data de hoje + lastRecharge como referência de ciclo
+        var todayAlertStr = today.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+        props.setProperty(alertKey, todayAlertStr + '|' + clientLastRecharge);
+        Logger.log('Alerta de saldo: ' + client.name + ' → grupo ' + (alertGroup ? squadId : 'cliente') + ' (1ª vez neste ciclo)');
+      } else {
+        Logger.log('Alerta de saldo já enviado neste ciclo para ' + client.name + ' — ignorando');
+      }
     }
   });
 
   Logger.log('Alertas de saldo enviados: ' + sent);
+}
+
+// ===================== SQUAD CONFIG =====================
+// Armazena configurações por squad (ex: grupo WhatsApp para avisos de saldo)
+// Chaves no ScriptProperties: squadConfig_squad1, squadConfig_squad2 (JSON)
+
+function getSquadConfig() {
+  var props = PropertiesService.getScriptProperties();
+  var squads = ['squad1', 'squad2'];
+  var result = {};
+  squads.forEach(function(s) {
+    var raw = props.getProperty('squadConfig_' + s);
+    result[s] = raw ? JSON.parse(raw) : {};
+  });
+  return { config: result };
+}
+
+function setSquadConfig(body) {
+  // body: { squadId: 'squad1', alertGroupId: '120363...@g.us', alertGroupName: 'Squad 1 — Interno' }
+  var squadId = body.squadId || '';
+  if (!squadId) return { error: 'squadId obrigatório' };
+  var props = PropertiesService.getScriptProperties();
+  var raw = props.getProperty('squadConfig_' + squadId);
+  var current = raw ? JSON.parse(raw) : {};
+  if (body.alertGroupId !== undefined) current.alertGroupId   = body.alertGroupId;
+  if (body.alertGroupName !== undefined) current.alertGroupName = body.alertGroupName;
+  props.setProperty('squadConfig_' + squadId, JSON.stringify(current));
+  return { ok: true, squadId: squadId, config: current };
+}
+
+// Retorna o grupo de alertas configurado para um squad (ou null se não configurado)
+function getSquadAlertGroup_(squadId) {
+  var props = PropertiesService.getScriptProperties();
+  var raw = props.getProperty('squadConfig_' + squadId);
+  if (!raw) return null;
+  var cfg = JSON.parse(raw);
+  return cfg.alertGroupId || null;
 }
 
 // ===================== AI INSIGHTS (Fase C) =====================
