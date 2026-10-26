@@ -9,65 +9,94 @@ var META_API_VERSION = 'v21.0';
 var META_API_BASE    = 'https://graph.facebook.com/' + META_API_VERSION;
 
 // ──────────────────────────────────────────────────────────────
-// DEBUG: Execute esta função manualmente no Apps Script para ver
-// exatamente o que a Meta retorna no campo actions de um cliente.
-// Loga todos os action_types e values para entender duplicatas.
+// DEBUG: Roda esta função no Apps Script para ver o que a API
+// retorna de verdade — quantas linhas, quais action_types, valores.
+// Isso mostra se o problema é duplicata de atribuição ou de nível.
 // ──────────────────────────────────────────────────────────────
 function debugMetaRawToday() {
   var token = PropertiesService.getScriptProperties().getProperty('META_TOKEN');
-  // Busca o cliente pelo nome — troque 'green' pelo nome correto
   var clients = sheetToObjects(getSheet('clients'));
+
+  // Lista todos os clientes para facilitar escolha
+  Logger.log('Clientes disponíveis: ' + clients.map(function(c){ return c.name + ' (' + c.criativoAccountId + ')'; }).join(' | '));
+
+  // Pega o primeiro cliente com accountId definido (troque indexOf pelo nome que quer testar)
   var target = clients.find(function(c) {
-    return (c.name || '').toLowerCase().indexOf('green') >= 0;
+    return c.criativoAccountId && c.criativoAccountId.length > 3;
   });
 
-  if (!target) {
-    Logger.log('[DEBUG] Cliente não encontrado. Clientes disponíveis: ' +
-      clients.map(function(c){ return c.name; }).join(', '));
-    return;
-  }
+  if (!target) { Logger.log('Nenhum cliente com accountId encontrado'); return; }
+  Logger.log('Testando com: ' + target.name + ' | accountId: ' + target.criativoAccountId);
 
-  Logger.log('[DEBUG] Cliente: ' + target.name + ' | accountId: ' + target.criativoAccountId);
-
-  var todayStr = new Date().toISOString().slice(0, 10);
-  Logger.log('[DEBUG] Data: ' + todayStr);
-
+  var token2 = token;
   var actId = (target.criativoAccountId || '').replace(/^act_/i, '');
   var acctParam = 'act_' + actId;
+  var yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  var yStr = yesterday.toISOString().slice(0, 10);
+  Logger.log('Data testada: ' + yStr);
 
-  // Testa com date_preset=today (diferente do time_range)
-  var urlPreset = META_API_BASE + '/' + acctParam + '/insights'
+  // Teste 1: SEM nenhum parâmetro de atribuição (comportamento padrão da API)
+  var url1 = META_API_BASE + '/' + acctParam + '/insights'
     + '?level=campaign'
-    + '&date_preset=today'
-    + '&fields=spend,impressions,clicks,reach,actions,campaign_name'
-    + '&access_token=' + token;
-
-  Logger.log('[DEBUG] URL preset=today: ' + urlPreset.replace(token, 'TOKEN_OCULTO'));
-
+    + '&fields=campaign_name,spend,actions'
+    + '&time_range=' + encodeURIComponent(JSON.stringify({ since: yStr, until: yStr }))
+    + '&limit=100'
+    + '&access_token=' + token2;
+  Logger.log('--- TESTE 1: sem parâmetro de atribuição ---');
   try {
-    var res = UrlFetchApp.fetch(urlPreset, { muteHttpExceptions: true });
-    var txt = res.getContentText();
-    Logger.log('[DEBUG] Resposta date_preset=today: ' + txt.substring(0, 2000));
-  } catch(e) {
-    Logger.log('[DEBUG] Erro: ' + e.message);
-  }
+    var r1 = JSON.parse(UrlFetchApp.fetch(url1, { muteHttpExceptions: true }).getContentText());
+    var total1 = 0;
+    (r1.data || []).forEach(function(row) {
+      Logger.log('  Campanha: ' + row.campaign_name + ' | spend: ' + row.spend);
+      (row.actions || []).forEach(function(a) {
+        if (a.action_type.indexOf('purchase') >= 0 || a.action_type.indexOf('omni_purchase') >= 0) {
+          Logger.log('    action: ' + a.action_type + ' = ' + a.value);
+          if (a.action_type === 'offsite_conversion.fb_pixel_purchase') total1 += parseFloat(a.value) || 0;
+        }
+      });
+    });
+    Logger.log('  TOTAL offsite_conversion.fb_pixel_purchase = ' + total1);
+    Logger.log('  Linhas retornadas: ' + (r1.data || []).length);
+  } catch(e) { Logger.log('Erro: ' + e.message); }
 
-  // Testa com time_range normal
-  var urlRange = META_API_BASE + '/' + acctParam + '/insights'
-    + '?level=campaign'
-    + '&fields=spend,impressions,clicks,reach,actions,campaign_name'
-    + '&time_range=' + encodeURIComponent(JSON.stringify({ since: todayStr, until: todayStr }))
-    + '&access_token=' + token;
-
-  Logger.log('[DEBUG] URL time_range=hoje: ' + urlRange.replace(token, 'TOKEN_OCULTO'));
-
+  // Teste 2: COM use_unified_attribution_setting=true
+  var url2 = url1.replace('&limit=100', '&use_unified_attribution_setting=true&limit=100');
+  Logger.log('--- TESTE 2: use_unified_attribution_setting=true ---');
   try {
-    var res2 = UrlFetchApp.fetch(urlRange, { muteHttpExceptions: true });
-    var txt2 = res2.getContentText();
-    Logger.log('[DEBUG] Resposta time_range=hoje: ' + txt2.substring(0, 2000));
-  } catch(e2) {
-    Logger.log('[DEBUG] Erro: ' + e2.message);
-  }
+    var r2 = JSON.parse(UrlFetchApp.fetch(url2, { muteHttpExceptions: true }).getContentText());
+    var total2 = 0;
+    (r2.data || []).forEach(function(row) {
+      Logger.log('  Campanha: ' + row.campaign_name + ' | spend: ' + row.spend);
+      (row.actions || []).forEach(function(a) {
+        if (a.action_type.indexOf('purchase') >= 0 || a.action_type.indexOf('omni_purchase') >= 0) {
+          Logger.log('    action: ' + a.action_type + ' = ' + a.value);
+          if (a.action_type === 'offsite_conversion.fb_pixel_purchase') total2 += parseFloat(a.value) || 0;
+        }
+      });
+    });
+    Logger.log('  TOTAL offsite_conversion.fb_pixel_purchase = ' + total2);
+  } catch(e) { Logger.log('Erro: ' + e.message); }
+
+  // Teste 3: nível account (sem level=campaign) — retorna 1 linha só
+  var url3 = META_API_BASE + '/' + acctParam + '/insights'
+    + '?fields=spend,actions'
+    + '&time_range=' + encodeURIComponent(JSON.stringify({ since: yStr, until: yStr }))
+    + '&use_unified_attribution_setting=true'
+    + '&access_token=' + token2;
+  Logger.log('--- TESTE 3: nível account (sem level=campaign) ---');
+  try {
+    var r3 = JSON.parse(UrlFetchApp.fetch(url3, { muteHttpExceptions: true }).getContentText());
+    var total3 = 0;
+    (r3.data || []).forEach(function(row) {
+      (row.actions || []).forEach(function(a) {
+        if (a.action_type.indexOf('purchase') >= 0) {
+          Logger.log('  action: ' + a.action_type + ' = ' + a.value);
+          if (a.action_type === 'offsite_conversion.fb_pixel_purchase') total3 += parseFloat(a.value) || 0;
+        }
+      });
+    });
+    Logger.log('  TOTAL offsite_conversion.fb_pixel_purchase = ' + total3);
+  } catch(e) { Logger.log('Erro: ' + e.message); }
 }
 
 // Campos de insights que queremos buscar
