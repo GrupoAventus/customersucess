@@ -227,8 +227,10 @@ function firstAction_(actions, types) {
   return 0;
 }
 
-// Ordem importa: firstAction_ pega o primeiro tipo que existir — pixel primeiro pois bate com o Gerenciador
-var PURCHASE_TYPES_ = ['offsite_conversion.fb_pixel_purchase', 'omni_purchase', 'purchase'];
+// Ordem importa: firstAction_ pega o primeiro tipo que existir
+// omni_purchase primeiro — é o valor que aparece no Gerenciador de Anúncios da Meta
+// offsite_conversion.fb_pixel_purchase como fallback (só pixel, pode ser menor)
+var PURCHASE_TYPES_ = ['omni_purchase', 'offsite_conversion.fb_pixel_purchase', 'purchase'];
 var LEAD_TYPES_     = ['lead', 'onsite_conversion.lead_grouped', 'offsite_conversion.fb_pixel_lead'];
 
 // Converte array de insights da Meta em objeto com nossas métricas
