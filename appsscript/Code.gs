@@ -1412,6 +1412,35 @@ function getMetaStatus() {
 // ===================== AI INSIGHTS SEMANAL (Fase C) =====================
 // Roda toda segunda-feira e gera análise automática para todos os clientes
 
+// ---- Helper: busca últimos N registros de timeline de um cliente ----
+function getClientTimelineRecent_(clientId, days) {
+  var all = sheetToObjects(getSheet('timeline'));
+  var cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  var cutoffStr = cutoff.toISOString().slice(0, 10);
+  return all
+    .filter(function(e) {
+      return String(e.clientId) === String(clientId) &&
+             String(e.date).slice(0, 10) >= cutoffStr &&
+             (String(e.done || '').trim() || String(e.feedback || '').trim());
+    })
+    .sort(function(a, b) { return String(b.date).localeCompare(String(a.date)); })
+    .slice(0, 30); // máx 30 entradas
+}
+
+// ---- Helper: busca últimos N reports (atas) de um cliente ----
+function getClientReportsRecent_(clientId, limit) {
+  var all = sheetToObjects(getSheet('reports'));
+  return all
+    .filter(function(r) {
+      return String(r.clientId) === String(clientId) && String(r.notes || '').trim();
+    })
+    .sort(function(a, b) {
+      return (String(b.date) + String(b.time)).localeCompare(String(a.date) + String(a.time));
+    })
+    .slice(0, limit || 10);
+}
+
 function weeklyAiAnalysis() {
   // Migrado para Meta API direta (sem Criativivo)
   var today = new Date();
@@ -1463,11 +1492,12 @@ function weeklyAiAnalysis() {
       var clientType = client.clientType || 'lead';
 
       if (clientType === 'ecommerce') {
-        // MetaAPI.gs já usa Math.max para desduplicar — valores chegam corretos, sem divisão
-        var purchases = Math.round(parseFloat(t.purchases)    || 0);
-        var revenue   = (parseFloat(t.purchaseValue) || 0);
-        var roasRaw   = parseFloat(t.roas)          || 0;
-        var roas      = roasRaw > 0 ? roasRaw.toFixed(2) : '0';
+        var purchases = Math.round(parseFloat(t.purchases) || 0);
+        var revenue   = parseFloat(t.purchaseValue) || 0;
+        var roasRaw   = parseFloat(t.roas) || 0;
+        // Recalcula ROAS igual ao dashboard
+        if (revenue <= 0 && roasRaw > 0) revenue = roasRaw * spend;
+        var roas = spend > 0 && revenue > 0 ? (revenue / spend).toFixed(2) : '0';
         extraMetrics = '\n- Compras: ' + purchases + '\n- Receita: R$' + revenue.toFixed(2) + '\n- ROAS: ' + roas + 'x';
       } else {
         var leads = parseFloat(t.leads || t.messages) || 0;
@@ -1477,9 +1507,39 @@ function weeklyAiAnalysis() {
 
       var activeCampaigns = campaigns.filter(function(c) { return c.status === 'ACTIVE'; }).length;
 
-      // 2. Monta prompt
-      var prompt = 'Você é um especialista em marketing digital. Analise os dados de Meta Ads do cliente "' + client.name + '" no período de ' + period + '.\n\n' +
-        'DADOS:\n' +
+      // 2. Busca contexto: timeline (diário) dos últimos 30 dias e atas de reunião
+      var timelineEntries = getClientTimelineRecent_(client.id, 30);
+      var reportsEntries  = getClientReportsRecent_(client.id, 8);
+
+      var timelineBlock = '';
+      if (timelineEntries.length > 0) {
+        timelineBlock = '\n\nDIÁRIO DE ACOMPANHAMENTO (últimos 30 dias — do mais recente ao mais antigo):\n';
+        timelineEntries.forEach(function(e) {
+          var dateStr = String(e.date).slice(0, 10);
+          if (String(e.done || '').trim()) {
+            timelineBlock += '• ' + dateStr + ' [Ações realizadas]: ' + String(e.done).trim() + '\n';
+          }
+          if (String(e.feedback || '').trim()) {
+            timelineBlock += '• ' + dateStr + ' [Feedback do cliente]: ' + String(e.feedback).trim() + '\n';
+          }
+        });
+      }
+
+      var reportsBlock = '';
+      if (reportsEntries.length > 0) {
+        reportsBlock = '\n\nATAS DE REUNIÃO (últimas ' + reportsEntries.length + ' reuniões):\n';
+        reportsEntries.forEach(function(r) {
+          reportsBlock += '• ' + String(r.date).slice(0, 10) + ': ' + String(r.notes).trim() + '\n';
+        });
+      }
+
+      var hasContext = timelineBlock || reportsBlock;
+
+      // 3. Monta prompt enriquecido com contexto
+      var prompt =
+        'Você é um consultor sênior de marketing digital da agência Aventus, responsável pela conta do cliente "' + client.name + '".\n\n' +
+        'Analise o contexto COMPLETO abaixo — métricas de performance, histórico do diário e atas de reunião — e gere um insight estratégico que ajude na tomada de decisão desta semana.\n\n' +
+        '=== MÉTRICAS DA SEMANA (' + period + ') ===\n' +
         '- Investimento: R$' + spend.toFixed(2) + '\n' +
         '- Alcance: ' + reach + '\n' +
         '- Impressões: ' + impressions + '\n' +
@@ -1488,10 +1548,20 @@ function weeklyAiAnalysis() {
         '- CPM: R$' + cpm + '\n' +
         '- CPC: R$' + cpc + extraMetrics + '\n' +
         '- Campanhas ativas: ' + activeCampaigns + ' de ' + campaigns.length + '\n' +
-        '- Tipo: ' + (clientType === 'ecommerce' ? 'E-commerce' : 'Geração de leads') + '\n\n' +
-        'Forneça análise OBJETIVA em português com: 1) Diagnóstico, 2) Pontos positivos, 3) Atenção, 4) 3 recomendações práticas. Máx 250 palavras.';
+        '- Tipo de cliente: ' + (clientType === 'ecommerce' ? 'E-commerce' : 'Geração de leads') +
+        timelineBlock +
+        reportsBlock +
+        '\n\n=== SUA ANÁLISE ===\n' +
+        (hasContext
+          ? 'Com base nas métricas E no contexto das atas/diário acima, forneça:\n' +
+            '1) **Diagnóstico contextualizado**: o que os números dizem em relação ao que foi discutido/combinado com o cliente?\n' +
+            '2) **O que está funcionando**: pontos positivos considerando expectativas e feedbacks do cliente\n' +
+            '3) **Atenção**: gaps entre o que foi combinado/esperado e os resultados reais\n' +
+            '4) **Próximos passos**: 3 ações concretas e prioritárias para essa semana\n\n' +
+            'Seja direto. Se nas atas há metas ou pedidos específicos do cliente, mencione explicitamente se estão sendo atingidos ou não. Máx 300 palavras.'
+          : 'Forneça análise OBJETIVA em português com: 1) Diagnóstico, 2) Pontos positivos, 3) Atenção, 4) 3 recomendações práticas. Máx 250 palavras.');
 
-      // 3. Chama Claude API
+      // 4. Chama Claude API
       var claudeResp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -1501,7 +1571,7 @@ function weeklyAiAnalysis() {
         },
         payload: JSON.stringify({
           model: 'claude-haiku-4-5',
-          max_tokens: 600,
+          max_tokens: 800,
           messages: [{ role: 'user', content: prompt }]
         }),
         muteHttpExceptions: true
@@ -1515,9 +1585,9 @@ function weeklyAiAnalysis() {
         return;
       }
 
-      // 4. Salva na aba ai_insights
+      // 5. Salva na aba ai_insights
       saveAiInsight({ clientId: client.id, period: period, insight: insightText });
-      Logger.log('Insight IA gerado para: ' + client.name);
+      Logger.log('Insight IA gerado para: ' + client.name + (hasContext ? ' (com contexto de diário/atas)' : ' (só métricas)'));
 
       // Pausa para não estourar rate limit
       Utilities.sleep(2000);
