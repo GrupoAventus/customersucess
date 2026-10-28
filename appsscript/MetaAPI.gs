@@ -972,58 +972,38 @@ function buildClaudePrompts_(client, objetivo, current, portfolioContext) {
 
   var hasContext = timelineBlock || reportsBlock;
 
-  // ── System prompt base ───────────────────────────────────────
+  // ── System prompt ────────────────────────────────────────────
+  var diaryInstruction = hasContext
+    ? 'IMPORTANTE: O cliente possui DIÁRIO e/ou ATAS fornecidos abaixo. ANTES de preencher qualquer campo:\n' +
+      '  a) Identifique metas numéricas definidas (ex: "ROAS mínimo 4", "CPL abaixo de R$30")\n' +
+      '  b) Identifique reclamações ou alertas do cliente (ex: "lead não qualificado", "campanha pausada")\n' +
+      '  c) Identifique pedidos ou combinados pendentes (ex: "testar novo criativo", "subir orçamento")\n' +
+      'Use essas informações para preencher os campos abaixo com prioridade sobre os dados genéricos de performance.\n\n'
+    : '';
+
   var systemPrompt =
     'Você é um especialista em mídia paga com acesso ao histórico REAL de performance de uma carteira de clientes.\n\n' +
     'Seu trabalho é analisar o cliente indicado, cruzar seus dados atuais com o histórico real de TODOS os clientes da carteira, ' +
     'identificar padrões que realmente aconteceram e fazer previsões baseadas nesses padrões concretos.\n\n' +
+    diaryInstruction +
     'REGRAS DE OURO:\n' +
     '1. SIMILARIDADE HISTÓRICA: cite APENAS períodos e clientes que aparecem nos dados fornecidos. ' +
     'Se encontrar um padrão semelhante real, cite: "Semana de DD/MM/AAAA, cliente X tinha CPM R$X e CTR X% — resultado: [o que aconteceu na semana seguinte nos dados]". ' +
     'Se não houver similaridade real, escreva: Sem similaridade direta identificada nos dados disponíveis.\n' +
-    '2. ALERTA: CRITÉRIO RIGOROSO — só escreva alerta se houver piora SUSTENTADA nas últimas 3 semanas consecutivas: ' +
-    'CPM subindo semana a semana, OU CTR caindo semana a semana, OU ROAS caindo, OU frequência acima de 2.5. ' +
-    'Variação pontual de 1 semana NAO é alerta. Campanha de trafego/alcance sem conversoes NAO é alerta (é o objetivo dela). ' +
-    'Se a campanha estiver estavel, dentro da media historica, ou melhorando, escreva apenas a palavra: Nenhum\n' +
-    '3. OBJETIVO DO CLIENTE: respeite o objetivo declarado — nao classifique como alerta a ausencia de um KPI que nao e o objetivo da campanha. ' +
-    'Ex: campanha de mensagens sem leads NAO e problema. Campanha de ecommerce sem compras SIM e problema.\n' +
-    '4. DIÁRIO E ATAS: se fornecidos, LEIA ANTES de qualquer análise. Extraia metas numéricas (ex: "ROAS mínimo 4"), ' +
-    'reclamações do cliente e pendências combinadas. Priorize esses itens na análise.\n' +
-    '5. PROIBIDO: asteriscos (**), cerquilha (##), travessão decorativo (---), itálico, negrito, qualquer markdown. Apenas texto simples e o caractere • para listas.\n\n';
-
-  // ── Formato de resposta depende se há contexto de diário/atas ──
-  if (hasContext) {
-    systemPrompt +=
-      'INSTRUÇÕES OBRIGATÓRIAS — siga exatamente esta estrutura:\n\n' +
-      'PASSO 1 — LEIA O DIÁRIO E EXTRAIA:\n' +
-      'Antes de qualquer análise, identifique no diário e nas atas:\n' +
-      '• Metas numéricas definidas (ex: "ROAS mínimo 4", "CPL abaixo de R$30")\n' +
-      '• Reclamações ou alertas do cliente (ex: "lead não qualificado", "campanha pausada")\n' +
-      '• Pedidos ou combinados pendentes (ex: "testar novo criativo", "subir orçamento")\n\n' +
-      'PASSO 2 — CRUZE COM OS NÚMEROS DA SEMANA:\n' +
-      'Para cada item extraído no Passo 1, verifique se está sendo cumprido ou não com base nas métricas reais.\n\n' +
-      'PASSO 3 — MONTE A ANÁLISE NESTE FORMATO:\n\n' +
-      '🚨 ALERTAS DO CLIENTE (itens que o cliente apontou e ainda não foram resolvidos):\n' +
-      '— Liste cada alerta com status: ✅ Resolvido / ⚠️ Em andamento / ❌ Não resolvido\n\n' +
-      '📊 METAS vs RESULTADO:\n' +
-      '— Para cada meta numérica identificada: [Meta] → [Resultado atual] → [Status]\n' +
-      '— Se não há meta definida no diário, informe apenas o resultado.\n\n' +
-      '✅ O QUE ESTÁ FUNCIONANDO: máx 2 pontos positivos\n\n' +
-      'PREVISÃO 7 DIAS:\n• [previsão 1 baseada nos dados]\n• [previsão 2]\n\n' +
-      '🎯 PRÓXIMOS PASSOS (3 ações concretas priorizadas pelo que o cliente pediu ou pelo que está abaixo da meta):\n' +
-      '1. ...\n2. ...\n3. ...\n\n' +
-      'Seja direto e específico. Máx 400 palavras.';
-  } else {
-    systemPrompt +=
-      'Responda SEMPRE neste formato exato:\n\n' +
-      'PADRÃO IDENTIFICADO: [1 linha descrevendo o que os dados mostram]\n' +
-      'SIMILARIDADE HISTÓRICA: [cite período e cliente real dos dados, ou "Sem similaridade direta identificada"]\n' +
-      'PREVISÃO 3 DIAS:\n• [previsão 1 baseada nos dados]\n• [previsão 2]\n• [previsão 3]\n' +
-      'PREVISÃO 7 DIAS:\n• [previsão 1]\n• [previsão 2]\n' +
-      'CONFIANÇA: [Alto/Médio/Baixo] — [1 frase justificando com base nos dados]\n' +
-      '⚠️ ALERTA: [frase de alerta ou a palavra Nenhum]\n' +
-      'AÇÃO AGORA:\n• [ação 1 com prazo]\n• [ação 2 com prazo]';
-  }
+    '2. ALERTA: se houver reclamação do cliente no diário (ex: "lead não qualificado", "campanha pausada"), ' +
+    'SEMPRE escreva um alerta referenciando isso + o status atual. Caso contrário, use critério rigoroso: ' +
+    'só alerta se piora SUSTENTADA nas últimas 3 semanas (CPM subindo, CTR caindo, ROAS caindo, freq > 2.5). ' +
+    'Se estável ou melhorando, escreva apenas a palavra: Nenhum\n' +
+    '3. OBJETIVO DO CLIENTE: respeite o objetivo declarado — nao classifique como alerta a ausencia de um KPI que nao e o objetivo da campanha.\n' +
+    '4. PROIBIDO: asteriscos (**), cerquilha (##), travessão decorativo (---), itálico, negrito, qualquer markdown. Apenas texto simples e o caractere • para listas.\n\n' +
+    'Responda SEMPRE neste formato exato (use exatamente esses rótulos):\n\n' +
+    'PADRÃO IDENTIFICADO: [1 linha — se há diário, priorize: mencione meta do cliente vs resultado atual]\n' +
+    'SIMILARIDADE HISTÓRICA: [cite período e cliente real dos dados, ou "Sem similaridade direta identificada"]\n' +
+    'PREVISÃO 3 DIAS:\n• [previsão 1 — se há meta no diário, projete se ela será atingida]\n• [previsão 2]\n• [previsão 3]\n' +
+    'PREVISÃO 7 DIAS:\n• [previsão 1 — inclua ações pendentes do diário se relevante]\n• [previsão 2]\n' +
+    'CONFIANÇA: [Alto/Médio/Baixo] — [1 frase justificando]\n' +
+    '⚠️ ALERTA: [alerta crítico mencionando reclamação/meta descumprida do cliente, ou a palavra Nenhum]\n' +
+    'AÇÃO AGORA:\n• [ação 1 — priorize o que o cliente pediu ou o que está abaixo da meta]\n• [ação 2 com prazo]';
 
   var userPrompt =
     '=== CLIENTE A ANALISAR ===\n' +
