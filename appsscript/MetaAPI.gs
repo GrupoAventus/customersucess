@@ -944,6 +944,35 @@ function buildClaudePrompts_(client, objetivo, current, portfolioContext) {
     : objetivo === 'messages' ? 'Mensagens/WhatsApp (KPI principal: Conversas iniciadas, Custo por conversa)'
     : 'Leads (KPI principal: Leads gerados, Custo por lead)';
 
+  // ── Busca diário e atas do cliente ──────────────────────────
+  var timelineEntries = getClientTimelineRecent_(client.id, 30);
+  var reportsEntries  = getClientReportsRecent_(client.id, 8);
+
+  var timelineBlock = '';
+  if (timelineEntries.length > 0) {
+    timelineBlock = '\n\nDIÁRIO DE ACOMPANHAMENTO (últimos 30 dias — do mais recente ao mais antigo):\n';
+    timelineEntries.forEach(function(e) {
+      var dateStr = String(e.date).slice(0, 10);
+      if (String(e.done || '').trim()) {
+        timelineBlock += '• ' + dateStr + ' [O que foi feito]: ' + String(e.done).trim() + '\n';
+      }
+      if (String(e.feedback || '').trim()) {
+        timelineBlock += '• ' + dateStr + ' [Feedback do cliente]: ' + String(e.feedback).trim() + '\n';
+      }
+    });
+  }
+
+  var reportsBlock = '';
+  if (reportsEntries.length > 0) {
+    reportsBlock = '\n\nATAS DE REUNIÃO (últimas ' + reportsEntries.length + ' reuniões):\n';
+    reportsEntries.forEach(function(r) {
+      reportsBlock += '• ' + String(r.date).slice(0, 10) + ': ' + String(r.notes).trim() + '\n';
+    });
+  }
+
+  var hasContext = timelineBlock || reportsBlock;
+
+  // ── System prompt base ───────────────────────────────────────
   var systemPrompt =
     'Você é um especialista em mídia paga com acesso ao histórico REAL de performance de uma carteira de clientes.\n\n' +
     'Seu trabalho é analisar o cliente indicado, cruzar seus dados atuais com o histórico real de TODOS os clientes da carteira, ' +
@@ -958,15 +987,43 @@ function buildClaudePrompts_(client, objetivo, current, portfolioContext) {
     'Se a campanha estiver estavel, dentro da media historica, ou melhorando, escreva apenas a palavra: Nenhum\n' +
     '3. OBJETIVO DO CLIENTE: respeite o objetivo declarado — nao classifique como alerta a ausencia de um KPI que nao e o objetivo da campanha. ' +
     'Ex: campanha de mensagens sem leads NAO e problema. Campanha de ecommerce sem compras SIM e problema.\n' +
-    '4. PROIBIDO: asteriscos (**), cerquilha (##), travessão decorativo (---), itálico, negrito, qualquer markdown. Apenas texto simples e o caractere • para listas.\n\n' +
-    'Responda SEMPRE neste formato exato:\n\n' +
-    'PADRÃO IDENTIFICADO: [1 linha descrevendo o que os dados mostram]\n' +
-    'SIMILARIDADE HISTÓRICA: [cite período e cliente real dos dados, ou "Sem similaridade direta identificada"]\n' +
-    'PREVISÃO 3 DIAS:\n• [previsão 1 baseada nos dados]\n• [previsão 2]\n• [previsão 3]\n' +
-    'PREVISÃO 7 DIAS:\n• [previsão 1]\n• [previsão 2]\n' +
-    'CONFIANÇA: [Alto/Médio/Baixo] — [1 frase justificando com base nos dados]\n' +
-    '⚠️ ALERTA: [frase de alerta ou a palavra Nenhum]\n' +
-    'AÇÃO AGORA:\n• [ação 1 com prazo]\n• [ação 2 com prazo]';
+    '4. DIÁRIO E ATAS: se fornecidos, LEIA ANTES de qualquer análise. Extraia metas numéricas (ex: "ROAS mínimo 4"), ' +
+    'reclamações do cliente e pendências combinadas. Priorize esses itens na análise.\n' +
+    '5. PROIBIDO: asteriscos (**), cerquilha (##), travessão decorativo (---), itálico, negrito, qualquer markdown. Apenas texto simples e o caractere • para listas.\n\n';
+
+  // ── Formato de resposta depende se há contexto de diário/atas ──
+  if (hasContext) {
+    systemPrompt +=
+      'INSTRUÇÕES OBRIGATÓRIAS — siga exatamente esta estrutura:\n\n' +
+      'PASSO 1 — LEIA O DIÁRIO E EXTRAIA:\n' +
+      'Antes de qualquer análise, identifique no diário e nas atas:\n' +
+      '• Metas numéricas definidas (ex: "ROAS mínimo 4", "CPL abaixo de R$30")\n' +
+      '• Reclamações ou alertas do cliente (ex: "lead não qualificado", "campanha pausada")\n' +
+      '• Pedidos ou combinados pendentes (ex: "testar novo criativo", "subir orçamento")\n\n' +
+      'PASSO 2 — CRUZE COM OS NÚMEROS DA SEMANA:\n' +
+      'Para cada item extraído no Passo 1, verifique se está sendo cumprido ou não com base nas métricas reais.\n\n' +
+      'PASSO 3 — MONTE A ANÁLISE NESTE FORMATO:\n\n' +
+      '🚨 ALERTAS DO CLIENTE (itens que o cliente apontou e ainda não foram resolvidos):\n' +
+      '— Liste cada alerta com status: ✅ Resolvido / ⚠️ Em andamento / ❌ Não resolvido\n\n' +
+      '📊 METAS vs RESULTADO:\n' +
+      '— Para cada meta numérica identificada: [Meta] → [Resultado atual] → [Status]\n' +
+      '— Se não há meta definida no diário, informe apenas o resultado.\n\n' +
+      '✅ O QUE ESTÁ FUNCIONANDO: máx 2 pontos positivos\n\n' +
+      'PREVISÃO 7 DIAS:\n• [previsão 1 baseada nos dados]\n• [previsão 2]\n\n' +
+      '🎯 PRÓXIMOS PASSOS (3 ações concretas priorizadas pelo que o cliente pediu ou pelo que está abaixo da meta):\n' +
+      '1. ...\n2. ...\n3. ...\n\n' +
+      'Seja direto e específico. Máx 400 palavras.';
+  } else {
+    systemPrompt +=
+      'Responda SEMPRE neste formato exato:\n\n' +
+      'PADRÃO IDENTIFICADO: [1 linha descrevendo o que os dados mostram]\n' +
+      'SIMILARIDADE HISTÓRICA: [cite período e cliente real dos dados, ou "Sem similaridade direta identificada"]\n' +
+      'PREVISÃO 3 DIAS:\n• [previsão 1 baseada nos dados]\n• [previsão 2]\n• [previsão 3]\n' +
+      'PREVISÃO 7 DIAS:\n• [previsão 1]\n• [previsão 2]\n' +
+      'CONFIANÇA: [Alto/Médio/Baixo] — [1 frase justificando com base nos dados]\n' +
+      '⚠️ ALERTA: [frase de alerta ou a palavra Nenhum]\n' +
+      'AÇÃO AGORA:\n• [ação 1 com prazo]\n• [ação 2 com prazo]';
+  }
 
   var userPrompt =
     '=== CLIENTE A ANALISAR ===\n' +
@@ -976,9 +1033,13 @@ function buildClaudePrompts_(client, objetivo, current, portfolioContext) {
     'MÉTRICAS RECENTES:\n' +
     'Últimos 7 dias:  ' + current.metrics7  + '\n' +
     'Últimos 14 dias: ' + current.metrics14 + '\n' +
-    'Últimos 30 dias: ' + current.metrics30 + '\n\n' +
-    portfolioContext + '\n\n' +
-    'Com base nos dados históricos reais acima, analise o cliente ' + client.name + ' e gere a previsão conforme o formato solicitado.';
+    'Últimos 30 dias: ' + current.metrics30 + '\n' +
+    timelineBlock +
+    reportsBlock +
+    '\n\n' + portfolioContext + '\n\n' +
+    (hasContext
+      ? 'Com base no diário, nas atas e nos dados históricos acima, analise o cliente ' + client.name + ' seguindo as instruções obrigatórias.'
+      : 'Com base nos dados históricos reais acima, analise o cliente ' + client.name + ' e gere a previsão conforme o formato solicitado.');
 
   return { system: systemPrompt, user: userPrompt };
 }

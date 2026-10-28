@@ -1553,12 +1553,24 @@ function weeklyAiAnalysis() {
         reportsBlock +
         '\n\n=== SUA ANÁLISE ===\n' +
         (hasContext
-          ? 'Com base nas métricas E no contexto das atas/diário acima, forneça:\n' +
-            '1) **Diagnóstico contextualizado**: o que os números dizem em relação ao que foi discutido/combinado com o cliente?\n' +
-            '2) **O que está funcionando**: pontos positivos considerando expectativas e feedbacks do cliente\n' +
-            '3) **Atenção**: gaps entre o que foi combinado/esperado e os resultados reais\n' +
-            '4) **Próximos passos**: 3 ações concretas e prioritárias para essa semana\n\n' +
-            'Seja direto. Se nas atas há metas ou pedidos específicos do cliente, mencione explicitamente se estão sendo atingidos ou não. Máx 300 palavras.'
+          ? 'INSTRUÇÕES OBRIGATÓRIAS — siga exatamente esta estrutura:\n\n' +
+            '**PASSO 1 — LEIA O DIÁRIO E EXTRAIA:**\n' +
+            'Antes de qualquer análise, identifique no diário e nas atas:\n' +
+            '• Metas numéricas definidas (ex: "ROAS mínimo 4", "CPL abaixo de R$30")\n' +
+            '• Reclamações ou alertas do cliente (ex: "lead não qualificado", "campanha pausada")\n' +
+            '• Pedidos ou combinados pendentes (ex: "testar novo criativo", "subir orçamento")\n\n' +
+            '**PASSO 2 — CRUZE COM OS NÚMEROS DA SEMANA:**\n' +
+            'Para cada item extraído no Passo 1, verifique se está sendo cumprido ou não com base nas métricas reais.\n\n' +
+            '**PASSO 3 — MONTE A ANÁLISE NESTE FORMATO:**\n\n' +
+            '🚨 **ALERTAS DO CLIENTE** (itens que o cliente apontou e ainda não foram resolvidos):\n' +
+            '— Liste cada alerta com status: ✅ Resolvido / ⚠️ Em andamento / ❌ Não resolvido\n\n' +
+            '📊 **METAS vs RESULTADO**:\n' +
+            '— Para cada meta numérica identificada: [Meta] → [Resultado atual] → [Status]\n' +
+            '— Se não há meta definida no diário, informe apenas o resultado.\n\n' +
+            '✅ **O QUE ESTÁ FUNCIONANDO**: máx 2 pontos positivos\n\n' +
+            '🎯 **PRÓXIMOS PASSOS** (3 ações concretas priorizadas pelo que o cliente pediu ou pelo que está abaixo da meta):\n' +
+            '1. ...\n2. ...\n3. ...\n\n' +
+            'Seja direto e específico. Máx 350 palavras.'
           : 'Forneça análise OBJETIVA em português com: 1) Diagnóstico, 2) Pontos positivos, 3) Atenção, 4) 3 recomendações práticas. Máx 250 palavras.');
 
       // 4. Chama Claude API
