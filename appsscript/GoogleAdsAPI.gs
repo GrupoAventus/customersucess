@@ -12,8 +12,8 @@
 var GADS_SCOPE_        = 'https://www.googleapis.com/auth/adwords';
 var GADS_AUTH_URL_     = 'https://accounts.google.com/o/oauth2/auth';
 var GADS_TOKEN_URL_    = 'https://oauth2.googleapis.com/token';
-var GADS_API_BASE_     = 'https://googleads.googleapis.com/v17';
-var GADS_API_VERSION_  = 'v17';
+var GADS_API_BASE_     = 'https://googleads.googleapis.com/v19';
+var GADS_API_VERSION_  = 'v19';
 
 // ---- Passo 1: gerar URL de autorização (roda uma vez) ----
 function authorizeGoogleAds() {
