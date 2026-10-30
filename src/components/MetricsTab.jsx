@@ -1,6 +1,65 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import DateRangePicker from './DateRangePicker'
 import { useApp } from '../lib/AppContext'
+
+// ── Dropdown customizado (evita problema de cores do <select> nativo no dark mode) ──
+function CustomSelect({ value, onChange, options, placeholder, disabled, style }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  const selected = options.find(o => o.value === value)
+
+  useEffect(() => {
+    function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  return (
+    <div ref={ref} style={{ position: 'relative', ...style }}>
+      <button
+        type="button"
+        onClick={() => !disabled && setOpen(o => !o)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: '#141414', border: '0.5px solid #2a2a2a', borderRadius: 8,
+          padding: '8px 10px', color: disabled ? '#555' : '#fff',
+          fontSize: 13, cursor: disabled ? 'not-allowed' : 'pointer',
+          textAlign: 'left', gap: 8,
+        }}
+      >
+        <span style={{ color: selected ? '#fff' : '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {selected ? selected.label : (placeholder || 'Selecionar...')}
+        </span>
+        <span style={{ fontSize: 10, color: '#555', flexShrink: 0 }}>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+          background: '#1a1a1a', border: '1px solid #333', borderRadius: 8,
+          zIndex: 999, maxHeight: 260, overflowY: 'auto',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+        }}>
+          {options.map(o => (
+            <div
+              key={o.value}
+              onClick={() => { onChange(o.value); setOpen(false) }}
+              style={{
+                padding: '9px 12px', fontSize: 13, cursor: 'pointer',
+                color: o.value === value ? 'var(--orange)' : '#ddd',
+                background: o.value === value ? 'rgba(255,140,0,0.08)' : 'transparent',
+                borderBottom: '1px solid #222',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+              onMouseLeave={e => e.currentTarget.style.background = o.value === value ? 'rgba(255,140,0,0.08)' : 'transparent'}
+            >
+              {o.label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const SCRIPT_URL = import.meta.env.VITE_SCRIPT_URL
 
@@ -554,26 +613,19 @@ function ClientTab({ period, customStart, customEnd, refreshKey }) {
           Conta de Anúncios
           {linkedClient && <span style={{ marginLeft: 8, color: 'var(--orange)' }}>→ {linkedClient.name}</span>}
         </div>
-        <select
+        <CustomSelect
           value={selectedAccount?.id || ''}
-          onChange={e => {
-            const acc = metaAccounts.find(a => a.id === e.target.value) || null
+          onChange={id => {
+            const acc = metaAccounts.find(a => a.id === id) || null
             setSelectedAccount(acc)
             setData(null)
             setHistoryData([])
           }}
           disabled={accountsLoading}
-          style={{ width: '100%', background: '#141414', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '8px 10px', color: '#fff', fontSize: 13, colorScheme: 'dark', cursor: 'pointer' }}
-        >
-          <option value="" style={{ background: '#141414', color: '#888' }}>
-            {accountsLoading ? 'Carregando contas...' : metaAccounts.length === 0 ? 'Nenhuma conta encontrada' : 'Selecionar conta...'}
-          </option>
-          {metaAccounts.map(a => (
-            <option key={a.id} value={a.id} style={{ background: '#141414', color: '#fff' }}>
-              {a.name}
-            </option>
-          ))}
-        </select>
+          placeholder={accountsLoading ? 'Carregando contas...' : metaAccounts.length === 0 ? 'Nenhuma conta encontrada' : 'Selecionar conta...'}
+          options={metaAccounts.map(a => ({ value: a.id, label: a.name }))}
+          style={{ width: '100%' }}
+        />
       </div>
 
       {!selectedAccount && (
@@ -757,10 +809,12 @@ export default function MetricsTab() {
         </div>
 
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-          <select value={period} onChange={e => setPeriod(e.target.value)}
-            style={{ background: 'var(--bg2)', border: '0.5px solid #2a2a2a', borderRadius: 8, padding: '6px 10px', color: 'var(--text)', fontSize: 12 }}>
-            {PERIOD_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-          </select>
+          <CustomSelect
+            value={period}
+            onChange={setPeriod}
+            options={PERIOD_OPTIONS.map(p => ({ value: p.value, label: p.label }))}
+            style={{ minWidth: 140 }}
+          />
           {period === 'custom' && (
             <DateRangePicker
               start={customStart}
