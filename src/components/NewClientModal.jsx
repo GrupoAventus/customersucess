@@ -89,13 +89,32 @@ export default function NewClientModal({ onClose, prefillName, editingClient }) 
         `${EVOLUTION_URL}/group/fetchAllGroups/${INSTANCE}?getParticipants=false`,
         { headers: { 'apikey': EVOLUTION_KEY } }
       )
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '')
+        console.error('Evolution API erro:', res.status, errText)
+        if (res.status === 401 || res.status === 403) {
+          alert('Erro de autenticação na Evolution API. Verifique a API key.')
+        } else if (res.status >= 500) {
+          alert('A instância do WhatsApp (aventuscs) pode estar desconectada.\nAcesse a Evolution API e reconecte o WhatsApp.')
+        } else {
+          alert(`Erro ao carregar grupos (status ${res.status}). Verifique se a instância está conectada.`)
+        }
+        setLoadingGroups(false)
+        return
+      }
       const data = await res.json()
+      if (!Array.isArray(data)) {
+        console.error('Evolution API retornou formato inesperado:', data)
+        alert('A instância do WhatsApp pode estar desconectada.\nAcesse a Evolution API e reconecte o WhatsApp.')
+        setLoadingGroups(false)
+        return
+      }
       const sorted = data.filter(g => g.subject).sort((a, b) => a.subject.localeCompare(b.subject))
       setGroups(sorted)
       setShowGroupList(true)
     } catch (e) {
-      console.error(e)
-      alert('Erro ao carregar grupos do WhatsApp')
+      console.error('Erro ao buscar grupos:', e)
+      alert('Não foi possível conectar à Evolution API.\nVerifique se o servidor está online.')
     }
     setLoadingGroups(false)
   }
