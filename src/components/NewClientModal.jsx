@@ -9,6 +9,11 @@ const EVOLUTION_URL = 'https://evolution-api-production-73dff.up.railway.app'
 const EVOLUTION_KEY = 'aventus2024'
 const INSTANCE = 'aventuscs'
 
+// Cache de grupos para evitar rate-limit do WhatsApp
+let _groupsCache = null
+let _groupsCacheTime = 0
+const GROUPS_CACHE_TTL = 5 * 60 * 1000 // 5 minutos
+
 // Status legível para contas Meta
 const META_STATUS_LABEL = { 1: 'Ativa', 2: 'Desativada', 3: 'Pendente', 7: 'Em revisão' }
 
@@ -81,8 +86,14 @@ export default function NewClientModal({ onClose, prefillName, editingClient }) 
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
-  // Carrega grupos do WhatsApp via Evolution API
+  // Carrega grupos do WhatsApp via Evolution API (com cache de 5min para evitar rate-limit)
   const loadGroups = async () => {
+    // Usa cache se ainda válido
+    if (_groupsCache && (Date.now() - _groupsCacheTime) < GROUPS_CACHE_TTL) {
+      setGroups(_groupsCache)
+      setShowGroupList(true)
+      return
+    }
     setLoadingGroups(true)
     try {
       const res = await fetch(
@@ -111,6 +122,8 @@ export default function NewClientModal({ onClose, prefillName, editingClient }) 
           }
           if (res.status === 401 || res.status === 403) {
             alert('Erro de autenticação na Evolution API. Verifique a API key.')
+          } else if (errText.includes('rate-overlimit')) {
+            alert('WhatsApp está com limite de requisições atingido.\nAguarde 2-3 minutos e tente novamente.')
           } else if (res.status >= 500) {
             alert(`Erro ${res.status} na Evolution API.\nResposta: ${errText.slice(0, 200)}`)
           } else {
@@ -130,6 +143,8 @@ export default function NewClientModal({ onClose, prefillName, editingClient }) 
         return
       }
       const sorted = list.filter(g => g.subject).sort((a, b) => a.subject.localeCompare(b.subject))
+      _groupsCache = sorted
+      _groupsCacheTime = Date.now()
       setGroups(sorted)
       setShowGroupList(true)
     } catch (e) {
