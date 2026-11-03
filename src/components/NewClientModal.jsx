@@ -92,24 +92,44 @@ export default function NewClientModal({ onClose, prefillName, editingClient }) 
       if (!res.ok) {
         const errText = await res.text().catch(() => '')
         console.error('Evolution API erro:', res.status, errText)
-        if (res.status === 401 || res.status === 403) {
-          alert('Erro de autenticação na Evolution API. Verifique a API key.')
-        } else if (res.status >= 500) {
-          alert('A instância do WhatsApp (aventuscs) pode estar desconectada.\nAcesse a Evolution API e reconecte o WhatsApp.')
-        } else {
-          alert(`Erro ao carregar grupos (status ${res.status}). Verifique se a instância está conectada.`)
+        // Tenta endpoint alternativo para Evolution API v2
+        if (res.status >= 400) {
+          const res2 = await fetch(
+            `${EVOLUTION_URL}/group/fetchAllGroups/${INSTANCE}`,
+            { headers: { 'apikey': EVOLUTION_KEY } }
+          ).catch(() => null)
+          if (res2 && res2.ok) {
+            const data2 = await res2.json()
+            const list2 = Array.isArray(data2) ? data2 : (Array.isArray(data2?.groups) ? data2.groups : null)
+            if (list2) {
+              const sorted2 = list2.filter(g => g.subject).sort((a, b) => a.subject.localeCompare(b.subject))
+              setGroups(sorted2)
+              setShowGroupList(true)
+              setLoadingGroups(false)
+              return
+            }
+          }
+          if (res.status === 401 || res.status === 403) {
+            alert('Erro de autenticação na Evolution API. Verifique a API key.')
+          } else if (res.status >= 500) {
+            alert(`Erro ${res.status} na Evolution API.\nResposta: ${errText.slice(0, 200)}`)
+          } else {
+            alert(`Erro ao carregar grupos (status ${res.status}).\n${errText.slice(0, 200)}`)
+          }
+          setLoadingGroups(false)
+          return
         }
-        setLoadingGroups(false)
-        return
       }
       const data = await res.json()
-      if (!Array.isArray(data)) {
-        console.error('Evolution API retornou formato inesperado:', data)
-        alert('A instância do WhatsApp pode estar desconectada.\nAcesse a Evolution API e reconecte o WhatsApp.')
+      // Evolution API v2 pode retornar array direto ou { groups: [...] }
+      const list = Array.isArray(data) ? data : (Array.isArray(data?.groups) ? data.groups : null)
+      if (!list) {
+        console.error('Evolution API retornou formato inesperado:', JSON.stringify(data).slice(0, 300))
+        alert('Formato inesperado da Evolution API. Verifique se a instância está conectada.')
         setLoadingGroups(false)
         return
       }
-      const sorted = data.filter(g => g.subject).sort((a, b) => a.subject.localeCompare(b.subject))
+      const sorted = list.filter(g => g.subject).sort((a, b) => a.subject.localeCompare(b.subject))
       setGroups(sorted)
       setShowGroupList(true)
     } catch (e) {
