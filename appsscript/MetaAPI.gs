@@ -1183,3 +1183,103 @@ function getPredictiveInsights() {
     })
   };
 }
+
+// ============================================================
+// checkLeadDropAlert — Alerta de queda de leads
+// Roda diariamente via trigger de tempo (ex: 8h da manhã).
+// Para cada cliente Lead/WhatsApp ativo com conta Meta e squad:
+//   - Busca leads de ontem
+//   - Busca média de leads dos 14 dias anteriores
+//   - Se ontem < 50% da média → envia alerta no grupo do squad
+// ============================================================
+function checkLeadDropAlert() {
+  var clients = sheetToObjects(getSheet('clients'));
+  var today = new Date();
+
+  // Data de ontem e janela de 14 dias
+  var yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  var d14start = new Date(today);
+  d14start.setDate(d14start.getDate() - 15); // 14 dias antes de ontem
+
+  var ystStr  = Utilities.formatDate(yesterday, 'America/Sao_Paulo', 'yyyy-MM-dd');
+  var d14Str  = Utilities.formatDate(d14start,  'America/Sao_Paulo', 'yyyy-MM-dd');
+  var d14end  = new Date(yesterday);
+  d14end.setDate(d14end.getDate() - 1); // até anteontem (exclui ontem da média)
+  var d14endStr = Utilities.formatDate(d14end, 'America/Sao_Paulo', 'yyyy-MM-dd');
+
+  // Mapa destino → squadId (igual ao checkBalanceAndStatus)
+  var DESTINO_SQUAD = { 'Squad 1': 'squad1', 'Squad 2': 'squad2' };
+
+  var sent = 0;
+
+  clients.forEach(function(client) {
+    // Só clientes ativos, do tipo lead, com conta Meta configurada
+    if (client.cancelado === true || client.cancelado === 'TRUE') return;
+    if (client.status !== 'Campanha ativa') return;
+    if ((client.clientType || '').toLowerCase() !== 'lead') return;
+    if (!client.criativoAccountId) return;
+
+    // Determina grupo do squad (nunca grupo do cliente)
+    var clientDestino = String(client.destino || '');
+    var squadId = DESTINO_SQUAD[clientDestino] || null;
+    var alertGroup = squadId ? getSquadAlertGroup_(squadId) : null;
+    if (!alertGroup) {
+      Logger.log('checkLeadDropAlert: ' + client.name + ' → sem squad configurado, pulando');
+      return;
+    }
+
+    // Busca leads de ontem
+    var resYst = getMetricsMeta(client.criativoAccountId, ystStr, ystStr, null);
+    if (resYst.error) {
+      Logger.log('checkLeadDropAlert: erro ao buscar ontem para ' + client.name + ': ' + resYst.error);
+      return;
+    }
+    var leadsYesterday = resYst.totals ? (resYst.totals.leads || 0) : 0;
+
+    // Busca leads dos 14 dias anteriores (exclui ontem)
+    var res14 = getMetricsMeta(client.criativoAccountId, d14Str, d14endStr, null);
+    if (res14.error) {
+      Logger.log('checkLeadDropAlert: erro ao buscar 14 dias para ' + client.name + ': ' + res14.error);
+      return;
+    }
+    var leads14total = res14.totals ? (res14.totals.leads || 0) : 0;
+    var avgDaily = leads14total / 14;
+
+    Logger.log('checkLeadDropAlert: ' + client.name +
+      ' | ontem=' + leadsYesterday +
+      ' | média14d=' + avgDaily.toFixed(1) +
+      ' | squad=' + clientDestino);
+
+    // Só dispara se a média for >= 3 leads/dia (evita ruído em clientes novos/pequenos)
+    if (avgDaily < 3) return;
+
+    // Verifica queda: ontem < 50% da média
+    if (leadsYesterday >= avgDaily * 0.5) return;
+
+    // Evita enviar o mesmo alerta duas vezes no mesmo dia
+    var props = PropertiesService.getScriptProperties();
+    var alertKey = 'alertaLeads_' + client.id + '_' + ystStr;
+    if (props.getProperty(alertKey)) {
+      Logger.log('checkLeadDropAlert: alerta já enviado hoje para ' + client.name);
+      return;
+    }
+
+    var quedaPct = Math.round((1 - leadsYesterday / avgDaily) * 100);
+    var msg =
+      '⚠️ *Alerta de Queda de Leads*\n\n' +
+      '👤 Cliente: *' + client.name + '*\n' +
+      '📅 Ontem (' + ystStr + '): *' + leadsYesterday + ' leads*\n' +
+      '📊 Média 14 dias: *' + avgDaily.toFixed(1) + ' leads/dia*\n' +
+      '📉 Queda de *' + quedaPct + '%* abaixo da média\n\n' +
+      '🔍 Verificar campanhas e criativos.';
+
+    sendWhatsApp(alertGroup, msg);
+    props.setProperty(alertKey, '1');
+    sent++;
+    Logger.log('checkLeadDropAlert: alerta enviado para ' + client.name + ' no grupo ' + clientDestino);
+  });
+
+  Logger.log('checkLeadDropAlert: ' + sent + ' alertas enviados.');
+  return { sent: sent };
+}
