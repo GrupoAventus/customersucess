@@ -1799,3 +1799,130 @@ function testeListaContas() {
   }
   Logger.log('Contas encontradas no Detrics: ' + JSON.stringify(Object.keys(contas)));
 }
+
+// ===================== ALERTA DE PRAZO DE DEMANDAS =====================
+/**
+ * Roda diariamente (trigger às 8h).
+ * Envia alerta no WhatsApp para o grupo do squad quando uma demanda:
+ *  - vence HOJE
+ *  - venceu ONTEM (1 dia atrás)
+ *  - vence em 2 dias
+ * Deduplicação via ScriptProperties: cada demanda recebe no máximo 1 alerta por dia.
+ */
+function checkDemandDeadlines() {
+  var props   = PropertiesService.getScriptProperties();
+  var demands = sheetToObjects(getSheet('demands'));
+  var clients = sheetToObjects(getSheet('clients'));
+
+  var today    = spDateStr_(0);
+  var tomorrow = spDateStr_(1);
+  var in2days  = spDateStr_(2);
+  var yesterday = spDateStr_(-1);
+
+  // Mapa clientId → client
+  var clientMap = {};
+  clients.forEach(function(c) { clientMap[c.id] = c; });
+
+  // Mapa destino → squadId
+  var DESTINO_SQUAD = { 'Squad 1': 'squad1', 'Squad 2': 'squad2' };
+
+  // Mapa destino centros criativos → squadId responsável
+  var DESTINO_CC_SQUAD = {
+    'Centro criativo 1': 'squad1',
+    'Centro criativo 2': 'squad2',
+  };
+
+  var grouped = {}; // squadAlertGroup → lista de linhas de msg
+
+  demands.forEach(function(d) {
+    if (!d.prazo) return;
+    if (d.done === true || d.done === 'TRUE' || d.done === true) return;
+    if (d.stage === 'aprovado') return; // já aprovado, sem alerta
+
+    var prazo = String(d.prazo).slice(0, 10);
+    var isToday     = prazo === today;
+    var isYesterday = prazo === yesterday;
+    var isTomorrow  = prazo === tomorrow;
+    var isIn2Days   = prazo === in2days;
+
+    if (!isToday && !isYesterday && !isTomorrow && !isIn2Days) return;
+
+    // Dedup: envia no máximo 1x por demanda por dia
+    var alertKey = 'alertaPrazo_' + d.id + '_' + today;
+    if (props.getProperty(alertKey)) return;
+
+    var client = clientMap[d.clientId];
+    var clientName = client ? client.name : (d.clientId || '?');
+
+    // Determina destino para escolher o grupo de alertas
+    var dest = String(d.dest || '');
+    var squadId = null;
+    if (DESTINO_SQUAD[dest]) {
+      squadId = DESTINO_SQUAD[dest];
+    } else {
+      // Centro criativo → squad responsável
+      for (var cc in DESTINO_CC_SQUAD) {
+        if (dest.toLowerCase().indexOf(cc.toLowerCase()) >= 0) {
+          squadId = DESTINO_CC_SQUAD[cc];
+          break;
+        }
+      }
+    }
+
+    var alertGroup = squadId ? getSquadAlertGroup_(squadId) : null;
+    if (!alertGroup) {
+      Logger.log('checkDemandDeadlines: demanda "' + d.text + '" (cliente ' + clientName + ') → dest="' + dest + '" sem squad configurado — alerta NÃO enviado');
+      return;
+    }
+
+    // Monta linha da mensagem
+    var prazoLabel = spDateLabel_(prazo);
+    var urgIcon, urgLabel;
+    if (isYesterday) {
+      urgIcon = '🔴'; urgLabel = 'VENCIDA (' + prazoLabel + ')';
+    } else if (isToday) {
+      urgIcon = '🟠'; urgLabel = 'VENCE HOJE (' + prazoLabel + ')';
+    } else if (isTomorrow) {
+      urgIcon = '🟡'; urgLabel = 'vence amanhã (' + prazoLabel + ')';
+    } else {
+      urgIcon = '⚪'; urgLabel = 'vence em 2 dias (' + prazoLabel + ')';
+    }
+
+    var stageLabels = {
+      demandas: 'Demandas', em_producao: 'Em produção',
+      aguardando_aprovacao: 'Ag. aprovação', alteracao: 'Alteração', aprovado: 'Aprovado',
+    };
+    var stageLabel = stageLabels[d.stage || 'demandas'] || (d.stage || 'Demandas');
+
+    var linha = urgIcon + ' *' + clientName + '* — ' + urgLabel + '\n'
+      + '   📋 ' + String(d.text || '').slice(0, 80) + (String(d.text||'').length > 80 ? '…' : '') + '\n'
+      + '   🏷 Etapa: ' + stageLabel + ' | 📌 ' + dest;
+
+    if (!grouped[alertGroup]) grouped[alertGroup] = [];
+    grouped[alertGroup].push({ key: alertKey, linha: linha });
+  });
+
+  // Envia uma mensagem por grupo agrupando todas as demandas
+  var sent = 0;
+  Object.keys(grouped).forEach(function(group) {
+    var items = grouped[group];
+    var linhas = items.map(function(i) { return i.linha; }).join('\n\n');
+    var total = items.length;
+    var msg = '📆 *Alerta de Prazos — AventusCS_*\n\n'
+      + linhas + '\n\n'
+      + '— ' + total + ' demanda' + (total !== 1 ? 's' : '') + ' com prazo próximo';
+
+    sendWhatsApp(group, msg);
+    sent++;
+
+    // Marca todas como enviadas
+    items.forEach(function(i) {
+      props.setProperty(i.key, '1');
+    });
+
+    Logger.log('checkDemandDeadlines: enviado para ' + group + ' — ' + total + ' demanda(s)');
+  });
+
+  if (sent === 0) Logger.log('checkDemandDeadlines: nenhum alerta para enviar hoje.');
+  return { ok: true, gruposAlertados: sent };
+}
