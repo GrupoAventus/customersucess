@@ -11,13 +11,13 @@ const STAGE_OPTIONS = [
   { id: 'alteracao',            label: 'Alteração' },
 ]
 
-export default function NewDemandModal({ defaultClientId, defaultDest, onClose }) {
+export default function NewDemandModal({ defaultClientId, defaultDest, defaultStage, onClose }) {
   const { clients, createDemand } = useApp()
   const [form, setForm] = useState({
     clientId: defaultClientId || clients[0]?.id || '',
     text: '', prazo: '',
     dest: defaultDest || 'Squad 1',
-    stage: 'demandas',
+    stage: defaultStage || 'demandas',
   })
   const [saving, setSaving] = useState(false)
 

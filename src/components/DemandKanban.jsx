@@ -4,240 +4,178 @@ import DemandDetailModal from './DemandDetailModal'
 import NewDemandModal from './NewDemandModal'
 
 const STAGES = [
-  { id: 'demandas',            label: 'Demandas',                    color: '#555',         bg: 'rgba(255,255,255,0.03)' },
-  { id: 'em_producao',         label: 'Em produção',                 color: '#f59e0b',      bg: 'rgba(245,158,11,0.06)'  },
-  { id: 'aguardando_aprovacao',label: 'Finalizado / Ag. aprovação',  color: '#3b82f6',      bg: 'rgba(59,130,246,0.06)'  },
-  { id: 'alteracao',           label: 'Alteração',                   color: '#e24b4a',      bg: 'rgba(226,75,74,0.06)'   },
+  { id: 'demandas',             label: 'Demandas',                   color: '#888',    bg: '#161616' },
+  { id: 'em_producao',          label: 'Em produção',                color: '#f59e0b', bg: '#1a1500' },
+  { id: 'aguardando_aprovacao', label: 'Finalizado / Ag. aprovação', color: '#3b82f6', bg: '#001020' },
+  { id: 'alteracao',            label: 'Alteração',                  color: '#e24b4a', bg: '#1a0808' },
 ]
 
-function ProgressBar({ pct }) {
-  return (
-    <div style={{ height: 4, background: '#1f1f1f', borderRadius: 4, overflow: 'hidden', marginTop: 6 }}>
-      <div style={{
-        height: '100%', borderRadius: 4,
-        width: `${pct}%`,
-        background: pct === 100 ? 'var(--green)' : pct > 50 ? '#f59e0b' : 'var(--orange)',
-        transition: 'width 0.3s ease'
-      }} />
-    </div>
-  )
-}
-
-function ClientCard({ client, demands, destLabel }) {
-  const { toggleDemand, setDemandStage, isAdmin, deleteDemand } = useApp()
-  const [expanded, setExpanded] = useState(false)
-  const [selected, setSelected]  = useState(null)
-  const [showDone, setShowDone]   = useState(false)
-  const [addingDemand, setAddingDemand] = useState(false)
-
-  const active = demands.filter(d => !d.done)
-  const done   = demands.filter(d => d.done)
-  const total  = demands.length
-  const pct    = total === 0 ? 0 : Math.round((done.length / total) * 100)
-
-  const isOverdue = (d) => !d.done && d.prazo && d.prazo < new Date().toISOString().slice(0, 10)
-
-  // Ordena ativas por prazo mais próximo
-  const sortedActive = [...active].sort((a, b) => {
-    if (!a.prazo && !b.prazo) return 0
-    if (!a.prazo) return 1
-    if (!b.prazo) return -1
-    return a.prazo.localeCompare(b.prazo)
-  })
-
-  const stageOf = (d) => d.stage || 'demandas'
-  const stageInfo = (id) => STAGES.find(s => s.id === id) || STAGES[0]
+function DemandCard({ demand, onOpen, onToggle, onStageChange, onDelete }) {
+  const isOverdue = !demand.done && demand.prazo && demand.prazo < new Date().toISOString().slice(0, 10)
 
   return (
     <div style={{
-      background: '#111', border: '0.5px solid #1f1f1f', borderRadius: 10,
-      marginBottom: 10, overflow: 'hidden'
+      background: '#111',
+      border: `1px solid ${isOverdue ? '#3a1010' : '#1f1f1f'}`,
+      borderRadius: 8,
+      padding: '9px 10px',
+      marginBottom: 6,
+      display: 'flex',
+      alignItems: 'flex-start',
+      gap: 8,
     }}>
-      {/* Header do card — sempre visível */}
-      <div
-        onClick={() => setExpanded(v => !v)}
-        style={{ padding: '12px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}
-      >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#e0e0e0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {client.name}
-            </span>
-            <span style={{ fontSize: 11, color: '#444', flexShrink: 0 }}>
-              {done.length}/{total}
-            </span>
-          </div>
-          <ProgressBar pct={pct} />
-        </div>
-        <i className={`ti ti-chevron-${expanded ? 'up' : 'down'}`} style={{ color: '#444', fontSize: 14, flexShrink: 0 }} />
-      </div>
-
-      {/* Corpo expandido — kanban por stage */}
-      {expanded && (
-        <div style={{ borderTop: '0.5px solid #1a1a1a' }}>
-          {STAGES.map(stage => {
-            const stageDemands = sortedActive.filter(d => stageOf(d) === stage.id)
-            if (stageDemands.length === 0) return null
-            return (
-              <div key={stage.id} style={{ borderBottom: '0.5px solid #1a1a1a' }}>
-                <div style={{ padding: '7px 14px', fontSize: 11, color: stage.color, background: stage.bg, fontWeight: 600, letterSpacing: '0.03em' }}>
-                  {stage.label} · {stageDemands.length}
-                </div>
-                {stageDemands.map(d => (
-                  <DemandRow
-                    key={d.id}
-                    d={d}
-                    isOverdue={isOverdue(d)}
-                    stageInfo={stageInfo}
-                    onOpen={() => setSelected(d)}
-                    onToggle={() => toggleDemand(d.id)}
-                    onStageChange={(s) => setDemandStage(d.id, s)}
-                    onDelete={isAdmin ? () => { if (window.confirm(`Excluir "${d.text}"?`)) deleteDemand(d.id) } : null}
-                  />
-                ))}
-              </div>
-            )
-          })}
-
-          {/* Botão adicionar demanda */}
-          <div style={{ padding: '8px 14px' }}>
-            <button onClick={(e) => { e.stopPropagation(); setAddingDemand(true) }}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 12, padding: 0 }}>
-              <i className="ti ti-plus" /> Nova demanda
-            </button>
-          </div>
-
-          {/* Finalizadas — menu suspenso */}
-          {done.length > 0 && (
-            <div style={{ borderTop: '0.5px solid #1a1a1a' }}>
-              <button
-                onClick={() => setShowDone(v => !v)}
-                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#3a3a3a', cursor: 'pointer', fontSize: 11, padding: '8px 14px', textAlign: 'left' }}
-              >
-                <i className={`ti ti-chevron-${showDone ? 'up' : 'down'}`} style={{ fontSize: 11 }} />
-                Finalizadas ({done.length})
-              </button>
-              {showDone && done.map(d => (
-                <DemandRow
-                  key={d.id}
-                  d={d}
-                  isOverdue={false}
-                  stageInfo={stageInfo}
-                  onOpen={() => setSelected(d)}
-                  onToggle={() => toggleDemand(d.id)}
-                  onStageChange={(s) => setDemandStage(d.id, s)}
-                  onDelete={isAdmin ? () => { if (window.confirm(`Excluir "${d.text}"?`)) deleteDemand(d.id) } : null}
-                  faded
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {selected && <DemandDetailModal demand={selected} onClose={() => setSelected(null)} />}
-      {addingDemand && (
-        <NewDemandModal
-          defaultClientId={client.id}
-          defaultDest={destLabel}
-          onClose={() => setAddingDemand(false)}
-        />
-      )}
-    </div>
-  )
-}
-
-function DemandRow({ d, isOverdue, stageInfo, onOpen, onToggle, onStageChange, onDelete, faded }) {
-  const [showStageMenu, setShowStageMenu] = useState(false)
-  const si = stageInfo(d.stage || 'demandas')
-
-  return (
-    <div
-      style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '7px 14px', borderBottom: '0.5px solid #161616',
-        opacity: faded ? 0.4 : 1,
-        background: isOverdue ? 'rgba(226,75,74,0.05)' : 'transparent',
-      }}
-    >
       {/* Checkbox */}
       <button
         onClick={onToggle}
         style={{
-          width: 16, height: 16, borderRadius: 4, flexShrink: 0,
-          border: `1.5px solid ${d.done ? 'var(--green)' : '#333'}`,
-          background: d.done ? 'var(--green)' : 'transparent',
-          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 0,
+          width: 15, height: 15, borderRadius: 3, flexShrink: 0, marginTop: 1,
+          border: `1.5px solid ${demand.done ? 'var(--green)' : '#333'}`,
+          background: demand.done ? 'var(--green)' : 'transparent',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
         }}
       >
-        {d.done && <i className="ti ti-check" style={{ fontSize: 10, color: '#000' }} />}
+        {demand.done && <i className="ti ti-check" style={{ fontSize: 9, color: '#000' }} />}
       </button>
 
-      {/* Texto — clica para abrir detalhe */}
-      <span
-        onClick={onOpen}
-        style={{
-          flex: 1, fontSize: 12, color: d.done ? '#444' : '#ccc',
-          textDecoration: d.done ? 'line-through' : 'none',
-          cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}
-      >
-        {d.text}
-      </span>
-
-      {/* Prazo */}
-      {d.prazo && (
-        <span style={{ fontSize: 11, color: isOverdue ? 'var(--red)' : '#444', flexShrink: 0, whiteSpace: 'nowrap' }}>
-          {isOverdue && <i className="ti ti-alert-triangle" style={{ marginRight: 2 }} />}
-          {d.prazo}
-        </span>
-      )}
-
-      {/* Stage pill — clicável */}
-      {!d.done && (
-        <div style={{ position: 'relative', flexShrink: 0 }}>
-          <button
-            onClick={() => setShowStageMenu(v => !v)}
-            style={{
-              fontSize: 10, padding: '2px 7px', borderRadius: 20,
-              border: 'none', cursor: 'pointer',
-              color: si.color, background: `${si.color}22`,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {si.label.split('/')[0].trim()}
-          </button>
-          {showStageMenu && (
-            <div style={{
-              position: 'absolute', right: 0, top: 'calc(100% + 4px)',
-              background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 8,
-              zIndex: 100, minWidth: 180, boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
-            }}>
-              {STAGES.map(s => (
-                <div
-                  key={s.id}
-                  onClick={() => { onStageChange(s.id); setShowStageMenu(false) }}
-                  style={{
-                    padding: '8px 12px', fontSize: 12, cursor: 'pointer',
-                    color: s.id === (d.stage || 'demandas') ? s.color : '#aaa',
-                    background: s.id === (d.stage || 'demandas') ? s.bg : 'transparent',
-                    borderBottom: '1px solid #222',
-                  }}
-                >
-                  {s.label}
-                </div>
-              ))}
-            </div>
-          )}
+      {/* Texto + prazo */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          onClick={onOpen}
+          style={{
+            fontSize: 12, color: demand.done ? '#444' : '#ccc',
+            textDecoration: demand.done ? 'line-through' : 'none',
+            cursor: 'pointer', lineHeight: 1.4,
+            overflow: 'hidden', textOverflow: 'ellipsis',
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+          }}
+        >
+          {demand.text}
         </div>
-      )}
+        {demand.prazo && (
+          <div style={{ fontSize: 10, marginTop: 3, color: isOverdue ? '#e24b4a' : '#444' }}>
+            {isOverdue && <i className="ti ti-alert-triangle" style={{ marginRight: 2 }} />}
+            {demand.prazo}
+          </div>
+        )}
+      </div>
+
+      {/* Mover para coluna — setas */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+        <StageArrows demand={demand} onStageChange={onStageChange} />
+      </div>
 
       {/* Deletar */}
       {onDelete && (
-        <button onClick={onDelete} style={{ background: 'none', border: 'none', color: '#2a2a2a', cursor: 'pointer', padding: 2, flexShrink: 0 }}>
-          <i className="ti ti-trash" style={{ fontSize: 13 }} />
+        <button onClick={onDelete} style={{ background: 'none', border: 'none', color: '#252525', cursor: 'pointer', padding: 0, flexShrink: 0, marginTop: 1 }}>
+          <i className="ti ti-x" style={{ fontSize: 11 }} />
         </button>
+      )}
+    </div>
+  )
+}
+
+function StageArrows({ demand, onStageChange }) {
+  const idx = STAGES.findIndex(s => s.id === (demand.stage || 'demandas'))
+  return (
+    <div style={{ display: 'flex', gap: 2 }}>
+      {idx > 0 && (
+        <button
+          title={`← ${STAGES[idx - 1].label}`}
+          onClick={() => onStageChange(STAGES[idx - 1].id)}
+          style={{ background: 'none', border: 'none', color: '#333', cursor: 'pointer', padding: '1px 3px', fontSize: 11 }}
+        >
+          ‹
+        </button>
+      )}
+      {idx < STAGES.length - 1 && (
+        <button
+          title={`→ ${STAGES[idx + 1].label}`}
+          onClick={() => onStageChange(STAGES[idx + 1].id)}
+          style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', padding: '1px 3px', fontSize: 11 }}
+        >
+          ›
+        </button>
+      )}
+    </div>
+  )
+}
+
+function ClientColumnCard({ client, demands, stageId, destLabel }) {
+  const { toggleDemand, setDemandStage, isAdmin, deleteDemand } = useApp()
+  const [selected, setSelected] = useState(null)
+  const [adding, setAdding] = useState(false)
+  const [showDone, setShowDone] = useState(false)
+
+  const active = demands.filter(d => !d.done)
+  const done   = demands.filter(d => d.done)
+
+  return (
+    <div style={{ marginBottom: 8 }}>
+      {/* Header do cliente nesta coluna */}
+      <div style={{
+        fontSize: 11, fontWeight: 600, color: '#888',
+        padding: '4px 2px 6px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {client.name}
+        </span>
+        <span style={{ color: '#333', fontWeight: 400, flexShrink: 0, marginLeft: 6 }}>
+          {active.length}
+        </span>
+      </div>
+
+      {/* Demandas ativas */}
+      {active.map(d => (
+        <DemandCard
+          key={d.id}
+          demand={d}
+          onOpen={() => setSelected(d)}
+          onToggle={() => toggleDemand(d.id)}
+          onStageChange={s => setDemandStage(d.id, s)}
+          onDelete={isAdmin ? () => { if (window.confirm(`Excluir "${d.text}"?`)) deleteDemand(d.id) } : null}
+        />
+      ))}
+
+      {/* Finalizadas */}
+      {done.length > 0 && (
+        <>
+          <button
+            onClick={() => setShowDone(v => !v)}
+            style={{ background: 'none', border: 'none', color: '#2a2a2a', cursor: 'pointer', fontSize: 10, padding: '2px 0', marginBottom: 4 }}
+          >
+            <i className={`ti ti-chevron-${showDone ? 'up' : 'down'}`} style={{ fontSize: 9, marginRight: 3 }} />
+            Feitas ({done.length})
+          </button>
+          {showDone && done.map(d => (
+            <DemandCard
+              key={d.id}
+              demand={d}
+              onOpen={() => setSelected(d)}
+              onToggle={() => toggleDemand(d.id)}
+              onStageChange={s => setDemandStage(d.id, s)}
+              onDelete={isAdmin ? () => { if (window.confirm(`Excluir "${d.text}"?`)) deleteDemand(d.id) } : null}
+            />
+          ))}
+        </>
+      )}
+
+      {/* Botão adicionar */}
+      <button
+        onClick={() => setAdding(true)}
+        style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: '#2a2a2a', cursor: 'pointer', fontSize: 11, padding: '2px 0', marginTop: 2 }}
+      >
+        <i className="ti ti-plus" style={{ fontSize: 11 }} /> demanda
+      </button>
+
+      {selected && <DemandDetailModal demand={selected} onClose={() => setSelected(null)} />}
+      {adding && (
+        <NewDemandModal
+          defaultClientId={client.id}
+          defaultDest={destLabel}
+          defaultStage={stageId}
+          onClose={() => setAdding(false)}
+        />
       )}
     </div>
   )
@@ -246,31 +184,78 @@ function DemandRow({ d, isOverdue, stageInfo, onOpen, onToggle, onStageChange, o
 export default function DemandKanban({ demands, destLabel }) {
   const { clients } = useApp()
 
-  // Agrupa demandas por cliente
-  const clientIds = [...new Set(demands.map(d => d.clientId))]
-  const clientCards = clientIds
-    .map(id => ({ client: clients.find(c => c.id === id), demands: demands.filter(d => d.clientId === id) }))
-    .filter(x => x.client)
-    .sort((a, b) => {
-      // Ordena: tem ativa primeiro, depois por prazo mais próximo
-      const aActive = a.demands.filter(d => !d.done)
-      const bActive = b.demands.filter(d => !d.done)
-      if (aActive.length === 0 && bActive.length > 0) return 1
-      if (bActive.length === 0 && aActive.length > 0) return -1
-      const aMin = aActive.filter(d => d.prazo).map(d => d.prazo).sort()[0] || '9999'
-      const bMin = bActive.filter(d => d.prazo).map(d => d.prazo).sort()[0] || '9999'
-      return aMin.localeCompare(bMin)
-    })
+  // Para cada coluna, quais clientes têm demandas lá
+  const getClientsForStage = (stageId) => {
+    const clientIds = [...new Set(
+      demands
+        .filter(d => (d.stage || 'demandas') === stageId)
+        .map(d => d.clientId)
+    )]
+    return clientIds
+      .map(id => ({
+        client: clients.find(c => c.id === id),
+        demands: demands.filter(d => d.clientId === id && (d.stage || 'demandas') === stageId),
+      }))
+      .filter(x => x.client)
+      .sort((a, b) => {
+        const aActive = a.demands.filter(d => !d.done)
+        const bActive = b.demands.filter(d => !d.done)
+        const aMin = aActive.filter(d => d.prazo).map(d => d.prazo).sort()[0] || '9999'
+        const bMin = bActive.filter(d => d.prazo).map(d => d.prazo).sort()[0] || '9999'
+        return aMin.localeCompare(bMin)
+      })
+  }
 
-  if (clientCards.length === 0) return (
-    <div style={{ color: '#333', fontSize: 13, padding: '16px 0' }}>Nenhuma demanda para este centro criativo</div>
-  )
+  if (demands.length === 0) {
+    return <div style={{ color: '#333', fontSize: 13, padding: '16px 0' }}>Nenhuma demanda para este centro criativo</div>
+  }
 
   return (
-    <div>
-      {clientCards.map(({ client, demands: cDemands }) => (
-        <ClientCard key={client.id} client={client} demands={cDemands} destLabel={destLabel} />
-      ))}
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(4, 1fr)',
+      gap: 12,
+      alignItems: 'start',
+    }}>
+      {STAGES.map(stage => {
+        const colClients = getClientsForStage(stage.id)
+        const totalActive = colClients.reduce((s, x) => s + x.demands.filter(d => !d.done).length, 0)
+
+        return (
+          <div key={stage.id} style={{ background: stage.bg, borderRadius: 10, padding: '10px 10px 6px', minHeight: 80 }}>
+            {/* Header da coluna */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              marginBottom: 10, paddingBottom: 8,
+              borderBottom: `1px solid ${stage.color}22`,
+            }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: stage.color, letterSpacing: '0.03em' }}>
+                {stage.label}
+              </span>
+              {totalActive > 0 && (
+                <span style={{ fontSize: 10, color: stage.color, background: `${stage.color}22`, borderRadius: 20, padding: '1px 7px' }}>
+                  {totalActive}
+                </span>
+              )}
+            </div>
+
+            {/* Cards por cliente */}
+            {colClients.length === 0 ? (
+              <div style={{ color: '#2a2a2a', fontSize: 11, textAlign: 'center', padding: '12px 0' }}>—</div>
+            ) : (
+              colClients.map(({ client, demands: cDemands }) => (
+                <ClientColumnCard
+                  key={client.id}
+                  client={client}
+                  demands={cDemands}
+                  stageId={stage.id}
+                  destLabel={destLabel}
+                />
+              ))
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
