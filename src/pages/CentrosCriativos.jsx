@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useApp } from '../lib/AppContext'
 import NewDemandModal from '../components/NewDemandModal'
-import DemandTable from '../components/DemandTable'
+import DemandKanban from '../components/DemandKanban'
 import SocialMediaTab from '../components/SocialMediaTab'
 import AlertBanner from '../components/AlertBanner'
 import NotificationBanner from '../components/NotificationBanner'
-import { Btn, SectionHeader, EmptyState } from '../components/UI'
+import { Btn, SectionHeader } from '../components/UI'
 
 export default function CentrosCriativos({ label, title, sectionId }) {
   const { clients, demands } = useApp()
@@ -16,11 +16,13 @@ export default function CentrosCriativos({ label, title, sectionId }) {
     .filter(d => d.dest === label)
     .map(d => ({ ...d, clientName: clients.find(c => c.id === d.clientId)?.name || '—' }))
 
+  const pending = ccDemands.filter(d => !d.done).length
+
   return (
     <div style={{ padding: '1.5rem' }}>
       <SectionHeader
         title={title}
-        subtitle={`${ccDemands.filter(d => !d.done).length} demanda${ccDemands.filter(d => !d.done).length !== 1 ? 's' : ''} pendente${ccDemands.filter(d => !d.done).length !== 1 ? 's' : ''}`}
+        subtitle={`${pending} demanda${pending !== 1 ? 's' : ''} pendente${pending !== 1 ? 's' : ''}`}
         action={tab === 'demands' ? <Btn primary onClick={() => setShowDemand(true)}><i className="ti ti-plus" /> Criar demanda</Btn> : null}
       />
 
@@ -37,7 +39,7 @@ export default function CentrosCriativos({ label, title, sectionId }) {
         ))}
       </div>
 
-      {tab === 'demands' && (ccDemands.length === 0 ? <EmptyState icon="palette" text="Nenhuma demanda para este centro criativo" /> : <DemandTable demands={ccDemands} />)}
+      {tab === 'demands' && <DemandKanban demands={ccDemands} destLabel={label} />}
       {tab === 'social' && <SocialMediaTab centroCriativo={label} />}
       {showDemand && <NewDemandModal defaultDest={label} onClose={() => setShowDemand(false)} />}
     </div>

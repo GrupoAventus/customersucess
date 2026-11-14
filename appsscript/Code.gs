@@ -35,6 +35,7 @@ function doGet(e) {
       else if (writeAction === 'incrementSocialPost') out = incrementSocialPost(body);
       else if (writeAction === 'addDemand')          out = addDemand(body);
       else if (writeAction === 'toggleDemand')       out = toggleDemand(body);
+      else if (writeAction === 'setDemandStage')     out = setDemandStage(body);
       else if (writeAction === 'deleteDemand')       out = deleteDemand(body);
       else if (writeAction === 'markPendingDone')    out = markPendingDone(body);
       else if (writeAction === 'setTimelineEntry')   out = setTimelineEntry(body);
@@ -109,6 +110,7 @@ function doPost(e) {
     else if (action === 'incrementSocialPost') out = incrementSocialPost(body);
     else if (action === 'addDemand')          out = addDemand(body);
     else if (action === 'toggleDemand')       out = toggleDemand(body);
+    else if (action === 'setDemandStage')     out = setDemandStage(body);
     else if (action === 'deleteDemand')       out = deleteDemand(body);
     else if (action === 'markPendingDone')    out = markPendingDone(body);
     else if (action === 'setTimelineEntry')   out = setTimelineEntry(body);
@@ -343,8 +345,9 @@ function addDemand(body) {
   var sh = getSheet('demands');
   var id = genId();
   var now = new Date().toISOString();
-  sh.appendRow([id, body.clientId||'', body.text||'', body.prazo||'', body.dest||'', false, now]);
-  return { id: id };
+  // col1=id, col2=clientId, col3=text, col4=prazo, col5=dest, col6=done, col7=createdAt, col8=stage
+  sh.appendRow([id, body.clientId||'', body.text||'', body.prazo||'', body.dest||'', false, now, body.stage||'demandas']);
+  return { id: id, stage: body.stage||'demandas' };
 }
 
 function toggleDemand(body) {
@@ -352,6 +355,14 @@ function toggleDemand(body) {
   var row = findRowById(sh, body.id);
   if (row < 0) return { error: 'Not found' };
   sh.getRange(row, 6).setValue(body.done);
+  return { ok: true };
+}
+
+function setDemandStage(body) {
+  var sh = getSheet('demands');
+  var row = findRowById(sh, body.id);
+  if (row < 0) return { error: 'Not found' };
+  sh.getRange(row, 8).setValue(body.stage||'demandas');
   return { ok: true };
 }
 

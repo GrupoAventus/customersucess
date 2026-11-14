@@ -4,16 +4,26 @@ import { Modal, Btn, Field } from './UI'
 
 const DEST_OPTIONS = ['Squad 1', 'Squad 2', 'Centro criativo 1', 'Centro criativo 2']
 
+const STAGE_OPTIONS = [
+  { id: 'demandas',             label: 'Demandas' },
+  { id: 'em_producao',          label: 'Em produção' },
+  { id: 'aguardando_aprovacao', label: 'Finalizado / Ag. aprovação' },
+  { id: 'alteracao',            label: 'Alteração' },
+]
+
 export default function NewDemandModal({ defaultClientId, defaultDest, onClose }) {
   const { clients, createDemand } = useApp()
   const [form, setForm] = useState({
     clientId: defaultClientId || clients[0]?.id || '',
     text: '', prazo: '',
-    dest: defaultDest || 'Squad 1'
+    dest: defaultDest || 'Squad 1',
+    stage: 'demandas',
   })
   const [saving, setSaving] = useState(false)
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
+  const isCentro = (form.dest || '').toLowerCase().includes('centro criativo')
 
   const save = async () => {
     if (!form.text.trim() || !form.clientId || !form.prazo) return
@@ -43,6 +53,13 @@ export default function NewDemandModal({ defaultClientId, defaultDest, onClose }
           </select>
         </Field>
       </div>
+      {isCentro && (
+        <Field label="Etapa">
+          <select value={form.stage} onChange={e => set('stage', e.target.value)}>
+            {STAGE_OPTIONS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+          </select>
+        </Field>
+      )}
       {!form.prazo && form.text.trim() && (
         <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>
           <i className="ti ti-alert-triangle" style={{ marginRight: 4 }} />

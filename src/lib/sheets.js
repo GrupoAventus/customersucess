@@ -131,11 +131,15 @@ export async function fetchDemands() {
 
 export async function addDemand(demand) {
   const result = await callPost({ action: 'addDemand', ...demand })
-  return { ...demand, id: result.id, done: false }
+  return { ...demand, id: result.id, done: false, stage: result.stage || demand.stage || 'demandas' }
 }
 
 export async function toggleDemandSheet(demand) {
   await callPost({ action: 'toggleDemand', id: demand.id, done: demand.done })
+}
+
+export async function setDemandStageSheet(id, stage) {
+  await callPost({ action: 'setDemandStage', id, stage })
 }
 
 export async function deleteDemandSheet(id) {

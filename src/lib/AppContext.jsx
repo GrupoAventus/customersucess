@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
 import { notifyNewClient, notifyNewDemand, notifyAlert } from './whatsapp'
-import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet, setClientPrioritySheet, setClientFinanceSheet, setClientCardSheet, fetchPendingSales, markPendingDoneSheet, fetchTimeline, setTimelineEntrySheet, fetchReports, addReportSheet, deleteReportSheet, fetchAgenda, addAgendaSheet, toggleAgendaSheet, deleteAgendaSheet, fetchAlerts, addAlertSheet, dismissAlertSheet, fetchPipeline, setPipelineStepSheet, fetchMetaStatus } from './sheets'
+import { fetchClients, fetchDemands, addClient, addDemand, updateClient, toggleDemandSheet, setDemandStageSheet, incrementSocialPost, updateClientStatus, updateClientNotes, cancelClientSheet, deleteClientSheet, deleteDemandSheet, setClientPrioritySheet, setClientFinanceSheet, setClientCardSheet, fetchPendingSales, markPendingDoneSheet, fetchTimeline, setTimelineEntrySheet, fetchReports, addReportSheet, deleteReportSheet, fetchAgenda, addAgendaSheet, toggleAgendaSheet, deleteAgendaSheet, fetchAlerts, addAlertSheet, dismissAlertSheet, fetchPipeline, setPipelineStepSheet, fetchMetaStatus } from './sheets'
 
 const AppContext = createContext(null)
 
@@ -267,6 +267,11 @@ export function AppProvider({ children }) {
     }))
   }
 
+  const setDemandStage = async (demandId, stage) => {
+    setDemands(prev => prev.map(d => d.id === demandId ? { ...d, stage } : d))
+    if (useSheets) setDemandStageSheet(demandId, stage).catch(console.error)
+  }
+
   const registerSocialPost = async (clientId) => {
     const currentWeek = getCurrentWeek()
     setClients(prev => prev.map(c => {
@@ -516,7 +521,7 @@ export function AppProvider({ children }) {
       clients: activeClients, allClients: clients, cancelledClients,
       demands, loading, loggedIn, isAdmin, pendingSales, reports, agenda, notifications, alerts, pipeline, aiInsights, setAiInsights,
       metaStatusMap,
-      createClient, createDemand, toggleDemand, registerSocialPost, editClient,
+      createClient, createDemand, toggleDemand, setDemandStage, registerSocialPost, editClient,
       createReport, deleteReport,
       createAgendaItem, toggleAgendaItem, deleteAgendaItem,
       setPipelineStep, getClientPipeline,
