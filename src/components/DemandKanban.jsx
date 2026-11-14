@@ -6,7 +6,7 @@ import NewDemandModal from './NewDemandModal'
 const STAGES = [
   { id: 'demandas',             label: 'Demandas',                   color: '#888',    bg: '#161616' },
   { id: 'em_producao',          label: 'Em produção',                color: '#f59e0b', bg: '#1a1500' },
-  { id: 'aguardando_aprovacao', label: 'Finalizado / Ag. aprovação', color: '#3b82f6', bg: '#001020' },
+  { id: 'aguardando_aprovacao', label: 'Ag. aprovação',              color: '#3b82f6', bg: '#001020' },
   { id: 'alteracao',            label: 'Alteração',                  color: '#e24b4a', bg: '#1a0808' },
   { id: 'aprovado',             label: 'Aprovado',                   color: '#22c55e', bg: '#001a08' },
 ]
@@ -16,71 +16,87 @@ const TODAY = new Date().toISOString().slice(0, 10)
 function ProgressBar({ pct }) {
   const color = pct === 100 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#e24b4a'
   return (
-    <div style={{ height: 3, background: '#1f1f1f', borderRadius: 4, overflow: 'hidden', marginTop: 5 }}>
+    <div style={{ height: 3, background: '#222', borderRadius: 4, overflow: 'hidden', marginTop: 4 }}>
       <div style={{ height: '100%', borderRadius: 4, width: `${pct}%`, background: color, transition: 'width 0.3s' }} />
     </div>
   )
 }
 
-function StageArrows({ demand, onStageChange }) {
-  const idx = STAGES.findIndex(s => s.id === (demand.stage || 'demandas'))
-  return (
-    <div style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
-      {idx > 0 && (
-        <button title={STAGES[idx - 1].label} onClick={() => onStageChange(STAGES[idx - 1].id)}
-          style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', padding: '0 3px', fontSize: 13, lineHeight: 1 }}>‹</button>
-      )}
-      {idx < STAGES.length - 1 && (
-        <button title={STAGES[idx + 1].label} onClick={() => onStageChange(STAGES[idx + 1].id)}
-          style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', padding: '0 3px', fontSize: 13, lineHeight: 1 }}>›</button>
-      )}
-    </div>
-  )
-}
-
-function DemandRow({ demand, onOpen, onToggle, onStageChange, onDelete }) {
+function DemandItem({ demand, onOpen, onToggle, onStageChange, onDelete }) {
   const isOverdue = !demand.done && demand.prazo && demand.prazo < TODAY
+  const idx = STAGES.findIndex(s => s.id === (demand.stage || 'demandas'))
+
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 7,
-      padding: '5px 0',
-      borderBottom: '1px solid #1a1a1a',
-      background: isOverdue ? 'rgba(226,75,74,0.04)' : 'transparent',
+      background: '#0d0d0d',
+      border: `1px solid ${isOverdue ? '#3a1010' : '#1c1c1c'}`,
+      borderRadius: 6,
+      padding: '6px 7px',
+      marginBottom: 5,
     }}>
-      {/* Checkbox */}
-      <button onClick={onToggle} style={{
-        width: 14, height: 14, borderRadius: 3, flexShrink: 0,
-        border: `1.5px solid ${demand.done ? '#22c55e' : '#333'}`,
-        background: demand.done ? '#22c55e' : 'transparent',
-        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
-      }}>
-        {demand.done && <i className="ti ti-check" style={{ fontSize: 9, color: '#000' }} />}
-      </button>
-
-      {/* Texto */}
-      <span onClick={onOpen} style={{
-        flex: 1, fontSize: 11, color: demand.done ? '#3a3a3a' : '#ccc',
-        textDecoration: demand.done ? 'line-through' : 'none',
-        cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-      }}>{demand.text}</span>
-
-      {/* Prazo */}
-      {demand.prazo && (
-        <span style={{ fontSize: 10, color: isOverdue ? '#e24b4a' : '#333', flexShrink: 0, whiteSpace: 'nowrap' }}>
-          {isOverdue && <i className="ti ti-alert-triangle" style={{ marginRight: 2 }} />}
-          {demand.prazo.slice(5)} {/* mostra MM-DD */}
-        </span>
-      )}
-
-      {/* Setas de stage */}
-      <StageArrows demand={demand} onStageChange={onStageChange} />
-
-      {/* Delete */}
-      {onDelete && (
-        <button onClick={onDelete} style={{ background: 'none', border: 'none', color: '#252525', cursor: 'pointer', padding: 0, flexShrink: 0 }}>
-          <i className="ti ti-x" style={{ fontSize: 10 }} />
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+        {/* Checkbox */}
+        <button onClick={onToggle} style={{
+          width: 13, height: 13, borderRadius: 3, flexShrink: 0, marginTop: 1,
+          border: `1.5px solid ${demand.done ? '#22c55e' : '#2e2e2e'}`,
+          background: demand.done ? '#22c55e' : 'transparent',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+        }}>
+          {demand.done && <i className="ti ti-check" style={{ fontSize: 8, color: '#000' }} />}
         </button>
-      )}
+
+        {/* Texto — trunca em 2 linhas */}
+        <span onClick={onOpen} style={{
+          flex: 1,
+          fontSize: 11,
+          lineHeight: 1.4,
+          color: demand.done ? '#3a3a3a' : '#bbb',
+          textDecoration: demand.done ? 'line-through' : 'none',
+          cursor: 'pointer',
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+          wordBreak: 'break-word',
+        }}>
+          {demand.text}
+        </span>
+      </div>
+
+      {/* Rodapé: prazo + setas + delete */}
+      <div style={{ display: 'flex', alignItems: 'center', marginTop: 4, gap: 4 }}>
+        {demand.prazo && (
+          <span style={{ fontSize: 9, color: isOverdue ? '#e24b4a' : '#333', flex: 1 }}>
+            {isOverdue && '⚠ '}
+            {demand.prazo.slice(5)}
+          </span>
+        )}
+        {!demand.prazo && <span style={{ flex: 1 }} />}
+
+        {/* Seta esquerda */}
+        {idx > 0 && (
+          <button onClick={() => onStageChange(STAGES[idx - 1].id)}
+            title={`← ${STAGES[idx - 1].label}`}
+            style={{ background: 'none', border: 'none', color: '#333', cursor: 'pointer', padding: '0 2px', fontSize: 12, lineHeight: 1 }}>
+            ‹
+          </button>
+        )}
+        {/* Seta direita */}
+        {idx < STAGES.length - 1 && (
+          <button onClick={() => onStageChange(STAGES[idx + 1].id)}
+            title={`→ ${STAGES[idx + 1].label}`}
+            style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', padding: '0 2px', fontSize: 12, lineHeight: 1 }}>
+            ›
+          </button>
+        )}
+
+        {onDelete && (
+          <button onClick={onDelete}
+            style={{ background: 'none', border: 'none', color: '#252525', cursor: 'pointer', padding: '0 1px', fontSize: 10 }}>
+            <i className="ti ti-x" />
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -95,7 +111,6 @@ function ClientCard({ client, demands, stageId, destLabel }) {
   const total  = demands.length
   const pct    = total === 0 ? 0 : Math.round((done.length / total) * 100)
 
-  // Ordena ativas: prazo mais próximo primeiro, sem prazo por último
   const sorted = [...active].sort((a, b) => {
     if (!a.prazo && !b.prazo) return 0
     if (!a.prazo) return 1
@@ -105,42 +120,48 @@ function ClientCard({ client, demands, stageId, destLabel }) {
 
   return (
     <div style={{
-      background: '#111', border: '1px solid #1f1f1f', borderRadius: 8,
-      marginBottom: 8, overflow: 'hidden',
+      background: '#111',
+      border: '1px solid #1f1f1f',
+      borderRadius: 8,
+      marginBottom: 8,
+      padding: '8px 8px 6px',
     }}>
       {/* Header */}
-      <div style={{ padding: '8px 10px 6px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#ccc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {client.name}
-          </span>
-          <span style={{ fontSize: 10, color: '#444', flexShrink: 0 }}>{done.length}/{total}</span>
-        </div>
-        <ProgressBar pct={pct} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 1 }}>
+        <span style={{
+          fontSize: 11, fontWeight: 600, color: '#ccc',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
+        }}>
+          {client.name}
+        </span>
+        <span style={{ fontSize: 9, color: '#333', flexShrink: 0, marginLeft: 6 }}>
+          {done.length}/{total}
+        </span>
       </div>
+      <ProgressBar pct={pct} />
 
-      {/* Demandas */}
-      <div style={{ padding: '0 10px' }}>
+      {/* Lista de demandas */}
+      <div style={{ marginTop: 8 }}>
         {sorted.map(d => (
-          <DemandRow
+          <DemandItem
             key={d.id}
             demand={d}
             onOpen={() => setSelected(d)}
             onToggle={() => toggleDemand(d.id)}
             onStageChange={s => setDemandStage(d.id, s)}
-            onDelete={isAdmin ? () => { if (window.confirm(`Excluir "${d.text}"?`)) deleteDemand(d.id) } : null}
+            onDelete={isAdmin ? () => { if (window.confirm(`Excluir?`)) deleteDemand(d.id) } : null}
           />
         ))}
-
-        {/* Botão adicionar */}
-        <button onClick={() => setAdding(true)} style={{
-          display: 'flex', alignItems: 'center', gap: 4,
-          background: 'none', border: 'none', color: '#2a2a2a',
-          cursor: 'pointer', fontSize: 11, padding: '6px 0', width: '100%',
-        }}>
-          <i className="ti ti-plus" style={{ fontSize: 11 }} /> demanda
-        </button>
       </div>
+
+      {/* Botão + */}
+      <button onClick={() => setAdding(true)} style={{
+        display: 'flex', alignItems: 'center', gap: 4,
+        background: 'none', border: 'none', color: '#2a2a2a',
+        cursor: 'pointer', fontSize: 10, padding: '2px 0',
+      }}>
+        <i className="ti ti-plus" style={{ fontSize: 10 }} /> demanda
+      </button>
 
       {selected && <DemandDetailModal demand={selected} onClose={() => setSelected(null)} />}
       {adding && (
@@ -158,14 +179,12 @@ function ClientCard({ client, demands, stageId, destLabel }) {
 export default function DemandKanban({ demands, destLabel }) {
   const { clients } = useApp()
 
-  // Para cada coluna: clientes com pelo menos 1 demanda ativa (não done) naquela coluna
   const getClientsForStage = (stageId) => {
     const clientIds = [...new Set(
       demands
         .filter(d => (d.stage || 'demandas') === stageId && !d.done)
         .map(d => d.clientId)
     )]
-
     return clientIds
       .map(id => ({
         client:  clients.find(c => c.id === id),
@@ -173,11 +192,8 @@ export default function DemandKanban({ demands, destLabel }) {
       }))
       .filter(x => x.client)
       .sort((a, b) => {
-        const aActive = a.demands.filter(d => !d.done)
-        const bActive = b.demands.filter(d => !d.done)
-        // Prazo mais próximo primeiro
-        const aMin = aActive.filter(d => d.prazo).map(d => d.prazo).sort()[0] || '9999'
-        const bMin = bActive.filter(d => d.prazo).map(d => d.prazo).sort()[0] || '9999'
+        const aMin = a.demands.filter(d => !d.done && d.prazo).map(d => d.prazo).sort()[0] || '9999'
+        const bMin = b.demands.filter(d => !d.done && d.prazo).map(d => d.prazo).sort()[0] || '9999'
         return aMin.localeCompare(bMin)
       })
   }
@@ -199,28 +215,33 @@ export default function DemandKanban({ demands, destLabel }) {
 
         return (
           <div key={stage.id} style={{
-            background: stage.bg, borderRadius: 10,
-            padding: '10px 8px 6px',
+            background: stage.bg,
+            borderRadius: 10,
+            padding: '8px 7px 4px',
             minHeight: 60,
           }}>
             {/* Header coluna */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              marginBottom: 10, paddingBottom: 8,
+              marginBottom: 10, paddingBottom: 7,
               borderBottom: `1px solid ${stage.color}22`,
             }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: stage.color, letterSpacing: '0.03em', lineHeight: 1.3 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: stage.color, letterSpacing: '0.03em' }}>
                 {stage.label}
               </span>
               {totalActive > 0 && (
-                <span style={{ fontSize: 10, color: stage.color, background: `${stage.color}22`, borderRadius: 20, padding: '1px 6px', flexShrink: 0 }}>
+                <span style={{
+                  fontSize: 9, color: stage.color,
+                  background: `${stage.color}22`,
+                  borderRadius: 20, padding: '1px 5px', flexShrink: 0,
+                }}>
                   {totalActive}
                 </span>
               )}
             </div>
 
             {colClients.length === 0
-              ? <div style={{ color: '#1f1f1f', fontSize: 11, textAlign: 'center', padding: '8px 0' }}>—</div>
+              ? <div style={{ color: '#1f1f1f', fontSize: 10, textAlign: 'center', padding: '8px 0' }}>—</div>
               : colClients.map(({ client, demands: cDemands }) => (
                   <ClientCard
                     key={client.id}
