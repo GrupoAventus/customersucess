@@ -9,6 +9,7 @@ const STAGE_OPTIONS = [
   { id: 'em_producao',          label: 'Em produção' },
   { id: 'aguardando_aprovacao', label: 'Finalizado / Ag. aprovação' },
   { id: 'alteracao',            label: 'Alteração' },
+  { id: 'aprovado',             label: 'Aprovado' },
 ]
 
 export default function NewDemandModal({ defaultClientId, defaultDest, defaultStage, onClose }) {
