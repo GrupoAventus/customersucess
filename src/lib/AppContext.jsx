@@ -92,6 +92,8 @@ export function AppProvider({ children }) {
   const [alerts, setAlerts] = useState([])
   const [pipeline, setPipeline] = useState([])
   const [aiInsights, setAiInsights] = useState([])
+  // Entregas feitas pela IA para demandas (guardadas na aba ai_insights com period = 'ia-demand:<demandId>')
+  const [aiDeliverables, setAiDeliverables] = useState({})
   const [metaStatus, setMetaStatus] = useState([])
 
   const load = useCallback(async () => {
@@ -128,7 +130,15 @@ export function AppProvider({ children }) {
             const url = import.meta.env.VITE_SCRIPT_URL
             const res = await fetch(`${url}?action=getAiInsights`)
             const json = await res.json()
-            if (Array.isArray(json)) setAiInsights(json)
+            if (Array.isArray(json)) {
+              const isDeliv = (i) => String(i.period || '').startsWith('ia-demand:')
+              setAiInsights(json.filter(i => !isDeliv(i)))
+              const map = {}
+              json.filter(isDeliv)
+                .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+                .forEach(i => { map[String(i.period).slice('ia-demand:'.length)] = { html: i.insight || '', createdAt: i.createdAt } })
+              setAiDeliverables(map)
+            }
           } catch (e) { console.error(e) }
         })(),
         (async () => {
@@ -492,6 +502,8 @@ export function AppProvider({ children }) {
   const getClientDemands = (clientId) => demands.filter(d => d.clientId === clientId)
   const getSectionDemands = (dest) => demands.filter(d => d.dest === dest)
 
+  const getDemandAi = (demandId) => aiDeliverables[demandId] || null
+
   const getClientAiInsight = (clientId) => {
     return aiInsights
       .filter(i => i.clientId === clientId)
@@ -531,7 +543,7 @@ export function AppProvider({ children }) {
       login, logout,
       getClientDemands, getSectionDemands, getSocialClients,
       getClientTimeline, setTimelineEntry, getMissingTimelineClients,
-      getClientAiInsight,
+      getClientAiInsight, getDemandAi,
       reload: load, useSheets
     }}>
       {children}

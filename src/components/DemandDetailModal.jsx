@@ -1,8 +1,11 @@
 import { useApp, PRIORITY_COLORS } from '../lib/AppContext'
+import { useState } from 'react'
 import { Modal } from './UI'
+import AiDeliverableModal from './AiDeliverableModal'
 
 export default function DemandDetailModal({ demand, onClose }) {
-  const { clients, toggleDemand } = useApp()
+  const { clients, toggleDemand, getDemandAi } = useApp()
+  const [showAi, setShowAi] = useState(false)
   const client = clients.find(c => c.id === demand.clientId)
   const colors = client ? PRIORITY_COLORS[client.priorityStatus || 'estavel'] : PRIORITY_COLORS.estavel
 
@@ -35,7 +38,13 @@ export default function DemandDetailModal({ demand, onClose }) {
             {demand.done ? '✓ Feita' : '○ Pendente'} — clique para alternar
           </span>
         </div>
+        {getDemandAi(demand.id) && (
+          <button onClick={() => setShowAi(true)} style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(226,160,74,0.12)', border: '0.5px solid var(--orange)', color: 'var(--orange)', borderRadius: 20, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
+            <i className="ti ti-sparkles" /> ver demanda feita pela IA
+          </button>
+        )}
       </div>
+      {showAi && <AiDeliverableModal demand={demand} onClose={() => setShowAi(false)} />}
 
       {/* Client info */}
       {client ? (

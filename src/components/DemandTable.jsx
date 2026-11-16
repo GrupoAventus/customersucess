@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { useApp } from '../lib/AppContext'
 import DemandDetailModal from './DemandDetailModal'
+import AiDeliverableModal from './AiDeliverableModal'
 
 export default function DemandTable({ demands }) {
-  const { toggleDemand, isAdmin, deleteDemand } = useApp()
+  const { toggleDemand, isAdmin, deleteDemand, getDemandAi } = useApp()
   const [selected, setSelected] = useState(null)
+  const [aiView, setAiView] = useState(null)
   const [showHistory, setShowHistory] = useState(false)
 
-  const pending = demands.filter(d => !d.done)
+  const pending = demands.filter(d => !d.done && !getDemandAi(d.id))
+  const awaiting = demands.filter(d => !d.done && getDemandAi(d.id))
   const done = demands.filter(d => d.done)
 
   const isOverdue = (d) => !d.done && d.prazo && d.prazo < new Date().toISOString().slice(0,10)
@@ -25,7 +28,19 @@ export default function DemandTable({ demands }) {
       onMouseLeave={e => e.currentTarget.style.background = isOverdue(d) ? 'rgba(226,75,74,0.08)' : 'transparent'}
     >
       <td style={{ fontSize: 13, color: 'var(--orange)', padding: '8px 10px' }}>{d.clientName}</td>
-      <td style={{ fontSize: 13, color: d.done ? '#444' : '#ccc', padding: '8px 10px', maxWidth: 220, textDecoration: d.done ? 'line-through' : 'none' }}>{d.text}</td>
+      <td style={{ fontSize: 13, color: d.done ? '#444' : '#ccc', padding: '8px 10px', maxWidth: 220, textDecoration: d.done ? 'line-through' : 'none' }}>
+        {d.text}
+        {getDemandAi(d.id) && (
+          <div>
+            <button
+              onClick={(e) => { e.stopPropagation(); setAiView(d) }}
+              style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(226,160,74,0.12)', border: '0.5px solid var(--orange)', color: 'var(--orange)', borderRadius: 20, padding: '3px 10px', fontSize: 11, cursor: 'pointer' }}
+            >
+              <i className="ti ti-sparkles" /> ver demanda feita pela IA
+            </button>
+          </div>
+        )}
+      </td>
       <td style={{ fontSize: 13, padding: '8px 10px', whiteSpace: 'nowrap', color: isOverdue(d) ? 'var(--red)' : '#444', fontWeight: isOverdue(d) ? 500 : 400 }}>
         {isOverdue(d) && <i className="ti ti-alert-triangle" style={{ marginRight: 4 }} />}
         {d.prazo || '—'}
@@ -33,10 +48,10 @@ export default function DemandTable({ demands }) {
       <td style={{ padding: '8px 10px' }}>
         <span onClick={(e) => { e.stopPropagation(); toggleDemand(d.id) }} style={{
           fontSize: 11, cursor: 'pointer',
-          color: d.done ? 'var(--green)' : 'var(--amber)',
-          background: d.done ? 'var(--green-bg)' : 'var(--amber-bg)',
-          padding: '2px 8px', borderRadius: 20
-        }}>{d.done ? 'Feita' : 'Pendente'}</span>
+          color: d.done ? 'var(--green)' : (getDemandAi(d.id) ? '#7ab8ff' : 'var(--amber)'),
+          background: d.done ? 'var(--green-bg)' : (getDemandAi(d.id) ? 'rgba(122,184,255,0.12)' : 'var(--amber-bg)'),
+          padding: '2px 8px', borderRadius: 20, whiteSpace: 'nowrap'
+        }}>{d.done ? 'Feita' : (getDemandAi(d.id) ? 'Aguardando aprovação' : 'Pendente')}</span>
       </td>
       <td style={{ padding: '8px 10px', width: 32 }}>
         {isAdmin && (
@@ -68,6 +83,17 @@ export default function DemandTable({ demands }) {
         </tbody>
       </table>
 
+      {awaiting.length > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 12, color: '#7ab8ff', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <i className="ti ti-sparkles" /> Finalizadas pela IA — aguardando aprovação ({awaiting.length})
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <tbody>{awaiting.map(renderRow)}</tbody>
+          </table>
+        </div>
+      )}
+
       {done.length > 0 && (
         <div style={{ marginTop: 12 }}>
           <button
@@ -85,6 +111,7 @@ export default function DemandTable({ demands }) {
         </div>
       )}
 
+      {aiView && <AiDeliverableModal demand={aiView} onClose={() => setAiView(null)} />}
       {selected && <DemandDetailModal demand={selected} onClose={() => setSelected(null)} />}
     </>
   )
