@@ -122,6 +122,8 @@ export async function fetchDemands() {
       dest: r.dest || '',
       done: r.done === 'TRUE' || r.done === true,
       createdAt: r.createdAt || '',
+      // coluna 8 da aba demands (cabeçalho 'stage'; se o cabeçalho estiver em branco, o Apps Script devolve a chave '')
+      stage: r.stage || r[''] || 'demandas',
     }))
   } catch (e) {
     console.error('fetchDemands error:', e)

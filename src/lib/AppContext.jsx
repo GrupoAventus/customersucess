@@ -502,7 +502,12 @@ export function AppProvider({ children }) {
   const getClientDemands = (clientId) => demands.filter(d => d.clientId === clientId)
   const getSectionDemands = (dest) => demands.filter(d => d.dest === dest)
 
-  const getDemandAi = (demandId) => aiDeliverables[demandId] || null
+  // Entregas da IA só valem para demandas dos Centros criativos
+  const getDemandAi = (demandId) => {
+    const d = demands.find(x => x.id === demandId)
+    if (!d || !String(d.dest || '').startsWith('Centro criativo')) return null
+    return aiDeliverables[demandId] || null
+  }
 
   const getClientAiInsight = (clientId) => {
     return aiInsights

@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useApp } from '../lib/AppContext'
 import DemandDetailModal from './DemandDetailModal'
+import AiDeliverableModal from './AiDeliverableModal'
 import NewDemandModal from './NewDemandModal'
 
 const STAGES = [
@@ -24,6 +25,9 @@ function ProgressBar({ pct }) {
 
 /* ── Demand pill (draggable) ── */
 function DemandPill({ demand, onOpen, onToggle, onDelete, dragging, dragHandlers }) {
+  const { getDemandAi } = useApp()
+  const [showAi, setShowAi] = useState(false)
+  const hasAi = !!getDemandAi(demand.id)
   const isOverdue = !demand.done && demand.prazo && demand.prazo < TODAY
 
   return (
@@ -79,6 +83,17 @@ function DemandPill({ demand, onOpen, onToggle, onDelete, dragging, dragHandlers
       >
         {demand.text}
       </span>
+      {hasAi && (
+        <button
+          onMouseDown={e => e.stopPropagation()}
+          onClick={e => { e.stopPropagation(); setShowAi(true) }}
+          title="ver demanda feita pela IA"
+          style={{ flexShrink: 0, background: 'rgba(226,160,74,0.12)', border: '0.5px solid var(--orange)', color: 'var(--orange)', borderRadius: 20, padding: '1px 7px', fontSize: 9, cursor: 'pointer', whiteSpace: 'nowrap' }}
+        >
+          <i className="ti ti-sparkles" /> ver demanda feita pela IA
+        </button>
+      )}
+      {showAi && <AiDeliverableModal demand={demand} onClose={() => setShowAi(false)} />}
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
         {demand.prazo && (

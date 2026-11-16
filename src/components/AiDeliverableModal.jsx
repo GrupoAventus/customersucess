@@ -4,7 +4,7 @@ import { Modal, Btn } from './UI'
 
 // Mostra a entrega (HTML) que a IA deixou pronta para uma demanda.
 export default function AiDeliverableModal({ demand, onClose }) {
-  const { getDemandAi, toggleDemand } = useApp()
+  const { getDemandAi, toggleDemand, setDemandStage } = useApp()
   const [copied, setCopied] = useState(false)
   const ai = getDemandAi(demand.id)
   if (!ai) return null
@@ -32,7 +32,7 @@ export default function AiDeliverableModal({ demand, onClose }) {
         <span style={{ flex: 1 }} />
         {demand.done
           ? <span style={{ fontSize: 12, color: 'var(--green)' }}>✓ Aprovada e marcada como feita</span>
-          : <Btn primary onClick={() => { toggleDemand(demand.id); onClose() }}><i className="ti ti-check" /> Aprovar e marcar como feita</Btn>}
+          : <Btn primary onClick={() => { setDemandStage(demand.id, 'aprovado'); toggleDemand(demand.id); onClose() }}><i className="ti ti-check" /> Aprovar e marcar como feita</Btn>}
       </div>
     </Modal>
   )
