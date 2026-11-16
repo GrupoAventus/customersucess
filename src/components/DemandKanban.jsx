@@ -9,7 +9,6 @@ const STAGES = [
   { id: 'em_producao',          label: 'Em produção',     color: '#f59e0b', bg: '#1a1500' },
   { id: 'aguardando_aprovacao', label: 'Ag. aprovação',   color: '#3b82f6', bg: '#001020' },
   { id: 'alteracao',            label: 'Alteração',       color: '#e24b4a', bg: '#1a0808' },
-  { id: 'aprovado',             label: 'Aprovado',        color: '#22c55e', bg: '#001a08' },
 ]
 
 const TODAY = new Date().toISOString().slice(0, 10)
@@ -87,10 +86,10 @@ function DemandPill({ demand, onOpen, onToggle, onDelete, dragging, dragHandlers
         <button
           onMouseDown={e => e.stopPropagation()}
           onClick={e => { e.stopPropagation(); setShowAi(true) }}
-          title="ver demanda feita pela IA"
+          title="ver demanda"
           style={{ flexShrink: 0, background: 'rgba(226,160,74,0.12)', border: '0.5px solid var(--orange)', color: 'var(--orange)', borderRadius: 20, padding: '1px 7px', fontSize: 9, cursor: 'pointer', whiteSpace: 'nowrap' }}
         >
-          <i className="ti ti-sparkles" /> ver demanda feita pela IA
+          <i className="ti ti-file-text" /> ver demanda
         </button>
       )}
       {showAi && <AiDeliverableModal demand={demand} onClose={() => setShowAi(false)} />}
@@ -239,7 +238,9 @@ function ClientCard({ client, demands, stageId, destLabel, onDragStart, onDragEn
 
 /* ── Main kanban ── */
 export default function DemandKanban({ demands, destLabel }) {
-  const { clients, setDemandStage } = useApp()
+  const { clients, setDemandStage, toggleDemand, getDemandAi } = useApp()
+  const [showApproved, setShowApproved] = useState(false)
+  const [viewDemand, setViewDemand] = useState(null)
   const [draggingDemand, setDraggingDemand] = useState(null)
   const [dragOverStage, setDragOverStage]   = useState(null)
   const [dragOverClient, setDragOverClient] = useState(null)
@@ -276,10 +277,40 @@ export default function DemandKanban({ demands, destLabel }) {
     return <div style={{ color: '#333', fontSize: 13, padding: '16px 0' }}>Nenhuma demanda para este centro criativo</div>
   }
 
+  const approved = demands.filter(d => d.done)
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+
   return (
+    <>
+    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8, position: 'relative' }}>
+      <button
+        onClick={() => setShowApproved(v => !v)}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#001a08', border: '1px solid #22c55e44', color: '#22c55e', borderRadius: 8, padding: '5px 12px', fontSize: 11, cursor: 'pointer' }}
+      >
+        <i className="ti ti-circle-check" /> Aprovadas ({approved.length}) <i className={`ti ti-chevron-${showApproved ? 'up' : 'down'}`} />
+      </button>
+      {showApproved && (
+        <div style={{ position: 'absolute', top: 34, right: 0, zIndex: 20, width: 440, maxHeight: 420, overflowY: 'auto', background: '#0b0b0b', border: '1px solid #22c55e33', borderRadius: 10, padding: 8, boxShadow: '0 12px 30px rgba(0,0,0,.6)' }}>
+          {approved.length === 0 && <div style={{ color: '#444', fontSize: 11, padding: 8 }}>Nenhuma demanda aprovada</div>}
+          {approved.map(d => (
+            <div key={d.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 6px', borderBottom: '1px solid #151515' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 10, color: 'var(--orange)' }}>{d.clientName}</div>
+                <div style={{ fontSize: 11, color: '#777', lineHeight: 1.4 }}>{d.text}</div>
+              </div>
+              {getDemandAi(d.id) && (
+                <button onClick={() => setViewDemand(d)} style={{ background: 'none', border: '0.5px solid var(--orange)', color: 'var(--orange)', borderRadius: 20, padding: '1px 8px', fontSize: 9, cursor: 'pointer', whiteSpace: 'nowrap' }}>ver demanda</button>
+              )}
+              <button onClick={() => toggleDemand(d.id)} title="Reabrir" style={{ background: 'none', border: '0.5px solid #333', color: '#888', borderRadius: 20, padding: '1px 8px', fontSize: 9, cursor: 'pointer', whiteSpace: 'nowrap' }}>reabrir</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+    {viewDemand && <AiDeliverableModal demand={viewDemand} onClose={() => setViewDemand(null)} />}
     <div style={{
       display: 'grid',
-      gridTemplateColumns: 'repeat(5, 1fr)',
+      gridTemplateColumns: 'repeat(4, 1fr)',
       gap: 10,
       alignItems: 'start',
     }}>
@@ -345,5 +376,6 @@ export default function DemandKanban({ demands, destLabel }) {
         )
       })}
     </div>
+    </>
   )
 }

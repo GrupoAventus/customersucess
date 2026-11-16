@@ -40,7 +40,7 @@ export default function DemandDetailModal({ demand, onClose }) {
         </div>
         {getDemandAi(demand.id) && (
           <button onClick={() => setShowAi(true)} style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(226,160,74,0.12)', border: '0.5px solid var(--orange)', color: 'var(--orange)', borderRadius: 20, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
-            <i className="ti ti-sparkles" /> ver demanda feita pela IA
+            <i className="ti ti-file-text" /> ver demanda
           </button>
         )}
       </div>

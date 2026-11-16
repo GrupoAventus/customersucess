@@ -92,7 +92,7 @@ export function AppProvider({ children }) {
   const [alerts, setAlerts] = useState([])
   const [pipeline, setPipeline] = useState([])
   const [aiInsights, setAiInsights] = useState([])
-  // Entregas feitas pela IA para demandas (guardadas na aba ai_insights com period = 'ia-demand:<demandId>')
+  // Entregas (HTML) das demandas (guardadas na aba ai_insights com period = 'ia-demand:<demandId>')
   const [aiDeliverables, setAiDeliverables] = useState({})
   const [metaStatus, setMetaStatus] = useState([])
 
@@ -269,12 +269,17 @@ export function AppProvider({ children }) {
   }
 
   const toggleDemand = async (demandId) => {
-    setDemands(prev => prev.map(d => {
-      if (d.id !== demandId) return d
-      const updated = { ...d, done: !d.done }
-      if (useSheets) toggleDemandSheet(updated).catch(console.error)
-      return updated
-    }))
+    const cur = demands.find(d => d.id === demandId)
+    if (!cur) return
+    const nowDone = !cur.done
+    // Feita => vai para 'aprovado'. Reaberta => volta para 'aguardando_aprovacao' (se tem entrega) ou 'demandas'.
+    const hasDeliv = !!aiDeliverables[demandId]
+    const stage = nowDone ? 'aprovado' : (hasDeliv ? 'aguardando_aprovacao' : 'demandas')
+    setDemands(prev => prev.map(d => d.id === demandId ? { ...d, done: nowDone, stage } : d))
+    if (useSheets) {
+      toggleDemandSheet({ ...cur, done: nowDone }).catch(console.error)
+      setDemandStageSheet(demandId, stage).catch(console.error)
+    }
   }
 
   const setDemandStage = async (demandId, stage) => {

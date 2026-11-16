@@ -4,7 +4,7 @@ import { Modal, Btn } from './UI'
 
 // Mostra a entrega (HTML) que a IA deixou pronta para uma demanda.
 export default function AiDeliverableModal({ demand, onClose }) {
-  const { getDemandAi, toggleDemand, setDemandStage } = useApp()
+  const { getDemandAi, toggleDemand } = useApp()
   const [copied, setCopied] = useState(false)
   const ai = getDemandAi(demand.id)
   if (!ai) return null
@@ -18,10 +18,10 @@ export default function AiDeliverableModal({ demand, onClose }) {
   }
 
   return (
-    <Modal title="Demanda feita pela IA" onClose={onClose} width={1040}>
+    <Modal title="Entrega da demanda" onClose={onClose} width={1040}>
       <div style={{ fontSize: 13, color: '#aaa', marginBottom: 10, lineHeight: 1.5 }}>{demand.text}</div>
       <iframe
-        title="Entrega da IA"
+        title="Entrega"
         srcDoc={ai.html}
         sandbox="allow-popups"
         style={{ width: '100%', height: '62vh', border: '0.5px solid var(--border)', borderRadius: 10, background: '#0A0908' }}
@@ -32,7 +32,7 @@ export default function AiDeliverableModal({ demand, onClose }) {
         <span style={{ flex: 1 }} />
         {demand.done
           ? <span style={{ fontSize: 12, color: 'var(--green)' }}>✓ Aprovada e marcada como feita</span>
-          : <Btn primary onClick={() => { setDemandStage(demand.id, 'aprovado'); toggleDemand(demand.id); onClose() }}><i className="ti ti-check" /> Aprovar e marcar como feita</Btn>}
+          : <Btn primary onClick={() => { toggleDemand(demand.id); onClose() }}><i className="ti ti-check" /> Aprovar e marcar como feita</Btn>}
       </div>
     </Modal>
   )

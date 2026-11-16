@@ -36,7 +36,7 @@ export default function DemandTable({ demands }) {
               onClick={(e) => { e.stopPropagation(); setAiView(d) }}
               style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(226,160,74,0.12)', border: '0.5px solid var(--orange)', color: 'var(--orange)', borderRadius: 20, padding: '3px 10px', fontSize: 11, cursor: 'pointer' }}
             >
-              <i className="ti ti-sparkles" /> ver demanda feita pela IA
+              <i className="ti ti-file-text" /> ver demanda
             </button>
           </div>
         )}
@@ -86,7 +86,7 @@ export default function DemandTable({ demands }) {
       {awaiting.length > 0 && (
         <div style={{ marginTop: 16 }}>
           <div style={{ fontSize: 12, color: '#7ab8ff', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <i className="ti ti-sparkles" /> Finalizadas pela IA — aguardando aprovação ({awaiting.length})
+            <i className="ti ti-file-text" /> Aguardando aprovação ({awaiting.length})
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <tbody>{awaiting.map(renderRow)}</tbody>
