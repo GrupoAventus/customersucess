@@ -4,6 +4,7 @@ import ClientCard from '../components/ClientCard'
 import ClientDetail from '../components/ClientDetail'
 import NewDemandModal from '../components/NewDemandModal'
 import DemandTable from '../components/DemandTable'
+import DemandDetailModal from '../components/DemandDetailModal'
 import AlertBanner from '../components/AlertBanner'
 import NotificationBanner from '../components/NotificationBanner'
 import { Btn, SectionHeader } from '../components/UI'
@@ -229,11 +230,23 @@ export default function Squad({ label, title, sectionId }) {
   const [showAlertConfig, setShowAlertConfig] = useState(false)
   const [dragId, setDragId] = useState(null)
   const [squadConfig, setSquadConfig] = useState({})
+  const [nextOpen, setNextOpen] = useState(null)
 
   const squadClients = clients.filter(c => (c.destinos || [c.destino]).includes(label))
   const squadDemands = demands
     .filter(d => d.dest === label)
     .map(d => ({ ...d, clientName: clients.find(c => c.id === d.clientId)?.name || '—' }))
+
+  // Próxima demanda: pendente com o prazo mais próximo (atrasadas primeiro; sem prazo por último)
+  const today = new Date().toISOString().slice(0, 10)
+  const nextDemand = squadDemands
+    .filter(d => !d.done)
+    .sort((a, b) => (a.prazo || '9999-99-99').localeCompare(b.prazo || '9999-99-99'))[0]
+  const daysLeft = nextDemand?.prazo
+    ? Math.round((new Date(nextDemand.prazo + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000)
+    : null
+  const nextLate = daysLeft !== null && daysLeft < 0
+  const nextLabel = daysLeft === null ? 'sem prazo' : daysLeft < 0 ? `atrasada ${-daysLeft} dia${daysLeft === -1 ? '' : 's'}` : daysLeft === 0 ? 'vence hoje' : daysLeft === 1 ? 'vence amanhã' : `vence em ${daysLeft} dias`
 
   // Mapeia label → squadId
   const LABEL_TO_SQUAD = { 'Squad 1': 'squad1', 'Squad 2': 'squad2' }
@@ -292,6 +305,32 @@ export default function Squad({ label, title, sectionId }) {
         }
       />
 
+      {nextDemand && (
+        <div onClick={() => setNextOpen(nextDemand)} style={{
+          cursor: 'pointer', marginBottom: 16, padding: '14px 18px', borderRadius: 12,
+          background: nextLate ? 'rgba(226,75,74,0.10)' : 'rgba(255,107,26,0.10)',
+          border: `1px solid ${nextLate ? 'var(--red)' : 'var(--orange)'}`,
+          display: 'flex', alignItems: 'center', gap: 14
+        }}>
+          <i className="ti ti-target-arrow" style={{ fontSize: 26, color: nextLate ? 'var(--red)' : 'var(--orange)' }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: nextLate ? 'var(--red)' : 'var(--orange)', fontWeight: 600 }}>
+              Próxima demanda a fazer
+            </div>
+            <div style={{ fontSize: 15, color: '#f0f0f0', margin: '3px 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {nextDemand.text}
+            </div>
+            <div style={{ fontSize: 12, color: '#999' }}>
+              {nextDemand.clientName} · prazo {nextDemand.prazo || '—'}
+            </div>
+          </div>
+          <span style={{
+            fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 20, whiteSpace: 'nowrap',
+            color: nextLate ? 'var(--red)' : 'var(--orange)', border: `0.5px solid ${nextLate ? 'var(--red)' : 'var(--orange)'}`
+          }}>{nextLabel}</span>
+        </div>
+      )}
+
       <AlertBanner section={sectionId} />
       <NotificationBanner section={sectionId} />
 
@@ -322,6 +361,7 @@ export default function Squad({ label, title, sectionId }) {
       <div style={{ fontSize: 13, fontWeight: 500, color: '#ccc', marginBottom: 8 }}>Todas as demandas</div>
       <DemandTable demands={squadDemands} />
 
+      {nextOpen && <DemandDetailModal demand={nextOpen} onClose={() => setNextOpen(null)} />}
       {selected && <ClientDetail client={selected} onClose={() => setSelected(null)} />}
       {showDemand && <NewDemandModal defaultDest={label} onClose={() => setShowDemand(false)} />}
 
