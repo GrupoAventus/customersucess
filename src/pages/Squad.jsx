@@ -235,7 +235,7 @@ export default function Squad({ label, title, sectionId }) {
   const squadClients = clients.filter(c => (c.destinos || [c.destino]).includes(label))
   const squadDemands = demands
     .filter(d => d.dest === label)
-    .map(d => ({ ...d, clientName: clients.find(c => c.id === d.clientId)?.name || '—' }))
+    .map(d => ({ ...d, prazo: d.prazo ? String(d.prazo).slice(0, 10) : '', clientName: clients.find(c => c.id === d.clientId)?.name || '—' }))
 
   // Próximas demandas: pendentes por prazo (atrasadas primeiro; sem prazo por último)
   const today = new Date().toISOString().slice(0, 10)
@@ -244,6 +244,7 @@ export default function Squad({ label, title, sectionId }) {
     .sort((a, b) => (a.prazo || '9999-99-99').localeCompare(b.prazo || '9999-99-99'))
   const nextDemand = upcoming[0]
   const followUps = upcoming.slice(1, 3)
+  const fmtDate = (p) => p ? p.split('-').reverse().join('/') : '—'
   const dueInfo = (d) => {
     const n = d.prazo ? Math.round((new Date(d.prazo + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000) : null
     const late = n !== null && n < 0
@@ -326,7 +327,7 @@ export default function Squad({ label, title, sectionId }) {
               {nextDemand.text}
             </div>
             <div style={{ fontSize: 12, color: '#999' }}>
-              {nextDemand.clientName} · prazo {nextDemand.prazo || '—'}
+              {nextDemand.clientName} · prazo {fmtDate(nextDemand.prazo)}
             </div>
           </div>
           <span style={{
@@ -348,7 +349,7 @@ export default function Squad({ label, title, sectionId }) {
                 <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>{i + 2}ª</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, color: '#ddd', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.text}</div>
-                  <div style={{ fontSize: 11, color: '#777' }}>{d.clientName} · prazo {d.prazo || '—'}</div>
+                  <div style={{ fontSize: 11, color: '#777' }}>{d.clientName} · prazo {fmtDate(d.prazo)}</div>
                 </div>
                 <span style={{ fontSize: 11, whiteSpace: 'nowrap', color: info.late ? 'var(--red)' : 'var(--orange)' }}>{info.label}</span>
               </div>
