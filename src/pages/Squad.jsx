@@ -237,16 +237,21 @@ export default function Squad({ label, title, sectionId }) {
     .filter(d => d.dest === label)
     .map(d => ({ ...d, clientName: clients.find(c => c.id === d.clientId)?.name || '—' }))
 
-  // Próxima demanda: pendente com o prazo mais próximo (atrasadas primeiro; sem prazo por último)
+  // Próximas demandas: pendentes por prazo (atrasadas primeiro; sem prazo por último)
   const today = new Date().toISOString().slice(0, 10)
-  const nextDemand = squadDemands
+  const upcoming = squadDemands
     .filter(d => !d.done)
-    .sort((a, b) => (a.prazo || '9999-99-99').localeCompare(b.prazo || '9999-99-99'))[0]
-  const daysLeft = nextDemand?.prazo
-    ? Math.round((new Date(nextDemand.prazo + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000)
-    : null
-  const nextLate = daysLeft !== null && daysLeft < 0
-  const nextLabel = daysLeft === null ? 'sem prazo' : daysLeft < 0 ? `atrasada ${-daysLeft} dia${daysLeft === -1 ? '' : 's'}` : daysLeft === 0 ? 'vence hoje' : daysLeft === 1 ? 'vence amanhã' : `vence em ${daysLeft} dias`
+    .sort((a, b) => (a.prazo || '9999-99-99').localeCompare(b.prazo || '9999-99-99'))
+  const nextDemand = upcoming[0]
+  const followUps = upcoming.slice(1, 3)
+  const dueInfo = (d) => {
+    const n = d.prazo ? Math.round((new Date(d.prazo + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000) : null
+    const late = n !== null && n < 0
+    const label = n === null ? 'sem prazo' : n < 0 ? `atrasada ${-n} dia${n === -1 ? '' : 's'}` : n === 0 ? 'vence hoje' : n === 1 ? 'vence amanhã' : `vence em ${n} dias`
+    return { late, label }
+  }
+  const nextLate = nextDemand ? dueInfo(nextDemand).late : false
+  const nextLabel = nextDemand ? dueInfo(nextDemand).label : ''
 
   // Mapeia label → squadId
   const LABEL_TO_SQUAD = { 'Squad 1': 'squad1', 'Squad 2': 'squad2' }
@@ -328,6 +333,27 @@ export default function Squad({ label, title, sectionId }) {
             fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 20, whiteSpace: 'nowrap',
             color: nextLate ? 'var(--red)' : 'var(--orange)', border: `0.5px solid ${nextLate ? 'var(--red)' : 'var(--orange)'}`
           }}>{nextLabel}</span>
+        </div>
+      )}
+
+      {followUps.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10, margin: '-6px 0 16px' }}>
+          {followUps.map((d, i) => {
+            const info = dueInfo(d)
+            return (
+              <div key={d.id} onClick={() => setNextOpen(d)} style={{
+                cursor: 'pointer', padding: '10px 14px', borderRadius: 10, background: '#0f0f0f',
+                border: `0.5px solid ${info.late ? 'var(--red)' : '#2a2a2a'}`, display: 'flex', alignItems: 'center', gap: 10
+              }}>
+                <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>{i + 2}ª</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: '#ddd', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.text}</div>
+                  <div style={{ fontSize: 11, color: '#777' }}>{d.clientName} · prazo {d.prazo || '—'}</div>
+                </div>
+                <span style={{ fontSize: 11, whiteSpace: 'nowrap', color: info.late ? 'var(--red)' : 'var(--orange)' }}>{info.label}</span>
+              </div>
+            )
+          })}
         </div>
       )}
 
