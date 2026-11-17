@@ -487,6 +487,11 @@ export function AppProvider({ children }) {
     }))
   }
 
+  const refreshAgenda = async () => {
+    if (!useSheets) return
+    try { setAgenda(await fetchAgenda()) } catch (e) { console.error(e) }
+  }
+
   const deleteAgendaItem = async (itemId) => {
     setAgenda(prev => prev.filter(a => a.id !== itemId))
     if (useSheets) { try { await deleteAgendaSheet(itemId) } catch (e) { console.error(e) } }
@@ -545,7 +550,7 @@ export function AppProvider({ children }) {
       metaStatusMap,
       createClient, createDemand, toggleDemand, setDemandStage, registerSocialPost, editClient,
       createReport, deleteReport,
-      createAgendaItem, toggleAgendaItem, deleteAgendaItem,
+      createAgendaItem, toggleAgendaItem, deleteAgendaItem, refreshAgenda,
       setPipelineStep, getClientPipeline,
       setClientStatus, setClientNotes, setClientPriority, setClientFinance, setClientCard, cancelClient,
       unlockAdmin, lockAdmin, deleteClient, deleteDemand, dismissPendingSale, backfillLpEcomDemands,

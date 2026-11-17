@@ -6,6 +6,7 @@ import ReportModal from '../components/ReportModal'
 import AlertModal from '../components/AlertModal'
 import AlertBanner from '../components/AlertBanner'
 import MetricsTab from '../components/MetricsTab'
+import WhatsAppTasks from '../components/WhatsAppTasks'
 
 const SECTIONS_LIST = ['Squad 1', 'Squad 2', 'Centro criativo 1', 'Centro criativo 2']
 const CC_LIST = ['Centro criativo 1', 'Centro criativo 2']
@@ -76,6 +77,8 @@ export default function Dashboard() {
 
       {activeTab === 'metrics' && <MetricsTab />}
       {activeTab === 'overview' && (<>
+
+      <WhatsAppTasks />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: '1.5rem' }}>
         <StatCard label="Total clientes" value={clients.length} />
