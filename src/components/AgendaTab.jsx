@@ -111,7 +111,7 @@ export default function AgendaTab() {
                 fontSize: 14, color: item.done ? '#444' : '#ccc',
                 textDecoration: item.done ? 'line-through' : 'none',
                 marginBottom: 4
-              }}>{item.text}</div>
+              }}>{String(item.text || "").split("|||")[0].trim()}</div>
               <div style={{ display: 'flex', gap: 10, fontSize: 11, color: '#555' }}>
                 {item.prazo && (
                   <span style={{ color: isOverdue(item) ? 'var(--red)' : '#555' }}>

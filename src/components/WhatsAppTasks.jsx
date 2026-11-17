@@ -3,9 +3,11 @@ import { useApp } from '../lib/AppContext'
 
 // Tarefas geradas pela varredura automática do WhatsApp (arquivadas).
 // Ficam na aba "agenda" da planilha com responsavel = "WhatsApp".
-// Prioridade vem no início do texto: 🔴 urgente, 🟠 hoje, 🟡 pode esperar.
+// Formato do texto:  "<emoji prioridade> <tarefa> ||| <rascunho de resposta opcional>"
+//   🔴 urgente · 🟠 responder hoje · 🟡 pode esperar
 
 export const WA_RESPONSAVEL = 'WhatsApp'
+const DRAFT_SEP = '|||'
 
 const GROUPS = [
   { key: 'urgente', emoji: '🔴', label: 'Urgente', color: 'var(--red)', bg: 'var(--red-bg)', icon: 'ti-flame' },
@@ -14,12 +16,16 @@ const GROUPS = [
 ]
 
 function parse(item) {
-  const text = String(item.text || '').trim()
-  const g = GROUPS.find(x => text.startsWith(x.emoji))
+  const raw = String(item.text || '').trim()
+  const [head, ...rest] = raw.split(DRAFT_SEP)
+  const title = head.trim()
+  const draft = rest.join(DRAFT_SEP).trim()
+  const g = GROUPS.find(x => title.startsWith(x.emoji))
   return {
     ...item,
     group: g ? g.key : 'depois',
-    clean: g ? text.slice(g.emoji.length).trim() : text,
+    clean: g ? title.slice(g.emoji.length).trim() : title,
+    draft,
   }
 }
 
@@ -32,43 +38,110 @@ function Chevron({ open, size = 14 }) {
   )
 }
 
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    let ok = false
+    try { ok = document.execCommand('copy') } catch { ok = false }
+    document.body.removeChild(ta)
+    return ok
+  }
+}
+
+function DraftBox({ draft, color }) {
+  const [copied, setCopied] = useState(false)
+
+  const copy = async (e) => {
+    e.stopPropagation()
+    const ok = await copyText(draft)
+    if (ok) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    }
+  }
+
+  return (
+    <div style={{ margin: '2px 14px 10px 46px', background: '#0c0c0c', border: '0.5px solid #262626', borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderBottom: '0.5px solid #1f1f1f' }}>
+        <span style={{ fontSize: 11, color: '#777', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <i className="ti ti-message-2" /> Rascunho de resposta
+        </span>
+        <button onClick={copy}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 600,
+            padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
+            border: `0.5px solid ${copied ? 'var(--green)' : color}`,
+            background: copied ? 'var(--green-bg)' : 'transparent',
+            color: copied ? 'var(--green)' : color, transition: 'all 0.15s',
+          }}>
+          <i className={`ti ${copied ? 'ti-check' : 'ti-copy'}`} />
+          {copied ? 'Copiado' : 'Copiar'}
+        </button>
+      </div>
+      <div style={{ padding: '10px 12px', fontSize: 13, lineHeight: 1.55, color: '#cfcfcf', whiteSpace: 'pre-wrap' }}>
+        {draft}
+      </div>
+    </div>
+  )
+}
+
 function TaskRow({ task, color, onDone }) {
   const [hover, setHover] = useState(false)
   const [leaving, setLeaving] = useState(false)
+  const [showDraft, setShowDraft] = useState(false)
+  const hasDraft = !!task.draft
 
-  const done = () => {
+  const done = (e) => {
+    e.stopPropagation()
     setLeaving(true)
     setTimeout(onDone, 250)
   }
 
   return (
-    <div
+    <div style={{
+      borderRadius: 8, background: hover || showDraft ? 'var(--bg-hover)' : 'transparent',
+      opacity: leaving ? 0 : 1, transition: 'all 0.2s',
+    }}
       onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '10px 14px', borderRadius: 8,
-        background: hover ? 'var(--bg-hover)' : 'transparent',
-        opacity: leaving ? 0 : 1, transition: 'all 0.2s',
-      }}>
-      <button
-        onClick={done}
-        title="Marcar como feito"
-        style={{
-          width: 20, height: 20, minWidth: 20, borderRadius: 6, padding: 0,
-          border: `1.5px solid ${hover || leaving ? color : '#3a3a3a'}`,
-          background: leaving ? color : 'transparent',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', transition: 'all 0.15s',
+      onMouseLeave={() => setHover(false)}>
+      <div
+        onClick={() => hasDraft && setShowDraft(s => !s)}
+        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', cursor: hasDraft ? 'pointer' : 'default' }}>
+        <button
+          onClick={done}
+          title="Marcar como feito"
+          style={{
+            width: 20, height: 20, minWidth: 20, borderRadius: 6, padding: 0,
+            border: `1.5px solid ${hover || leaving ? color : '#3a3a3a'}`,
+            background: leaving ? color : 'transparent',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', transition: 'all 0.15s',
+          }}>
+          {(hover || leaving) && <i className="ti ti-check" style={{ fontSize: 13, color: leaving ? '#000' : color }} />}
+        </button>
+        <span style={{
+          flex: 1, fontSize: 13.5, lineHeight: 1.45, color: '#e6e6e6',
+          textDecoration: leaving ? 'line-through' : 'none',
         }}>
-        {(hover || leaving) && <i className="ti ti-check" style={{ fontSize: 13, color: leaving ? '#000' : color }} />}
-      </button>
-      <span style={{
-        flex: 1, fontSize: 13.5, lineHeight: 1.45, color: '#e6e6e6',
-        textDecoration: leaving ? 'line-through' : 'none',
-      }}>
-        {task.clean}
-      </span>
+          {task.clean}
+        </span>
+        {hasDraft && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: showDraft ? color : '#666' }}>
+            <i className="ti ti-message-2" style={{ fontSize: 14 }} />
+            {showDraft ? 'Fechar' : 'Ver resposta'}
+            <Chevron open={showDraft} size={12} />
+          </span>
+        )}
+      </div>
+      {hasDraft && showDraft && <DraftBox draft={task.draft} color={color} />}
     </div>
   )
 }
@@ -76,6 +149,7 @@ function TaskRow({ task, color, onDone }) {
 function Group({ group, tasks, onDone }) {
   const [open, setOpen] = useState(group.key !== 'depois')
   if (tasks.length === 0) return null
+  const drafts = tasks.filter(t => t.draft).length
 
   return (
     <div style={{ border: '0.5px solid #1f1f1f', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-card)' }}>
@@ -88,6 +162,11 @@ function Group({ group, tasks, onDone }) {
         }}>
         <i className={`ti ${group.icon}`} style={{ fontSize: 16, color: group.color }} />
         <span style={{ fontSize: 13, fontWeight: 600, color: '#ddd', flex: 1 }}>{group.label}</span>
+        {drafts > 0 && (
+          <span style={{ fontSize: 11, color: '#777', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <i className="ti ti-message-2" /> {drafts}
+          </span>
+        )}
         <span style={{
           fontSize: 11, fontWeight: 600, color: group.color, background: group.bg,
           padding: '2px 9px', borderRadius: 20,
