@@ -7,6 +7,7 @@ import { useApp } from '../lib/AppContext'
 //   🔴 urgente · 🟠 responder hoje · 🟡 pode esperar
 
 export const WA_RESPONSAVEL = 'WhatsApp'
+export const WA_BRIEFING = 'WhatsAppBriefing'
 const DRAFT_SEP = '|||'
 
 const GROUPS = [
@@ -185,6 +186,46 @@ function Group({ group, tasks, onDone }) {
   )
 }
 
+function Briefing({ item }) {
+  const [open, setOpen] = useState(true)
+  if (!item) return null
+  const when = item.createdAt ? new Date(item.createdAt) : null
+  const lines = String(item.text || '').split('\n').map(l => l.trimEnd())
+
+  return (
+    <div style={{ border: '0.5px solid #2a2a2a', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-card)' }}>
+      <button onClick={() => setOpen(o => !o)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px',
+          background: 'transparent', border: 'none', borderLeft: '3px solid #6b8afd', cursor: 'pointer', textAlign: 'left',
+        }}>
+        <i className="ti ti-sun" style={{ fontSize: 16, color: '#8fa6ff' }} />
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#ddd', flex: 1 }}>Briefing</span>
+        {when && (
+          <span style={{ fontSize: 11, color: '#666' }}>
+            {when.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} · {when.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        )}
+        <Chevron open={open} />
+      </button>
+      {open && (
+        <div style={{ padding: '10px 16px 14px', borderTop: '0.5px solid #1f1f1f', display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {lines.map((l, i) => {
+            const isHeader = /^(📅|🔴|📉|🗓|☀️|⏸️|Total)/.test(l.trim())
+            return l.trim() === '' ? <div key={i} style={{ height: 6 }} /> : (
+              <div key={i} style={{
+                fontSize: 13, lineHeight: 1.5,
+                color: isHeader ? '#eee' : '#bbb', fontWeight: isHeader ? 600 : 400,
+                paddingLeft: isHeader ? 0 : 14, marginTop: isHeader && i > 0 ? 6 : 0,
+              }}>{l.trim()}</div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function WhatsAppTasks() {
   const { agenda, toggleAgendaItem, refreshAgenda } = useApp()
   const [open, setOpen] = useState(true)
@@ -214,6 +255,10 @@ export default function WhatsAppTasks() {
     .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
 
   const urgentes = tasks.filter(t => t.group === 'urgente').length
+
+  const briefing = (agenda || [])
+    .filter(a => a.responsavel === WA_BRIEFING)
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0]
 
   return (
     <div style={{ marginBottom: '1.5rem' }}>
@@ -253,6 +298,7 @@ export default function WhatsAppTasks() {
           padding: 12, background: '#0f0f0f', border: '0.5px solid #1f1f1f', borderTop: 'none',
           borderRadius: '0 0 10px 10px', display: 'flex', flexDirection: 'column', gap: 10,
         }}>
+          <Briefing item={briefing} />
           {tasks.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#555', padding: '8px 4px' }}>
               <i className="ti ti-circle-check" style={{ color: 'var(--green)', fontSize: 16 }} />

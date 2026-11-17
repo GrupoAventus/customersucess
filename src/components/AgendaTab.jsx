@@ -23,7 +23,7 @@ export default function AgendaTab() {
   const today = new Date().toISOString().slice(0, 10)
   const isOverdue = (item) => !item.done && item.prazo && item.prazo < today
 
-  const sorted = [...(agenda || [])]
+  const sorted = [...(agenda || [])].filter(item => item.responsavel !== 'WhatsAppBriefing')
     .filter(item => filter === 'all' ? true : filter === 'done' ? item.done : !item.done)
     .sort((a, b) => {
       if (a.done && !b.done) return 1
