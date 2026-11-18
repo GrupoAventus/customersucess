@@ -63,79 +63,141 @@ function ParticleCanvas() {
 
 const WOLF_PATH = "M 318.5 131.5 L 318.5 133.6 L 314.4 137.7 L 312.3 143.8 L 308.2 150.0 L 300.0 158.2 L 293.8 160.3 L 291.8 162.3 L 289.7 166.4 L 283.6 182.9 L 269.2 195.2 L 267.1 197.3 L 261.0 207.5 L 269.2 209.6 L 269.2 213.7 L 267.1 217.8 L 263.0 221.9 L 256.8 224.0 L 248.6 230.1 L 240.4 240.4 L 238.4 246.6 L 236.3 248.6 L 234.2 248.6 L 230.1 252.7 L 219.9 256.8 L 209.6 263.0 L 193.2 279.5 L 189.0 281.5 L 184.9 283.6 L 164.4 289.7 L 150.0 291.8 L 143.8 293.8 L 133.6 304.1 L 129.5 306.2 L 121.2 308.2 L 113.0 312.3 L 98.6 326.7 L 90.4 341.1 L 84.2 349.3 L 76.0 359.6 L 61.6 374.0 L 55.5 376.0 L 55.5 380.1 L 51.4 384.2 L 47.3 386.3 L 37.0 388.4 L 26.7 388.4 L 16.4 386.3 L 10.3 384.2 L 6.2 382.2 L 10.3 390.4 L 12.3 396.6 L 20.5 404.8 L 24.7 406.8 L 28.8 408.9 L 41.1 411.0 L 45.2 417.1 L 63.7 417.1 L 69.9 415.1 L 74.0 413.0 L 78.1 411.0 L 90.4 400.7 L 98.6 390.4 L 100.7 396.6 L 98.6 400.7 L 96.6 404.8 L 86.3 413.0 L 82.2 425.3 L 82.2 435.6 L 80.1 445.9 L 76.0 456.2 L 71.9 466.4 L 67.8 470.5 L 67.8 495.2 L 59.6 497.3 L 51.4 497.3 L 39.0 509.6 L 26.7 517.8 L 22.6 521.9 L 20.5 528.1 L 16.4 548.6 L 12.3 561.0 L 6.2 579.5 L 0.0 589.7 L 0.0 593.8 L -2.1 597.9 L 419.2 597.9 L 417.1 583.6 L 415.1 573.3 L 413.0 565.1 L 411.0 561.0 L 408.9 556.8 L 398.6 546.6 L 396.6 542.5 L 392.5 532.2 L 390.4 515.8 L 384.2 503.4 L 365.8 484.9 L 355.5 476.7 L 343.2 478.8 L 339.0 476.7 L 337.0 464.4 L 334.9 460.3 L 330.8 454.1 L 306.2 429.5 L 300.0 425.3 L 295.9 425.3 L 291.8 423.3 L 287.7 415.1 L 287.7 378.1 L 289.7 371.9 L 291.8 367.8 L 297.9 361.6 L 300.0 357.5 L 302.1 353.4 L 304.1 345.2 L 304.1 328.8 L 306.2 324.7 L 314.4 316.4 L 318.5 310.3 L 322.6 304.1 L 328.8 291.8 L 330.8 285.6 L 332.9 279.5 L 334.9 271.2 L 337.0 258.9 L 337.0 230.1 L 334.9 193.2 L 339.0 162.3 L 339.0 147.9 L 337.0 143.8 L 330.8 137.7 L 328.8 129.5 Z M 133.6 411.0 L 139.7 413.0 L 139.7 423.3 L 137.7 431.5 L 131.5 439.7 L 131.5 454.1 L 133.6 456.2 L 133.6 468.5 L 129.5 476.7 L 123.3 476.7 L 117.1 478.8 L 104.8 484.9 L 92.5 489.0 L 86.3 487.0 L 86.3 474.7 L 90.4 464.4 L 94.5 460.3 L 98.6 450.0 L 98.6 445.9 L 102.7 435.6 L 104.8 431.5 L 113.0 423.3 Z M 258.9 363.7 L 265.1 365.8 L 267.1 371.9 L 267.1 388.4 L 269.2 390.4 L 267.1 406.8 L 267.1 415.1 L 269.2 425.3 L 256.8 429.5 L 250.7 427.4 L 248.6 423.3 L 248.6 388.4 L 252.7 365.8 Z M 199.3 363.7 L 205.5 363.7 L 207.5 365.8 L 215.8 365.8 L 228.1 369.9 L 230.1 374.0 L 230.1 388.4 L 226.0 411.0 L 226.0 425.3 L 230.1 429.5 L 232.2 433.6 L 230.1 439.7 L 226.0 441.8 L 215.8 441.8 L 197.3 447.9 L 168.5 464.4 L 164.4 466.4 L 160.3 468.5 L 152.1 466.4 L 150.0 452.1 L 150.0 443.8 L 152.1 439.7 L 154.1 437.7 L 160.3 435.6 L 170.5 427.4 L 172.6 425.3 L 180.8 415.1 L 184.9 408.9 L 187.0 404.8 L 193.2 386.3 L 195.2 376.0 L 195.2 367.8 Z"
 
+// Canvas que desenha o ponto dourado com cauda correndo pelo contorno do lobo
+function GoldenDotCanvas() {
+  const canvasRef = useRef(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+
+    // viewBox original: 437x600
+    // Canvas renderiza em 437x600 e o CSS escala
+    const VW = 437
+    const VH = 600
+    canvas.width = VW
+    canvas.height = VH
+
+    // Extrai os pontos do contorno principal do WOLF_PATH
+    // Pega apenas o primeiro sub-path (até o primeiro "M ... Z M")
+    // O contorno principal é o maior (lobo inteiro)
+    const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    pathEl.setAttribute('d', WOLF_PATH)
+
+    // Usa SVGPathElement.getTotalLength() e getPointAtLength() para amostrar pontos
+    // Cria um SVG temporário no DOM para usar essas APIs
+    const svgNS = 'http://www.w3.org/2000/svg'
+    const tmpSvg = document.createElementNS(svgNS, 'svg')
+    tmpSvg.setAttribute('viewBox', '0 0 437 600')
+    tmpSvg.style.position = 'absolute'
+    tmpSvg.style.opacity = '0'
+    tmpSvg.style.pointerEvents = 'none'
+    tmpSvg.style.width = '1px'
+    tmpSvg.style.height = '1px'
+    document.body.appendChild(tmpSvg)
+
+    // Separa os sub-paths do WOLF_PATH — pega apenas o externo (maior)
+    // O path tem 4 sub-paths separados por "M ... Z M"
+    // Vamos pegar apenas o primeiro, que é o contorno externo do lobo
+    const subPaths = WOLF_PATH.split(/ (?=M )/)
+    // Cria path só com o primeiro sub-path (contorno principal)
+    const mainPathEl = document.createElementNS(svgNS, 'path')
+    mainPathEl.setAttribute('d', subPaths[0])
+    tmpSvg.appendChild(mainPathEl)
+
+    const totalLen = mainPathEl.getTotalLength()
+    // Amostra ~600 pontos ao longo do contorno
+    const SAMPLES = 600
+    const pts = []
+    for (let i = 0; i <= SAMPLES; i++) {
+      const p = mainPathEl.getPointAtLength((i / SAMPLES) * totalLen)
+      pts.push({ x: p.x, y: p.y })
+    }
+
+    document.body.removeChild(tmpSvg)
+
+    // Animação: ponto percorre os pts em loop
+    const TAIL_STEPS = 40   // quantos pontos de cauda
+    const SPEED = 1.2       // pontos por frame (ajusta velocidade)
+    let pos = 0
+
+    const draw = () => {
+      ctx.clearRect(0, 0, VW, VH)
+
+      // Desenha cauda
+      for (let i = 0; i < TAIL_STEPS; i++) {
+        const idx = Math.floor(pos - i + pts.length) % pts.length
+        const p = pts[idx]
+        const alpha = (1 - i / TAIL_STEPS) * 0.85
+        const size = (1 - i / TAIL_STEPS) * 2.5 + 0.5
+
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, size, 0, Math.PI * 2)
+        // Cor: cauda vai de laranja escuro → amarelo → branco na ponta
+        const r = Math.round(255)
+        const g = Math.round(80 + (1 - i / TAIL_STEPS) * 160)
+        const b = Math.round((1 - i / TAIL_STEPS) * 80)
+        ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`
+        ctx.fill()
+      }
+
+      // Desenha ponto principal com glow
+      const head = pts[Math.floor(pos) % pts.length]
+
+      // Glow externo
+      const glow = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 10)
+      glow.addColorStop(0, 'rgba(255, 240, 80, 0.9)')
+      glow.addColorStop(0.4, 'rgba(255, 160, 0, 0.5)')
+      glow.addColorStop(1, 'rgba(255, 80, 0, 0)')
+      ctx.beginPath()
+      ctx.arc(head.x, head.y, 10, 0, Math.PI * 2)
+      ctx.fillStyle = glow
+      ctx.fill()
+
+      // Ponto central brilhante
+      ctx.beginPath()
+      ctx.arc(head.x, head.y, 2.5, 0, Math.PI * 2)
+      ctx.fillStyle = '#ffffff'
+      ctx.fill()
+
+      pos = (pos + SPEED) % pts.length
+    }
+
+    let animId
+    const loop = () => {
+      draw()
+      animId = requestAnimationFrame(loop)
+    }
+    loop()
+
+    return () => cancelAnimationFrame(animId)
+  }, [])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+      }}
+    />
+  )
+}
+
 // SVG vetorizado do lobo real + ponto dourado com cauda correndo pelo contorno
 function WolfSilhouette() {
-  // Perímetro calculado: ~1800px no viewBox 437x600
-  // Cauda = 80px, resto = gap = 1720px
-  // strokeDashoffset animado de 0 → -1800 em loop = ponto percorre todo o contorno
-  const PERIMETER = 1800
-  const TAIL = 80
-
   return (
     <div style={{ position: 'relative', width: '100%' }}>
       <svg viewBox="0 0 437 600" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', display: 'block' }}>
-        <defs>
-          {/* Gradiente da cauda: branco/dourado na ponta, some pra trás */}
-          <linearGradient id="tailGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#ff6600" stopOpacity="0" />
-            <stop offset="60%" stopColor="#ffcc00" stopOpacity="0.7" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="1" />
-          </linearGradient>
-
-          {/* Filtro glow no ponto */}
-          <filter id="goldGlow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-
         {/* Silhueta base */}
         <path fillRule="evenodd" fill="#1a0800" fillOpacity="0.95" d={WOLF_PATH} />
-
-        {/* Stroke invisível do contorno — só para definir a forma */}
-        {/* Cauda dourada: dash de TAIL px correndo pelo contorno */}
-        <path
-          fillRule="evenodd"
-          fill="none"
-          stroke="url(#tailGrad)"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeDasharray={`${TAIL} ${PERIMETER - TAIL}`}
-          filter="url(#goldGlow)"
-          d={WOLF_PATH}
-        >
-          <animate
-            attributeName="strokeDashoffset"
-            values={`0; -${PERIMETER}`}
-            dur="6s"
-            repeatCount="indefinite"
-          />
-        </path>
-
-        {/* Ponto brilhante na frente da cauda — círculo que percorre o contorno */}
-        {/* Usamos um segundo stroke muito curto e bem brilhante */}
-        <path
-          fillRule="evenodd"
-          fill="none"
-          stroke="#ffe066"
-          strokeWidth="5"
-          strokeLinecap="round"
-          strokeDasharray={`1 ${PERIMETER - 1}`}
-          filter="url(#goldGlow)"
-          d={WOLF_PATH}
-        >
-          <animate
-            attributeName="strokeDashoffset"
-            values={`0; -${PERIMETER}`}
-            dur="6s"
-            repeatCount="indefinite"
-          />
-        </path>
       </svg>
+      {/* Canvas com o ponto dourado correndo pelo contorno */}
+      <GoldenDotCanvas />
     </div>
   )
 }
