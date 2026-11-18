@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../lib/AppContext'
+import wolfImg from '../assets/wolf.png'
 
 // Canvas de partículas flutuantes
 function ParticleCanvas() {
@@ -234,23 +235,29 @@ export default function LoginScreen({ section, sectionName, onUnlock }) {
         pointerEvents: 'none',
       }} />
 
-      {/* LOBO — grandão, centralizado/esquerda, translúcido no fundo */}
+      {/* LOBO — imagem real, lado esquerdo, ocupa 1º terço, base rente ao fundo */}
       <div style={{
         position: 'absolute',
         bottom: 0,
-        left: '50%',
-        transform: 'translateX(-50%)',
+        left: 0,
         zIndex: 2,
         pointerEvents: 'none',
-        width: '55vw',
-        maxWidth: 680,
-        minWidth: 320,
-        height: '90vh',
-        color: '#1a0a00',
-        opacity: 0.18,
-        filter: 'drop-shadow(0 0 60px rgba(255,100,0,0.12))',
+        width: '38vw',
+        maxWidth: 580,
+        minWidth: 260,
+        display: 'flex',
+        alignItems: 'flex-end',
       }}>
-        <WolfSilhouette />
+        <img
+          src={wolfImg}
+          alt=""
+          style={{
+            width: '100%',
+            display: 'block',
+            opacity: 0.55,
+            filter: 'drop-shadow(0 0 40px rgba(255,100,0,0.2))',
+          }}
+        />
       </div>
 
       {/* Raios de luz sutis vindos do topo */}
