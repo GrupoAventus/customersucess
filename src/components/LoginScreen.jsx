@@ -206,8 +206,6 @@ function WolfSilhouette() {
         {/* Silhueta base */}
         <path fillRule="evenodd" fill="#1a0800" fillOpacity="0.95" d={WOLF_PATH} />
       </svg>
-      {/* Canvas com o ponto dourado correndo pelo contorno */}
-      <GoldenDotCanvas />
     </div>
   )
 }
