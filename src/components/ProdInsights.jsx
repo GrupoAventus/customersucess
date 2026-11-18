@@ -25,6 +25,20 @@ const PRIORITY_ADVANCE_DAYS = {
   estavel:    0,
 }
 
+// Palavras-chave que indicam demanda de longa duração
+const LONGA_DURACAO_KEYWORDS = [
+  'site', 'lp', 'landing', 'página', 'pagina', 'ecom', 'e-com', 'loja',
+  'branding', 'identidade', 'logo', 'vídeo', 'video', 'animação', 'animacao',
+  'sistema', 'plataforma', 'aplicativo', 'app', 'integração', 'integracao',
+  'funil', 'automação', 'automacao', 'chatbot',
+]
+
+function isLongaDuracao(text) {
+  if (!text) return false
+  const t = text.toLowerCase()
+  return LONGA_DURACAO_KEYWORDS.some(kw => t.includes(kw))
+}
+
 // Gera um insight contextual baseado no texto da demanda
 function gerarInsight(text, clientName, diasRestantes) {
   if (!text) return 'Foque na entrega com qualidade. Revise o briefing antes de começar.'
@@ -335,6 +349,7 @@ function PriorityCard({ item, rank, onClick }) {
 export default function ProdInsights({ demands, clients }) {
   const { setDemandStage } = useApp()
   const [collapsed, setCollapsed] = useState(false)
+  const [longaCollapsed, setLongaCollapsed] = useState(true)
   const [selectedItem, setSelectedItem] = useState(null)
 
   const prioritized = useMemo(() => {
@@ -362,6 +377,9 @@ export default function ProdInsights({ demands, clients }) {
   const handleFeito = async (demandId) => {
     await setDemandStage(demandId, 'aguardando_aprovacao')
   }
+
+  // Demandas de longa duração — subset do prioritized, mantém mesma ordem de score
+  const longaDuracao = prioritized.filter(x => isLongaDuracao(x.demand.text))
 
   return (
     <>
@@ -455,6 +473,83 @@ export default function ProdInsights({ demands, clients }) {
               Clique em um card para ver o insight e marcar como feito.
               {prioritized.length > 4 && ` Mais ${prioritized.length - 4} demanda${prioritized.length - 4 !== 1 ? 's' : ''} na fila.`}
             </div>
+
+            {/* Seção de longa duração */}
+            {longaDuracao.length > 0 && (
+              <div style={{ marginTop: 12, borderTop: '1px solid #161616', paddingTop: 10 }}>
+                <div
+                  onClick={e => { e.stopPropagation(); setLongaCollapsed(c => !c) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    cursor: 'pointer', userSelect: 'none',
+                  }}
+                >
+                  <i className="ti ti-clock-hour-4" style={{ fontSize: 11, color: '#555' }} />
+                  <span style={{ fontSize: 10, color: '#444', fontWeight: 600, flex: 1 }}>
+                    Longa duração ({longaDuracao.length})
+                  </span>
+                  <i
+                    className={`ti ti-chevron-${longaCollapsed ? 'down' : 'up'}`}
+                    style={{ fontSize: 9, color: '#333' }}
+                  />
+                </div>
+
+                {!longaCollapsed && (
+                  <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {longaDuracao.map((item, i) => {
+                      const diasLabel = diasRestantesLabel(item.demand.prazo)
+                      const priInfo = PRIORITY_ICON[item.priorityStatus] || PRIORITY_ICON.estavel
+                      return (
+                        <div
+                          key={item.demand.id}
+                          onClick={() => setSelectedItem(item)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '7px 10px',
+                            background: '#0d0d0d',
+                            border: '1px solid #191919',
+                            borderRadius: 7,
+                            cursor: 'pointer',
+                            transition: 'border-color 0.15s',
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.borderColor = '#2a2a2a'}
+                          onMouseLeave={e => e.currentTarget.style.borderColor = '#191919'}
+                        >
+                          {/* Posição */}
+                          <span style={{ fontSize: 9, color: '#333', width: 14, textAlign: 'right', flexShrink: 0 }}>
+                            {i + 1}
+                          </span>
+                          {/* Cliente */}
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, color: priInfo.color,
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                            maxWidth: 90, flexShrink: 0,
+                          }}>
+                            {item.clientName}
+                          </span>
+                          {/* Texto */}
+                          <span style={{
+                            fontSize: 10, color: '#666', flex: 1,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {item.demand.text}
+                          </span>
+                          {/* Prazo */}
+                          {diasLabel && (
+                            <span style={{ fontSize: 9, color: diasLabel.color, flexShrink: 0 }}>
+                              {diasLabel.text}
+                            </span>
+                          )}
+                          {item.priorityStatus !== 'estavel' && (
+                            <span style={{ fontSize: 9, flexShrink: 0 }}>{priInfo.icon}</span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
