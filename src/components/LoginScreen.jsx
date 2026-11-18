@@ -119,7 +119,7 @@ function GoldenDotCanvas() {
 
     // Animação: ponto percorre os pts em loop
     const TAIL_STEPS = 40   // quantos pontos de cauda
-    const SPEED = 1.2       // pontos por frame (ajusta velocidade)
+    const SPEED = 0.3       // pontos por frame (bem devagar)
     let pos = 0
 
     const draw = () => {
