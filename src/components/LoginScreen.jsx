@@ -125,40 +125,50 @@ function GoldenDotCanvas() {
     const draw = () => {
       ctx.clearRect(0, 0, VW, VH)
 
-      // Desenha cauda
+      // Desenha cauda — delicada, fina, dourada
       for (let i = 0; i < TAIL_STEPS; i++) {
         const idx = Math.floor(pos - i + pts.length) % pts.length
         const p = pts[idx]
-        const alpha = (1 - i / TAIL_STEPS) * 0.85
-        const size = (1 - i / TAIL_STEPS) * 2.5 + 0.5
+        const t = 1 - i / TAIL_STEPS          // 1 na ponta, 0 no fim
+        const alpha = t * t * 0.9              // cai suavemente (quadrático)
+        const size = t * 1.8 + 0.2            // muito fina: 0.2 → 2.0px
 
         ctx.beginPath()
         ctx.arc(p.x, p.y, size, 0, Math.PI * 2)
-        // Cor: cauda vai de laranja escuro → amarelo → branco na ponta
-        const r = Math.round(255)
-        const g = Math.round(80 + (1 - i / TAIL_STEPS) * 160)
-        const b = Math.round((1 - i / TAIL_STEPS) * 80)
-        ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`
+        // Dourado puro: ouro → âmbar, sem laranja
+        const g = Math.round(180 + t * 75)    // 180 → 255
+        const b = Math.round(t * 40)           // leve brilho azulado na ponta
+        ctx.fillStyle = `rgba(255,${g},${b},${alpha})`
         ctx.fill()
       }
 
-      // Desenha ponto principal com glow
+      // Desenha ponto principal com glow triplo
       const head = pts[Math.floor(pos) % pts.length]
 
-      // Glow externo
-      const glow = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 10)
-      glow.addColorStop(0, 'rgba(255, 240, 80, 0.9)')
-      glow.addColorStop(0.4, 'rgba(255, 160, 0, 0.5)')
-      glow.addColorStop(1, 'rgba(255, 80, 0, 0)')
+      // Halo externo grande — difuso
+      const halo = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 18)
+      halo.addColorStop(0,   'rgba(255, 230, 60, 0.45)')
+      halo.addColorStop(0.5, 'rgba(255, 180, 0, 0.18)')
+      halo.addColorStop(1,   'rgba(255, 120, 0, 0)')
       ctx.beginPath()
-      ctx.arc(head.x, head.y, 10, 0, Math.PI * 2)
+      ctx.arc(head.x, head.y, 18, 0, Math.PI * 2)
+      ctx.fillStyle = halo
+      ctx.fill()
+
+      // Glow médio — dourado intenso
+      const glow = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 7)
+      glow.addColorStop(0,   'rgba(255, 255, 180, 1)')
+      glow.addColorStop(0.4, 'rgba(255, 210, 0, 0.9)')
+      glow.addColorStop(1,   'rgba(255, 140, 0, 0)')
+      ctx.beginPath()
+      ctx.arc(head.x, head.y, 7, 0, Math.PI * 2)
       ctx.fillStyle = glow
       ctx.fill()
 
-      // Ponto central brilhante
+      // Núcleo — branco quente minúsculo
       ctx.beginPath()
-      ctx.arc(head.x, head.y, 2.5, 0, Math.PI * 2)
-      ctx.fillStyle = '#ffffff'
+      ctx.arc(head.x, head.y, 1.6, 0, Math.PI * 2)
+      ctx.fillStyle = '#fffde0'
       ctx.fill()
 
       pos = (pos + SPEED) % pts.length
