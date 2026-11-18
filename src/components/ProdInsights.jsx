@@ -6,11 +6,12 @@
  *  - 🟡 Atenção    → prazo ajustado = prazo real − 1 dia
  *  - 🟢 Estável    → prazo ajustado = prazo real
  *
- *  Ordena pelo prazo ajustado. Demandas sem prazo ficam por último.
- *  Exibe: "Faça agora" (1ª) + 3 próximas.
+ *  Clique no card → abre modal com insight + botão "Feito"
+ *  Botão "Feito" → move demanda para aguardando_aprovacao
  */
 
 import { useMemo, useState } from 'react'
+import { useApp } from '../lib/AppContext'
 
 const PRIORITY_ICON = {
   prioridade: { icon: '🔴', color: '#e24b4a', label: 'Prioridade' },
@@ -18,117 +19,313 @@ const PRIORITY_ICON = {
   estavel:    { icon: '🟢', color: '#22c55e', label: 'Estável' },
 }
 
-// Dias que subtraímos do prazo para simular urgência adicional
 const PRIORITY_ADVANCE_DAYS = {
   prioridade: 3,
   atencao:    1,
   estavel:    0,
 }
 
-/**
- * Retorna um número comparável para ordenação.
- * Menor = mais urgente.
- * Sem prazo → 99999 (vai pro fim).
- * Com prazo → dias até o prazo ajustado × 10000 (mantém precisão inteira).
- */
-// Normaliza prazo para yyyy-mm-dd independente do formato recebido
+// Gera um insight contextual baseado no texto da demanda
+function gerarInsight(text, clientName, diasRestantes) {
+  if (!text) return 'Foque na entrega com qualidade. Revise o briefing antes de começar.'
+
+  const t = text.toLowerCase()
+  const urgencia = diasRestantes !== null && diasRestantes <= 0
+    ? '⚠️ Prazo vencido — priorize a entrega agora mesmo.'
+    : diasRestantes === 0
+    ? '⏰ Vence hoje — termine e encaminhe para aprovação ainda hoje.'
+    : diasRestantes === 1
+    ? '⏰ Vence amanhã — finalize até o fim do dia.'
+    : ''
+
+  let dica = ''
+
+  if (t.includes('lp') || t.includes('landing') || t.includes('página')) {
+    dica = `💡 Landing Page: foque na proposta de valor acima da dobra. Use um headline forte, CTA visível e prova social. Revise mobile antes de entregar.`
+  } else if (t.includes('ecom') || t.includes('e-com') || t.includes('loja')) {
+    dica = `💡 E-commerce: destaque os produtos com melhor margem. Fotos de qualidade, preços claros e frete em evidência convertem mais.`
+  } else if (t.includes('criativo') || t.includes('arte') || t.includes('banner') || t.includes('post') || t.includes('feed')) {
+    dica = `💡 Criativo: explore contraste e hierarquia visual. Headline impactante, copy curto e CTA destacado. Pense em 2–3 variações de cor/texto para teste A/B.`
+  } else if (t.includes('video') || t.includes('vídeo') || t.includes('reels') || t.includes('reel')) {
+    dica = `💡 Vídeo/Reels: gancho nos primeiros 3 segundos é essencial. Legendas aumentam retenção em 40%. Termine com CTA claro.`
+  } else if (t.includes('tráfego') || t.includes('trafego') || t.includes('ads') || t.includes('campanha')) {
+    dica = `💡 Campanha: valide a segmentação e o criativo antes de escalar. Cheque pixel, conversões e orçamento configurados corretamente.`
+  } else if (t.includes('branding') || t.includes('identidade') || t.includes('logo')) {
+    dica = `💡 Branding: mantenha consistência com o tom e paleta do cliente. Apresente variações (claro/escuro, horizontal/vertical) para facilitar a aprovação.`
+  } else if (t.includes('copy') || t.includes('texto') || t.includes('roteiro')) {
+    dica = `💡 Copy: use a fórmula problema → agitação → solução. Seja específico, evite jargões e finalize com CTA direto.`
+  } else if (t.includes('site') || t.includes('web')) {
+    dica = `💡 Site: velocidade e mobile first. Revise CTAs, formulários e links antes de entregar. Teste em ao menos 2 navegadores.`
+  } else if (t.includes('social') || t.includes('instagram') || t.includes('facebook')) {
+    dica = `💡 Social Media: adapte o formato para cada plataforma. Carrossel engaja mais no feed; Stories e Reels para alcance orgânico.`
+  } else {
+    dica = `💡 Revise o briefing com atenção aos detalhes do cliente. Entregue com qualidade e solicite aprovação assim que pronto.`
+  }
+
+  return [urgencia, dica].filter(Boolean).join('\n\n')
+}
+
 function normalizePrazo(prazo) {
   if (!prazo) return null
-  // Se já é só data (yyyy-mm-dd), retorna direto
   if (/^\d{4}-\d{2}-\d{2}$/.test(prazo)) return prazo
-  // Se é ISO com hora, pega só os 10 primeiros chars
   return prazo.slice(0, 10)
 }
 
 function calcScore(prazo, priorityStatus) {
   const dateStr = normalizePrazo(prazo)
   if (!dateStr) return 99999
-
   const advance = PRIORITY_ADVANCE_DAYS[priorityStatus] ?? 0
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const today = new Date(); today.setHours(0, 0, 0, 0)
   const deadline = new Date(dateStr + 'T00:00:00')
   const diasRestantes = Math.round((deadline - today) / 86400000)
-
-  // Subtrai os dias de avanço — cliente vermelho aparece 3 dias antes
   return diasRestantes - advance
 }
 
-function diasRestantesLabel(prazo) {
+function calcDiasRestantes(prazo) {
   const dateStr = normalizePrazo(prazo)
   if (!dateStr) return null
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const today = new Date(); today.setHours(0, 0, 0, 0)
   const deadline = new Date(dateStr + 'T00:00:00')
-  const diff = Math.round((deadline - today) / 86400000)
+  return Math.round((deadline - today) / 86400000)
+}
+
+function diasRestantesLabel(prazo) {
+  const diff = calcDiasRestantes(prazo)
+  if (diff === null) return null
   if (diff < 0) return { text: `${Math.abs(diff)}d atrasada`, color: '#e24b4a' }
   if (diff === 0) return { text: 'vence hoje', color: '#f59e0b' }
   if (diff === 1) return { text: 'amanhã', color: '#f59e0b' }
   return { text: `${diff}d restantes`, color: '#555' }
 }
 
+// ── Modal de detalhe da demanda ───────────────────────────────────────────────
+function DemandModal({ item, onClose, onFeito }) {
+  const { demand, clientName, priorityStatus } = item
+  const diasLabel = diasRestantesLabel(demand.prazo)
+  const diasRestantes = calcDiasRestantes(demand.prazo)
+  const priInfo = PRIORITY_ICON[priorityStatus] || PRIORITY_ICON.estavel
+  const insight = gerarInsight(demand.text, clientName, diasRestantes)
+  const [loading, setLoading] = useState(false)
+
+  const handleFeito = async () => {
+    setLoading(true)
+    await onFeito(demand.id)
+    onClose()
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(0,0,0,0.7)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#111',
+          border: '1px solid #222',
+          borderRadius: 12,
+          width: '100%', maxWidth: 480,
+          overflow: 'hidden',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+        }}
+      >
+        {/* Header do modal */}
+        <div style={{
+          padding: '14px 16px',
+          borderBottom: '1px solid #1a1a1a',
+          display: 'flex', alignItems: 'flex-start', gap: 10,
+        }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {/* Nome do cliente — destaque */}
+            <div style={{
+              fontSize: 11, fontWeight: 700, color: priInfo.color,
+              textTransform: 'uppercase', letterSpacing: '0.06em',
+              marginBottom: 4,
+            }}>
+              {priInfo.icon} {clientName}
+            </div>
+            {/* Texto da demanda */}
+            <div style={{
+              fontSize: 14, fontWeight: 600, color: '#e0e0e0',
+              lineHeight: 1.4, wordBreak: 'break-word',
+            }}>
+              {demand.text}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none', border: 'none', color: '#444',
+              cursor: 'pointer', fontSize: 16, padding: 2, flexShrink: 0,
+            }}
+          >✕</button>
+        </div>
+
+        {/* Prazo + status */}
+        <div style={{
+          padding: '10px 16px',
+          borderBottom: '1px solid #1a1a1a',
+          display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
+        }}>
+          {diasLabel && (
+            <span style={{
+              fontSize: 11, fontWeight: 600, color: diasLabel.color,
+              background: '#161616', borderRadius: 6, padding: '3px 8px',
+            }}>
+              📅 {diasLabel.text}
+            </span>
+          )}
+          {demand.stage && (
+            <span style={{
+              fontSize: 10, color: '#555',
+              background: '#161616', borderRadius: 6, padding: '3px 8px',
+            }}>
+              {demand.stage.replace(/_/g, ' ')}
+            </span>
+          )}
+        </div>
+
+        {/* Insight */}
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid #1a1a1a' }}>
+          <div style={{
+            fontSize: 10, fontWeight: 700, color: '#a855f7',
+            textTransform: 'uppercase', letterSpacing: '0.08em',
+            marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5,
+          }}>
+            <i className="ti ti-brain" style={{ fontSize: 11 }} />
+            Insight da IA
+          </div>
+          <div style={{
+            fontSize: 12, color: '#aaa', lineHeight: 1.6,
+            whiteSpace: 'pre-line',
+          }}>
+            {insight}
+          </div>
+        </div>
+
+        {/* Ações */}
+        <div style={{
+          padding: '12px 16px',
+          display: 'flex', gap: 8, justifyContent: 'flex-end',
+        }}>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none', border: '1px solid #2a2a2a',
+              color: '#666', borderRadius: 7, padding: '7px 14px',
+              fontSize: 11, cursor: 'pointer',
+            }}
+          >
+            Fechar
+          </button>
+          <button
+            onClick={handleFeito}
+            disabled={loading}
+            style={{
+              background: loading ? '#1a4a1a' : '#22c55e',
+              border: 'none', color: loading ? '#555' : '#000',
+              borderRadius: 7, padding: '7px 16px',
+              fontSize: 11, fontWeight: 700, cursor: loading ? 'default' : 'pointer',
+              display: 'flex', alignItems: 'center', gap: 5,
+              transition: 'background 0.15s',
+            }}
+          >
+            <i className="ti ti-check" style={{ fontSize: 11 }} />
+            {loading ? 'Movendo...' : 'Feito — Ag. Aprovação'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Card de uma demanda priorizada ───────────────────────────────────────────
-function PriorityCard({ demand, rank, clientName, priorityStatus }) {
+function PriorityCard({ item, rank, onClick }) {
+  const { demand, clientName, priorityStatus } = item
   const diasLabel = diasRestantesLabel(demand.prazo)
   const isFazerAgora = rank === 0
   const priInfo = PRIORITY_ICON[priorityStatus] || PRIORITY_ICON.estavel
 
   return (
-    <div style={{
-      background: isFazerAgora ? '#0f1a0f' : '#111',
-      border: `1px solid ${isFazerAgora ? '#22c55e44' : '#1c1c1c'}`,
-      borderRadius: 8,
-      padding: '10px 12px',
-      display: 'flex',
-      gap: 10,
-      alignItems: 'flex-start',
-      flex: isFazerAgora ? '0 0 auto' : '1 1 0',
-      minWidth: 0,
-    }}>
-      {/* Rank badge */}
+    <div
+      onClick={onClick}
+      style={{
+        background: isFazerAgora ? '#0f1a0f' : '#111',
+        border: `1px solid ${isFazerAgora ? '#22c55e44' : '#1c1c1c'}`,
+        borderRadius: 8,
+        padding: '10px 12px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+        flex: isFazerAgora ? '0 0 auto' : '1 1 0',
+        minWidth: 0,
+        cursor: 'pointer',
+        transition: 'border-color 0.15s, background 0.15s',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.borderColor = isFazerAgora ? '#22c55e88' : '#333'
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.borderColor = isFazerAgora ? '#22c55e44' : '#1c1c1c'
+      }}
+    >
+      {/* Nome do cliente — visível e destacado */}
       <div style={{
-        width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: isFazerAgora ? '#22c55e' : '#1a1a1a',
-        fontSize: 10, fontWeight: 700,
-        color: isFazerAgora ? '#000' : '#333',
+        display: 'flex', alignItems: 'center', gap: 5,
       }}>
-        {isFazerAgora ? '▶' : rank + 1}
+        <div style={{
+          width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: isFazerAgora ? '#22c55e' : '#1a1a1a',
+          fontSize: 9, fontWeight: 700,
+          color: isFazerAgora ? '#000' : '#333',
+        }}>
+          {isFazerAgora ? '▶' : rank + 1}
+        </div>
+        <span style={{
+          fontSize: 11, fontWeight: 700,
+          color: isFazerAgora ? priInfo.color : '#888',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          flex: 1,
+        }}>
+          {clientName}
+        </span>
+        {priorityStatus !== 'estavel' && (
+          <span style={{ fontSize: 9, flexShrink: 0 }}>{priInfo.icon}</span>
+        )}
       </div>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        {/* Texto da demanda */}
-        <div style={{
-          fontSize: 11, color: isFazerAgora ? '#ddd' : '#999',
-          lineHeight: 1.4, fontWeight: isFazerAgora ? 500 : 400,
-          display: '-webkit-box', WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical', overflow: 'hidden',
-          wordBreak: 'break-word',
-          marginBottom: 5,
-        }}>
-          {demand.text}
-        </div>
+      {/* Texto da demanda */}
+      <div style={{
+        fontSize: 11, color: isFazerAgora ? '#ddd' : '#777',
+        lineHeight: 1.4, fontWeight: isFazerAgora ? 500 : 400,
+        display: '-webkit-box', WebkitLineClamp: 2,
+        WebkitBoxOrient: 'vertical', overflow: 'hidden',
+        wordBreak: 'break-word',
+      }}>
+        {demand.text}
+      </div>
 
-        {/* Cliente + prioridade + prazo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
-          <span style={{
-            fontSize: 9, color: '#333',
-            background: '#161616', borderRadius: 4, padding: '1px 5px',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 90,
-          }}>
-            {clientName}
+      {/* Prazo */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {diasLabel && (
+          <span style={{ fontSize: 9, color: diasLabel.color, fontWeight: 500 }}>
+            {diasLabel.text}
           </span>
-          {priorityStatus !== 'estavel' && (
-            <span style={{ fontSize: 9, color: priInfo.color, fontWeight: 600 }}>
-              {priInfo.icon} {priInfo.label}
-            </span>
-          )}
-          {diasLabel && (
-            <span style={{ fontSize: 9, color: diasLabel.color, fontWeight: 500 }}>
-              {diasLabel.text}
-            </span>
-          )}
-        </div>
+        )}
+        <span style={{
+          fontSize: 9, color: '#333',
+          marginLeft: 'auto',
+          display: 'flex', alignItems: 'center', gap: 3,
+        }}>
+          <i className="ti ti-info-circle" style={{ fontSize: 9 }} />
+          ver detalhes
+        </span>
       </div>
     </div>
   )
@@ -136,10 +333,12 @@ function PriorityCard({ demand, rank, clientName, priorityStatus }) {
 
 // ── Componente principal ─────────────────────────────────────────────────────
 export default function ProdInsights({ demands, clients }) {
+  const { setDemandStage } = useApp()
   const [collapsed, setCollapsed] = useState(false)
+  const [selectedItem, setSelectedItem] = useState(null)
 
   const prioritized = useMemo(() => {
-    const active = demands.filter(d => !d.done && d.stage !== 'aprovado')
+    const active = demands.filter(d => !d.done && d.stage !== 'aprovado' && d.stage !== 'aguardando_aprovacao')
 
     return active
       .map(d => {
@@ -154,109 +353,120 @@ export default function ProdInsights({ demands, clients }) {
   if (prioritized.length === 0) return null
 
   const top4 = prioritized.slice(0, 4)
-  const totalAtrasadas = prioritized.filter(x => x.demand.prazo && calcScore(x.demand.prazo, 'estavel') < 0).length
+  const totalAtrasadas = prioritized.filter(x => calcDiasRestantes(x.demand.prazo) !== null && calcDiasRestantes(x.demand.prazo) < 0).length
   const totalUrgentes  = prioritized.filter(x => {
-    const dateStr = normalizePrazo(x.demand.prazo)
-    if (!dateStr) return false
-    const today = new Date(); today.setHours(0,0,0,0)
-    const dias = Math.round((new Date(dateStr + 'T00:00:00') - today) / 86400000)
-    return dias >= 0 && dias <= 2
+    const d = calcDiasRestantes(x.demand.prazo)
+    return d !== null && d >= 0 && d <= 2
   }).length
 
+  const handleFeito = async (demandId) => {
+    await setDemandStage(demandId, 'aguardando_aprovacao')
+  }
+
   return (
-    <div style={{
-      background: '#0d0d0d',
-      border: '1px solid #1a1a1a',
-      borderRadius: 10,
-      marginBottom: 18,
-      overflow: 'hidden',
-    }}>
-      {/* Header */}
-      <div
-        onClick={() => setCollapsed(c => !c)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '10px 14px', cursor: 'pointer',
-          borderBottom: collapsed ? 'none' : '1px solid #161616',
-        }}
-      >
-        <i className="ti ti-brain" style={{ fontSize: 14, color: '#a855f7' }} />
-        <span style={{ fontSize: 12, fontWeight: 700, color: '#ccc', flex: 1 }}>
-          Insights de Produção
-        </span>
-
-        {totalAtrasadas > 0 && (
-          <span style={{
-            fontSize: 9, fontWeight: 700, color: '#e24b4a',
-            background: '#1a0808', borderRadius: 10, padding: '2px 7px',
-          }}>
-            {totalAtrasadas} atrasada{totalAtrasadas !== 1 ? 's' : ''}
+    <>
+      <div style={{
+        background: '#0d0d0d',
+        border: '1px solid #1a1a1a',
+        borderRadius: 10,
+        marginBottom: 18,
+        overflow: 'hidden',
+      }}>
+        {/* Header */}
+        <div
+          onClick={() => setCollapsed(c => !c)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '10px 14px', cursor: 'pointer',
+            borderBottom: collapsed ? 'none' : '1px solid #161616',
+          }}
+        >
+          <i className="ti ti-brain" style={{ fontSize: 14, color: '#a855f7' }} />
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#ccc', flex: 1 }}>
+            Insights de Produção
           </span>
-        )}
-        {totalUrgentes > 0 && (
-          <span style={{
-            fontSize: 9, fontWeight: 700, color: '#f59e0b',
-            background: '#1a1500', borderRadius: 10, padding: '2px 7px',
-          }}>
-            {totalUrgentes} urgente{totalUrgentes !== 1 ? 's' : ''}
-          </span>
-        )}
-        <span style={{ fontSize: 9, color: '#333' }}>
-          {prioritized.length} demandas ativas
-        </span>
-        <i
-          className={`ti ti-chevron-${collapsed ? 'down' : 'up'}`}
-          style={{ fontSize: 10, color: '#333' }}
-        />
-      </div>
 
-      {!collapsed && (
-        <div style={{ padding: '12px 14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+          {totalAtrasadas > 0 && (
             <span style={{
-              fontSize: 9, fontWeight: 700, color: '#22c55e',
-              letterSpacing: '0.08em', textTransform: 'uppercase',
+              fontSize: 9, fontWeight: 700, color: '#e24b4a',
+              background: '#1a0808', borderRadius: 10, padding: '2px 7px',
             }}>
-              ▶ Faça agora
+              {totalAtrasadas} atrasada{totalAtrasadas !== 1 ? 's' : ''}
             </span>
-            <div style={{ flex: 1, height: 1, background: '#1a1a1a' }} />
-            {top4.length > 1 && (
+          )}
+          {totalUrgentes > 0 && (
+            <span style={{
+              fontSize: 9, fontWeight: 700, color: '#f59e0b',
+              background: '#1a1500', borderRadius: 10, padding: '2px 7px',
+            }}>
+              {totalUrgentes} urgente{totalUrgentes !== 1 ? 's' : ''}
+            </span>
+          )}
+          <span style={{ fontSize: 9, color: '#333' }}>
+            {prioritized.length} demandas ativas
+          </span>
+          <i
+            className={`ti ti-chevron-${collapsed ? 'down' : 'up'}`}
+            style={{ fontSize: 10, color: '#333' }}
+          />
+        </div>
+
+        {!collapsed && (
+          <div style={{ padding: '12px 14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
               <span style={{
-                fontSize: 9, color: '#333',
+                fontSize: 9, fontWeight: 700, color: '#22c55e',
                 letterSpacing: '0.08em', textTransform: 'uppercase',
               }}>
-                Próximas
+                ▶ Faça agora
               </span>
-            )}
-          </div>
+              <div style={{ flex: 1, height: 1, background: '#1a1a1a' }} />
+              {top4.length > 1 && (
+                <span style={{
+                  fontSize: 9, color: '#333',
+                  letterSpacing: '0.08em', textTransform: 'uppercase',
+                }}>
+                  Próximas
+                </span>
+              )}
+            </div>
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: top4.length === 1
-              ? '1fr'
-              : top4.length === 2
-                ? '1fr 1fr'
-                : '1.5fr 1fr 1fr 1fr',
-            gap: 8,
-            alignItems: 'stretch',
-          }}>
-            {top4.map((item, i) => (
-              <PriorityCard
-                key={item.demand.id}
-                demand={item.demand}
-                rank={i}
-                clientName={item.clientName}
-                priorityStatus={item.priorityStatus}
-              />
-            ))}
-          </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: top4.length === 1
+                ? '1fr'
+                : top4.length === 2
+                  ? '1fr 1fr'
+                  : '1.5fr 1fr 1fr 1fr',
+              gap: 8,
+              alignItems: 'stretch',
+            }}>
+              {top4.map((item, i) => (
+                <PriorityCard
+                  key={item.demand.id}
+                  item={item}
+                  rank={i}
+                  onClick={() => setSelectedItem(item)}
+                />
+              ))}
+            </div>
 
-          <div style={{ marginTop: 10, fontSize: 9, color: '#252525', lineHeight: 1.5 }}>
-            Ordem por prazo — 🔴 Prioridade avança 3 dias na fila, 🟡 Atenção avança 1 dia.
-            {prioritized.length > 4 && ` Mais ${prioritized.length - 4} demanda${prioritized.length - 4 !== 1 ? 's' : ''} na fila.`}
+            <div style={{ marginTop: 10, fontSize: 9, color: '#252525', lineHeight: 1.5 }}>
+              Clique em um card para ver o insight e marcar como feito.
+              {prioritized.length > 4 && ` Mais ${prioritized.length - 4} demanda${prioritized.length - 4 !== 1 ? 's' : ''} na fila.`}
+            </div>
           </div>
-        </div>
+        )}
+      </div>
+
+      {/* Modal de detalhe */}
+      {selectedItem && (
+        <DemandModal
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+          onFeito={handleFeito}
+        />
       )}
-    </div>
+    </>
   )
 }
