@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../lib/AppContext'
-import wolfImg from '../assets/wolf.png'
 
 // Canvas de partículas flutuantes
 function ParticleCanvas() {
@@ -62,131 +61,14 @@ function ParticleCanvas() {
   )
 }
 
-// SVG do lobo — silhueta howling wolf profissional
+// SVG vetorizado do lobo real — contornos extraídos da imagem de referência
 function WolfSilhouette() {
   return (
-    <svg
-      viewBox="0 0 500 700"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      style={{ width: '100%', height: '100%' }}
-    >
-      {/* Rocha base */}
+    <svg viewBox="0 0 437 600" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
       <path
-        d="M50 700 C80 640 130 610 180 605 C220 600 260 608 300 605 C345 602 390 615 430 640 C460 658 480 680 490 700 Z"
+        fillRule="evenodd"
         fill="currentColor"
-      />
-      <path
-        d="M100 700 C125 650 165 628 200 624 C235 620 270 628 305 625 C340 622 375 635 405 655 C428 670 445 685 455 700 Z"
-        fill="currentColor"
-        opacity="0.7"
-      />
-
-      {/* Cauda — arqueada para cima e para frente */}
-      <path
-        d="M200 480 C170 460 145 435 130 405 C115 375 112 345 120 320 C128 295 142 282 148 285"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="28"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* Patas traseiras */}
-      <path
-        d="M210 510 C205 540 198 575 193 610 C190 630 188 650 186 670 C185 680 184 690 183 700"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="26"
-        strokeLinecap="round"
-      />
-      <path
-        d="M235 505 C232 535 228 568 225 600 C222 625 220 648 219 670 C218 683 218 692 217 700"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="22"
-        strokeLinecap="round"
-      />
-
-      {/* Corpo — volume principal */}
-      <path
-        d="M148 288 C142 310 148 340 158 370 C168 400 185 425 200 450 C210 468 220 482 228 495 L248 495 C260 480 272 462 282 442 C298 412 308 380 310 350 C312 320 305 292 295 272 C285 252 270 238 255 232 C240 226 225 228 212 236 C198 244 188 262 180 278 C170 294 158 288 148 288 Z"
-        fill="currentColor"
-      />
-
-      {/* Barriga */}
-      <path
-        d="M165 460 C170 420 180 385 195 358 C205 340 215 328 225 322"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="38"
-        strokeLinecap="round"
-      />
-
-      {/* Patas dianteiras */}
-      <path
-        d="M228 495 C226 530 224 565 222 598 C220 625 219 650 218 672 C217 684 217 693 216 700"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="24"
-        strokeLinecap="round"
-      />
-      <path
-        d="M248 495 C250 530 252 565 254 598 C255 625 256 650 256 672 C256 684 256 693 256 700"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="22"
-        strokeLinecap="round"
-      />
-
-      {/* Pescoço esticado — uivando */}
-      <path
-        d="M212 236 C210 210 210 185 212 160 C214 138 218 118 225 100 C230 86 236 76 242 70"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="38"
-        strokeLinecap="round"
-      />
-      <path
-        d="M255 232 C258 206 260 180 260 155 C260 132 258 112 254 94 C250 80 244 68 238 60"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="30"
-        strokeLinecap="round"
-      />
-
-      {/* Cabeça — virada para cima, uivando */}
-      <path
-        d="M220 68 C210 50 205 30 210 15 C214 4 222 -2 232 2 C242 6 250 18 254 34 C258 50 256 68 250 82 C244 94 236 102 228 104 C220 106 214 100 210 92 C206 84 208 74 212 68 Z"
-        fill="currentColor"
-      />
-
-      {/* Focinho — apontado para cima */}
-      <path
-        d="M238 60 C244 44 252 28 262 16 C270 6 278 0 284 2 C290 4 292 14 288 26 C284 38 274 50 264 58 C256 64 248 66 242 64 Z"
-        fill="currentColor"
-      />
-
-      {/* Orelha esquerda — bem pontiaguda */}
-      <path
-        d="M212 70 C208 52 206 32 210 16 C212 6 216 0 220 0 C224 0 226 8 226 20 C226 36 222 56 218 70 Z"
-        fill="currentColor"
-      />
-
-      {/* Orelha direita */}
-      <path
-        d="M228 66 C226 50 228 32 232 18 C234 8 238 2 242 4 C246 6 246 16 244 28 C242 44 238 60 234 68 Z"
-        fill="currentColor"
-      />
-
-      {/* Boca aberta — uivando */}
-      <path
-        d="M252 50 C258 42 266 36 272 34"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinecap="round"
-        opacity="0.5"
+        d="M 318.5 131.5 L 318.5 133.6 L 314.4 137.7 L 312.3 143.8 L 308.2 150.0 L 300.0 158.2 L 293.8 160.3 L 291.8 162.3 L 289.7 166.4 L 283.6 182.9 L 269.2 195.2 L 267.1 197.3 L 261.0 207.5 L 269.2 209.6 L 269.2 213.7 L 267.1 217.8 L 263.0 221.9 L 256.8 224.0 L 248.6 230.1 L 240.4 240.4 L 238.4 246.6 L 236.3 248.6 L 234.2 248.6 L 230.1 252.7 L 219.9 256.8 L 209.6 263.0 L 193.2 279.5 L 189.0 281.5 L 184.9 283.6 L 164.4 289.7 L 150.0 291.8 L 143.8 293.8 L 133.6 304.1 L 129.5 306.2 L 121.2 308.2 L 113.0 312.3 L 98.6 326.7 L 90.4 341.1 L 84.2 349.3 L 76.0 359.6 L 61.6 374.0 L 55.5 376.0 L 55.5 380.1 L 51.4 384.2 L 47.3 386.3 L 37.0 388.4 L 26.7 388.4 L 16.4 386.3 L 10.3 384.2 L 6.2 382.2 L 10.3 390.4 L 12.3 396.6 L 20.5 404.8 L 24.7 406.8 L 28.8 408.9 L 41.1 411.0 L 45.2 417.1 L 63.7 417.1 L 69.9 415.1 L 74.0 413.0 L 78.1 411.0 L 90.4 400.7 L 98.6 390.4 L 100.7 396.6 L 98.6 400.7 L 96.6 404.8 L 86.3 413.0 L 82.2 425.3 L 82.2 435.6 L 80.1 445.9 L 76.0 456.2 L 71.9 466.4 L 67.8 470.5 L 67.8 495.2 L 59.6 497.3 L 51.4 497.3 L 39.0 509.6 L 26.7 517.8 L 22.6 521.9 L 20.5 528.1 L 16.4 548.6 L 12.3 561.0 L 6.2 579.5 L 0.0 589.7 L 0.0 593.8 L -2.1 597.9 L 419.2 597.9 L 417.1 583.6 L 415.1 573.3 L 413.0 565.1 L 411.0 561.0 L 408.9 556.8 L 398.6 546.6 L 396.6 542.5 L 392.5 532.2 L 390.4 515.8 L 384.2 503.4 L 365.8 484.9 L 355.5 476.7 L 343.2 478.8 L 339.0 476.7 L 337.0 464.4 L 334.9 460.3 L 330.8 454.1 L 306.2 429.5 L 300.0 425.3 L 295.9 425.3 L 291.8 423.3 L 287.7 415.1 L 287.7 378.1 L 289.7 371.9 L 291.8 367.8 L 297.9 361.6 L 300.0 357.5 L 302.1 353.4 L 304.1 345.2 L 304.1 328.8 L 306.2 324.7 L 314.4 316.4 L 318.5 310.3 L 322.6 304.1 L 328.8 291.8 L 330.8 285.6 L 332.9 279.5 L 334.9 271.2 L 337.0 258.9 L 337.0 230.1 L 334.9 193.2 L 339.0 162.3 L 339.0 147.9 L 337.0 143.8 L 330.8 137.7 L 328.8 129.5 Z M 133.6 411.0 L 139.7 413.0 L 139.7 423.3 L 137.7 431.5 L 131.5 439.7 L 131.5 454.1 L 133.6 456.2 L 133.6 468.5 L 129.5 476.7 L 123.3 476.7 L 117.1 478.8 L 104.8 484.9 L 92.5 489.0 L 86.3 487.0 L 86.3 474.7 L 90.4 464.4 L 94.5 460.3 L 98.6 450.0 L 98.6 445.9 L 102.7 435.6 L 104.8 431.5 L 113.0 423.3 Z M 258.9 363.7 L 265.1 365.8 L 267.1 371.9 L 267.1 388.4 L 269.2 390.4 L 267.1 406.8 L 267.1 415.1 L 269.2 425.3 L 256.8 429.5 L 250.7 427.4 L 248.6 423.3 L 248.6 388.4 L 252.7 365.8 Z M 199.3 363.7 L 205.5 363.7 L 207.5 365.8 L 215.8 365.8 L 228.1 369.9 L 230.1 374.0 L 230.1 388.4 L 226.0 411.0 L 226.0 425.3 L 230.1 429.5 L 232.2 433.6 L 230.1 439.7 L 226.0 441.8 L 215.8 441.8 L 197.3 447.9 L 168.5 464.4 L 164.4 466.4 L 160.3 468.5 L 152.1 466.4 L 150.0 452.1 L 150.0 443.8 L 152.1 439.7 L 154.1 437.7 L 160.3 435.6 L 170.5 427.4 L 172.6 425.3 L 180.8 415.1 L 184.9 408.9 L 187.0 404.8 L 193.2 386.3 L 195.2 376.0 L 195.2 367.8 Z"
       />
     </svg>
   )
@@ -235,29 +117,21 @@ export default function LoginScreen({ section, sectionName, onUnlock }) {
         pointerEvents: 'none',
       }} />
 
-      {/* LOBO — imagem real, lado esquerdo, ocupa 1º terço, base rente ao fundo */}
+      {/* LOBO vetorizado — grandão, lado esquerdo, translúcido */}
       <div style={{
         position: 'absolute',
         bottom: 0,
-        left: 0,
+        left: '-2vw',
         zIndex: 2,
         pointerEvents: 'none',
-        width: '38vw',
-        maxWidth: 580,
-        minWidth: 260,
-        display: 'flex',
-        alignItems: 'flex-end',
+        width: '48vw',
+        maxWidth: 700,
+        minWidth: 300,
+        color: '#c85000',
+        opacity: 0.13,
+        filter: 'drop-shadow(0 0 80px rgba(255,80,0,0.3))',
       }}>
-        <img
-          src={wolfImg}
-          alt=""
-          style={{
-            width: '100%',
-            display: 'block',
-            opacity: 0.55,
-            filter: 'drop-shadow(0 0 40px rgba(255,100,0,0.2))',
-          }}
-        />
+        <WolfSilhouette />
       </div>
 
       {/* Raios de luz sutis vindos do topo */}
