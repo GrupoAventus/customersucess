@@ -1,23 +1,25 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #0a0a0a;
-  --bg-card: #141414;
-  --bg-hover: #181818;
-  --bg-input: #1a1a1a;
-  --border: #222;
-  --border-hover: #333;
+  --bg: #050401;
+  --bg-card: #0e0c09;
+  --bg-hover: #141208;
+  --bg-input: #111009;
+  --border: #1e1b14;
+  --border-hover: #2e2818;
   --orange: #FF6B1A;
   --orange-dark: #e55a0f;
   --orange-dim: #1f1008;
-  --text: #f0f0f0;
-  --text-muted: #888;
-  --text-dim: #555;
-  --text-faint: #333;
+  --gold: #c8921a;
+  --gold-bright: #f0b830;
+  --text: #ede8e0;
+  --text-muted: #7a6f5e;
+  --text-dim: #4a4035;
+  --text-faint: #2a2418;
   --green: #639922;
   --green-bg: #1a2e12;
   --amber: #EF9F27;
-  --amber-bg: #2e1a12;
+  --amber-bg: #2e1a08;
   --red: #E24B4A;
   --red-bg: #2e1212;
 }
@@ -29,6 +31,11 @@ body {
   min-height: 100vh;
   font-size: 14px;
   line-height: 1.5;
+  /* Gradiente de profundidade sutil no fundo, como o LoginScreen */
+  background-image:
+    radial-gradient(ellipse 120% 60% at 50% 100%, rgba(180, 80, 0, 0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at 0% 50%, rgba(140, 60, 0, 0.04) 0%, transparent 60%);
+  background-attachment: fixed;
 }
 
 input, select, textarea {
@@ -41,9 +48,12 @@ input, select, textarea {
   padding: 9px 12px;
   width: 100%;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-input:focus, select:focus, textarea:focus { border-color: var(--orange); }
+input:focus, select:focus, textarea:focus {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px rgba(255, 107, 26, 0.08);
+}
 select { cursor: pointer; }
 textarea { resize: vertical; }
 
@@ -54,4 +64,5 @@ a:hover { color: var(--orange); }
 
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #222; border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: #1e1b14; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #2e2818; }

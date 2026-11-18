@@ -29,72 +29,106 @@ export default function Nav({ current, onChange }) {
   return (
     <>
       <nav style={{
-        background: '#0f0f0f', borderBottom: '0.5px solid #1f1f1f',
+        background: 'linear-gradient(180deg, #0c0a07 0%, #080601 100%)',
+        borderBottom: '0.5px solid #1e1b14',
         display: 'flex', alignItems: 'center', height: 52,
         padding: '0 1.5rem', position: 'sticky', top: 0, zIndex: 100,
-        gap: 0, overflowX: 'auto'
+        gap: 0, overflowX: 'auto',
+        boxShadow: '0 1px 24px rgba(0,0,0,0.5), 0 1px 0 rgba(255,107,26,0.04)',
       }}>
-        <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--orange)', marginRight: '2rem', flexShrink: 0 }}>
+        {/* Logo */}
+        <span style={{
+          fontSize: 15, fontWeight: 700,
+          color: 'var(--orange)',
+          marginRight: '2rem', flexShrink: 0,
+          letterSpacing: '-0.01em',
+          textShadow: '0 0 20px rgba(255,107,26,0.4)',
+        }}>
           ⬡ AventusCS_
         </span>
-        {SECTIONS.map(s => (
+
+        {/* Abas */}
+        {SECTIONS.map(s => {
+          const active = current === s.id
+          return (
+            <button
+              key={s.id}
+              onClick={() => onChange(s.id)}
+              style={{
+                padding: '0 1rem', height: 52,
+                background: active ? 'rgba(255,107,26,0.05)' : 'none',
+                border: 'none',
+                borderBottom: active
+                  ? '1.5px solid var(--orange)'
+                  : '1.5px solid transparent',
+                borderTop: active
+                  ? '1.5px solid transparent'
+                  : '1.5px solid transparent',
+                color: active ? 'var(--orange)' : '#4a4035',
+                fontSize: 13, cursor: 'pointer',
+                transition: 'color 0.15s, background 0.15s',
+                whiteSpace: 'nowrap', flexShrink: 0,
+                boxShadow: active ? 'inset 0 -1px 12px rgba(255,107,26,0.08)' : 'none',
+              }}
+            >
+              {s.label}
+            </button>
+          )
+        })}
+
+        {/* Ações à direita */}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, flexShrink: 0 }}>
+          {/* Calendário */}
           <button
-            key={s.id}
-            onClick={() => onChange(s.id)}
+            onClick={() => setShowCalendar(true)}
+            title="Calendário comemorativo"
             style={{
-              padding: '0 1rem', height: 52, background: 'none', border: 'none',
-              borderBottom: current === s.id ? '2px solid var(--orange)' : '2px solid transparent',
-              color: current === s.id ? 'var(--orange)' : '#666',
-              fontSize: 13, cursor: 'pointer', transition: 'color 0.15s',
-              whiteSpace: 'nowrap', flexShrink: 0
+              fontSize: 12, color: '#4a4035', cursor: 'pointer',
+              padding: '6px 10px', background: 'none',
+              border: '0.5px solid #1e1b14', borderRadius: 6,
+              display: 'flex', alignItems: 'center', gap: 4,
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = '#2e2818'; e.currentTarget.style.color = '#7a6f5e' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#1e1b14'; e.currentTarget.style.color = '#4a4035' }}
+          >
+            <i className="ti ti-calendar-event" />
+            Calendário
+          </button>
+
+          {/* Admin */}
+          <button
+            onClick={toggleAdmin}
+            title={isAdmin ? 'Modo admin ativo — clique para sair' : 'Ativar modo admin'}
+            style={{
+              fontSize: 12,
+              color: isAdmin ? 'var(--orange)' : '#4a4035',
+              cursor: 'pointer', padding: '6px 10px', background: 'none',
+              border: `0.5px solid ${isAdmin ? 'rgba(255,107,26,0.4)' : '#1e1b14'}`,
+              borderRadius: 6, display: 'flex', alignItems: 'center', gap: 4,
+              transition: 'all 0.15s',
+              boxShadow: isAdmin ? '0 0 10px rgba(255,107,26,0.15)' : 'none',
             }}
           >
-            {s.label}
+            <i className={`ti ti-${isAdmin ? 'lock-open' : 'lock'}`} />
+            {isAdmin ? 'Admin' : ''}
           </button>
-        ))}
 
-        {/* Calendário */}
-        <button
-          onClick={() => setShowCalendar(true)}
-          title="Calendário comemorativo"
-          style={{
-            marginLeft: 'auto', fontSize: 12, color: '#666', cursor: 'pointer',
-            padding: '6px 10px', background: 'none',
-            border: '0.5px solid #2a2a2a', borderRadius: 6,
-            flexShrink: 0, marginRight: 8,
-            display: 'flex', alignItems: 'center', gap: 4
-          }}
-        >
-          <i className="ti ti-calendar-event" />
-          Calendário
-        </button>
-
-        <button
-          onClick={toggleAdmin}
-          title={isAdmin ? 'Modo admin ativo — clique para sair' : 'Ativar modo admin'}
-          style={{
-            fontSize: 12,
-            color: isAdmin ? 'var(--orange)' : '#444',
-            cursor: 'pointer', padding: '6px 10px', background: 'none',
-            border: `0.5px solid ${isAdmin ? 'var(--orange)' : '#2a2a2a'}`,
-            borderRadius: 6, flexShrink: 0, marginRight: 8,
-            display: 'flex', alignItems: 'center', gap: 4
-          }}
-        >
-          <i className={`ti ti-${isAdmin ? 'lock-open' : 'lock'}`} />
-          {isAdmin ? 'Admin' : ''}
-        </button>
-
-        <button
-          onClick={() => logout()}
-          style={{
-            fontSize: 12, color: '#444', cursor: 'pointer',
-            padding: '6px 12px', background: 'none',
-            border: '0.5px solid #2a2a2a', borderRadius: 6, flexShrink: 0
-          }}
-        >
-          Sair
-        </button>
+          {/* Sair */}
+          <button
+            onClick={() => logout()}
+            style={{
+              fontSize: 12, color: '#4a4035', cursor: 'pointer',
+              padding: '6px 12px', background: 'none',
+              border: '0.5px solid #1e1b14', borderRadius: 6,
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = '#5a1f1f'; e.currentTarget.style.color = '#E24B4A' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#1e1b14'; e.currentTarget.style.color = '#4a4035' }}
+          >
+            Sair
+          </button>
+        </div>
       </nav>
 
       {showCalendar && <CalendarModal onClose={() => setShowCalendar(false)} />}
