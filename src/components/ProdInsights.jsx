@@ -23,6 +23,7 @@ import { useMemo, useState } from 'react'
 const ESTIMATE_TABLE = [
   // Sites e landing pages
   { keywords: ['landing page', 'lp ', ' lp,', 'página de vendas', 'pagina de vendas'], horas: 16, label: 'Landing page', icon: '🌐' },
+  { keywords: ['ecom', 'e-com', 'loja virtual', 'loja online', 'shopify', 'woocommerce', 'ecommerce', 'e-commerce'], horas: 32, label: 'E-commerce', icon: '🛒' },
   { keywords: ['site', 'website', 'hotsite'], horas: 24, label: 'Site', icon: '🌐' },
 
   // Vídeos
@@ -66,42 +67,51 @@ function estimarTempo(text) {
   return { horas: 3, label: 'Tarefa geral', icon: '📋' }
 }
 
-// Multiplicadores de prioridade do cliente: quanto menor, mais urgente
-const PRIORITY_MULTIPLIER = {
-  prioridade: 1 / 3,   // cliente vermelho → score ÷ 3 (sobe muito na fila)
-  atencao:    1 / 1.5, // cliente amarelo  → score ÷ 1.5
-  estavel:    1,        // cliente verde    → sem alteração
-}
-
 const PRIORITY_ICON = {
   prioridade: { icon: '🔴', color: '#e24b4a', label: 'Prioridade' },
   atencao:    { icon: '🟡', color: '#f59e0b', label: 'Atenção' },
   estavel:    { icon: '🟢', color: '#22c55e', label: 'Estável' },
 }
 
+// Bônus de urgência adicionado ao score pelo status do cliente
+// (subtrai do score base — quanto mais negativo, mais sobe na fila)
+const PRIORITY_BONUS = {
+  prioridade: -200, // puxa muito para cima
+  atencao:    -80,  // puxa moderado
+  estavel:    0,
+}
+
 /**
- * Calcula score de urgência com peso de prioridade do cliente.
- * Score base = horas disponíveis até prazo / horas estimadas
- * Score final = score base × multiplicador de prioridade
- * Quanto menor o score, mais urgente.
- * Score < 0 = prazo vencido (máxima urgência — também ajustado pelo cliente).
+ * Calcula score de urgência.
+ * Score base:
+ *   sem prazo           → 900  (vai pro fim)
+ *   prazo vencido       → (diasRestantes - horas) × 10  (valor bem negativo)
+ *   prazo futuro        → (horasDisponiveis / horas)     (quanto menor, mais aperto)
+ *
+ * Score final = score base + PRIORITY_BONUS[clientePriority]
+ * Quanto menor o score final, mais urgente → aparece primeiro.
  */
 function calcScore(prazo, horas, priorityStatus) {
-  const mult = PRIORITY_MULTIPLIER[priorityStatus] ?? 1
-  if (!prazo) return 999 * mult // sem prazo → vai pro fim, mas cliente vermelho ainda sobe
+  const bonus = PRIORITY_BONUS[priorityStatus] ?? 0
+
+  if (!prazo) return 900 + bonus
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const deadline = new Date(prazo + 'T00:00:00')
   const diasRestantes = Math.round((deadline - today) / 86400000)
-  const horasDisponiveis = diasRestantes * 8
 
+  let base
   if (diasRestantes < 0) {
-    // Vencida: score negativo — mais negativo = mais urgente
-    // Cliente vermelho torna ainda mais negativo (maior urgência)
-    return (diasRestantes - horas) * (1 / mult)
+    // Vencida: mais dias atrasado + mais horas de trabalho = mais urgente
+    base = (diasRestantes - horas) * 10
+  } else {
+    // Horas disponíveis (8h por dia útil) ÷ horas necessárias
+    const horasDisponiveis = diasRestantes * 8
+    base = horasDisponiveis / horas
   }
-  return (horasDisponiveis / horas) * mult
+
+  return base + bonus
 }
 
 function diasRestantesLabel(prazo) {
