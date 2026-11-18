@@ -31,13 +31,23 @@ const PRIORITY_ADVANCE_DAYS = {
  * Sem prazo → 99999 (vai pro fim).
  * Com prazo → dias até o prazo ajustado × 10000 (mantém precisão inteira).
  */
+// Normaliza prazo para yyyy-mm-dd independente do formato recebido
+function normalizePrazo(prazo) {
+  if (!prazo) return null
+  // Se já é só data (yyyy-mm-dd), retorna direto
+  if (/^\d{4}-\d{2}-\d{2}$/.test(prazo)) return prazo
+  // Se é ISO com hora, pega só os 10 primeiros chars
+  return prazo.slice(0, 10)
+}
+
 function calcScore(prazo, priorityStatus) {
-  if (!prazo) return 99999
+  const dateStr = normalizePrazo(prazo)
+  if (!dateStr) return 99999
 
   const advance = PRIORITY_ADVANCE_DAYS[priorityStatus] ?? 0
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  const deadline = new Date(prazo + 'T00:00:00')
+  const deadline = new Date(dateStr + 'T00:00:00')
   const diasRestantes = Math.round((deadline - today) / 86400000)
 
   // Subtrai os dias de avanço — cliente vermelho aparece 3 dias antes
@@ -45,10 +55,11 @@ function calcScore(prazo, priorityStatus) {
 }
 
 function diasRestantesLabel(prazo) {
-  if (!prazo) return null
+  const dateStr = normalizePrazo(prazo)
+  if (!dateStr) return null
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  const deadline = new Date(prazo + 'T00:00:00')
+  const deadline = new Date(dateStr + 'T00:00:00')
   const diff = Math.round((deadline - today) / 86400000)
   if (diff < 0) return { text: `${Math.abs(diff)}d atrasada`, color: '#e24b4a' }
   if (diff === 0) return { text: 'vence hoje', color: '#f59e0b' }
@@ -145,8 +156,11 @@ export default function ProdInsights({ demands, clients }) {
   const top4 = prioritized.slice(0, 4)
   const totalAtrasadas = prioritized.filter(x => x.demand.prazo && calcScore(x.demand.prazo, 'estavel') < 0).length
   const totalUrgentes  = prioritized.filter(x => {
-    const dias = x.demand.prazo ? Math.round((new Date(x.demand.prazo + 'T00:00:00') - new Date().setHours(0,0,0,0)) / 86400000) : null
-    return dias !== null && dias >= 0 && dias <= 2
+    const dateStr = normalizePrazo(x.demand.prazo)
+    if (!dateStr) return false
+    const today = new Date(); today.setHours(0,0,0,0)
+    const dias = Math.round((new Date(dateStr + 'T00:00:00') - today) / 86400000)
+    return dias >= 0 && dias <= 2
   }).length
 
   return (
