@@ -5,9 +5,13 @@
  * Lógica:
  *  1. Para cada demanda ativa (não done, stage ≠ aprovado) estima o tempo em horas
  *     com base em palavras-chave do texto.
- *  2. Calcula um score de urgência: (dias restantes até prazo) ÷ (horas estimadas)
+ *  2. Calcula um score de urgência base: (horas disponíveis até prazo) ÷ (horas estimadas)
  *     Quanto menor o score, mais urgente.
- *  3. Exibe: "Faça agora" (score mais baixo) + 3 próximas em ordem.
+ *  3. Aplica multiplicador de prioridade do cliente:
+ *       prioridade (🔴) → divide score por 3  (sobe muito na fila)
+ *       atencao    (🟡) → divide score por 1.5
+ *       estavel    (🟢) → sem alteração
+ *  4. Exibe: "Faça agora" (score mais baixo) + 3 próximas em ordem.
  */
 
 import { useMemo, useState } from 'react'
@@ -62,22 +66,42 @@ function estimarTempo(text) {
   return { horas: 3, label: 'Tarefa geral', icon: '📋' }
 }
 
+// Multiplicadores de prioridade do cliente: quanto menor, mais urgente
+const PRIORITY_MULTIPLIER = {
+  prioridade: 1 / 3,   // cliente vermelho → score ÷ 3 (sobe muito na fila)
+  atencao:    1 / 1.5, // cliente amarelo  → score ÷ 1.5
+  estavel:    1,        // cliente verde    → sem alteração
+}
+
+const PRIORITY_ICON = {
+  prioridade: { icon: '🔴', color: '#e24b4a', label: 'Prioridade' },
+  atencao:    { icon: '🟡', color: '#f59e0b', label: 'Atenção' },
+  estavel:    { icon: '🟢', color: '#22c55e', label: 'Estável' },
+}
+
 /**
- * Calcula score de urgência.
- * Score = diasRestantes / horasEstimadas
- * Quanto menor, mais urgente.
- * Score < 0 = prazo vencido (máxima urgência).
+ * Calcula score de urgência com peso de prioridade do cliente.
+ * Score base = horas disponíveis até prazo / horas estimadas
+ * Score final = score base × multiplicador de prioridade
+ * Quanto menor o score, mais urgente.
+ * Score < 0 = prazo vencido (máxima urgência — também ajustado pelo cliente).
  */
-function calcScore(prazo, horas) {
-  if (!prazo) return 999 // sem prazo → vai pro fim
+function calcScore(prazo, horas, priorityStatus) {
+  const mult = PRIORITY_MULTIPLIER[priorityStatus] ?? 1
+  if (!prazo) return 999 * mult // sem prazo → vai pro fim, mas cliente vermelho ainda sobe
+
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const deadline = new Date(prazo + 'T00:00:00')
   const diasRestantes = Math.round((deadline - today) / 86400000)
-  // Horas disponíveis estimadas em dias úteis (8h/dia)
   const horasDisponiveis = diasRestantes * 8
-  if (diasRestantes < 0) return diasRestantes - horas // vencida: mais negativo = mais urgente
-  return horasDisponiveis / horas
+
+  if (diasRestantes < 0) {
+    // Vencida: score negativo — mais negativo = mais urgente
+    // Cliente vermelho torna ainda mais negativo (maior urgência)
+    return (diasRestantes - horas) * (1 / mult)
+  }
+  return (horasDisponiveis / horas) * mult
 }
 
 function diasRestantesLabel(prazo) {
@@ -93,10 +117,11 @@ function diasRestantesLabel(prazo) {
 }
 
 // ── Card de uma demanda priorizada ──────────────────────────────────────────
-function PriorityCard({ demand, rank, clientName }) {
+function PriorityCard({ demand, rank, clientName, priorityStatus }) {
   const est = estimarTempo(demand.text)
   const diasLabel = diasRestantesLabel(demand.prazo)
   const isFazerAgora = rank === 0
+  const priInfo = PRIORITY_ICON[priorityStatus] || PRIORITY_ICON.estavel
 
   const horasStr = est.horas < 1
     ? `${Math.round(est.horas * 60)}min`
@@ -162,6 +187,11 @@ function PriorityCard({ demand, rank, clientName }) {
           }}>
             {clientName}
           </span>
+          {priorityStatus !== 'estavel' && (
+            <span style={{ fontSize: 9, color: priInfo.color, fontWeight: 600 }}>
+              {priInfo.icon} {priInfo.label}
+            </span>
+          )}
           {diasLabel && (
             <span style={{ fontSize: 9, color: diasLabel.color, fontWeight: 500 }}>
               {diasLabel.text}
@@ -186,9 +216,10 @@ export default function ProdInsights({ demands, clients }) {
     return active
       .map(d => {
         const est = estimarTempo(d.text)
-        const score = calcScore(d.prazo, est.horas)
         const client = clients.find(c => c.id === d.clientId)
-        return { demand: d, est, score, clientName: client?.name || '—' }
+        const priorityStatus = client?.priorityStatus || 'estavel'
+        const score = calcScore(d.prazo, est.horas, priorityStatus)
+        return { demand: d, est, score, clientName: client?.name || '—', priorityStatus }
       })
       .sort((a, b) => a.score - b.score)
   }, [demands, clients])
@@ -285,6 +316,7 @@ export default function ProdInsights({ demands, clients }) {
                 demand={item.demand}
                 rank={i}
                 clientName={item.clientName}
+                priorityStatus={item.priorityStatus}
               />
             ))}
           </div>
