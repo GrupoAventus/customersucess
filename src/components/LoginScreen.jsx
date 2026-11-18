@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../lib/AppContext'
+import wolfImg from '../assets/wolf.png'
 
 // Canvas de partículas flutuantes
 function ParticleCanvas() {
@@ -105,60 +106,19 @@ export default function LoginScreen({ section, sectionName, onUnlock }) {
         pointerEvents: 'none',
       }} />
 
-      {/* Silhueta do lobo uivando — lado esquerdo */}
+      {/* Silhueta do lobo — imagem real, lado esquerdo */}
       <div style={{
         position: 'absolute', bottom: 0, left: '-2vw',
-        zIndex: 0, opacity: 0.55, pointerEvents: 'none',
+        zIndex: 0, pointerEvents: 'none',
         width: '38vw', maxWidth: 520, minWidth: 280,
-        filter: 'drop-shadow(0 0 40px rgba(255,120,0,0.25))',
+        filter: 'drop-shadow(0 0 40px rgba(255,120,0,0.3)) sepia(1) saturate(0) brightness(0.15)',
+        opacity: 0.65,
       }}>
-        <svg viewBox="0 0 400 500" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%' }}>
-          {/* Pedra / rocha base */}
-          <path d="M60 500 Q80 450 110 440 Q140 432 160 438 Q185 445 200 440 Q220 435 240 442 Q265 450 280 460 Q300 472 310 500 Z" fill="#1a0e00"/>
-          <path d="M80 500 Q95 458 118 448 Q145 440 165 445 Q188 452 205 448 Q222 443 242 450 Q262 458 275 468 Q288 478 295 500 Z" fill="#2a1500"/>
-
-          {/* Corpo do lobo — silhueta sólida uivando */}
-          {/* cauda curvada para frente/baixo */}
-          <path d="M148 340 Q118 360 100 390 Q88 412 92 435 Q96 450 110 448" fill="none" stroke="#1a0e00" strokeWidth="22" strokeLinecap="round"/>
-
-          {/* traseiro/garupa */}
-          <path d="M148 340 Q152 310 158 290 Q164 270 172 258" fill="none" stroke="#1a0e00" strokeWidth="34" strokeLinecap="round"/>
-
-          {/* corpo central */}
-          <path d="M110 440 Q118 400 132 370 Q144 348 158 338 Q170 330 180 320 Q188 310 192 295" fill="none" stroke="#1a0e00" strokeWidth="40" strokeLinecap="round"/>
-
-          {/* barriga/volume do corpo */}
-          <path d="M125 430 Q130 395 148 365 Q162 342 175 328 Q186 316 192 300 L200 285 Q205 270 210 255" fill="#1a0e00"/>
-          <path d="M110 442 Q122 408 138 378 Q154 350 168 334 Q182 318 192 302 L200 288 Q205 272 212 256 Q188 262 175 278 Q162 294 158 310 Q150 332 142 358 Q130 390 120 426 Z" fill="#1a0e00"/>
-
-          {/* pescoço esticado para cima (uivando) */}
-          <path d="M192 300 Q196 270 200 245 Q204 220 208 195 Q210 178 212 160" fill="none" stroke="#1a0e00" strokeWidth="30" strokeLinecap="round"/>
-
-          {/* cabeça virada para cima — uivando */}
-          {/* crânio */}
-          <path d="M195 165 Q196 130 205 108 Q212 90 222 80 Q232 72 242 74 Q252 76 258 88 Q264 102 260 122 Q256 142 244 158 Q232 172 218 175 Q204 177 195 165Z" fill="#1a0e00"/>
-
-          {/* focinho apontado para cima */}
-          <path d="M242 100 Q255 88 265 78 Q274 68 278 60 Q280 52 276 46 Q270 40 262 44 Q254 50 248 62 Q242 74 240 88 Z" fill="#1a0e00"/>
-
-          {/* orelha — pontiaguda, em pé */}
-          <path d="M200 148 Q196 118 200 95 Q202 78 210 68 Q216 60 220 65 Q222 72 218 90 Q215 110 212 132 Z" fill="#1a0e00"/>
-          {/* segunda orelha menor atrás */}
-          <path d="M218 142 Q216 120 220 103 Q224 90 230 85 Q235 82 236 88 Q236 98 232 115 Q228 130 224 142 Z" fill="#1a0e00"/>
-
-          {/* pata dianteira frente — esticada para baixo */}
-          <path d="M192 302 Q194 340 196 375 Q197 405 196 435 Q196 448 194 455" fill="none" stroke="#1a0e00" strokeWidth="20" strokeLinecap="round"/>
-
-          {/* pata dianteira traseira */}
-          <path d="M176 308 Q174 345 172 378 Q170 408 170 438 Q170 450 168 458" fill="none" stroke="#1a0e00" strokeWidth="18" strokeLinecap="round"/>
-
-          {/* patas traseiras */}
-          <path d="M148 362 Q140 390 132 418 Q126 440 122 455" fill="none" stroke="#1a0e00" strokeWidth="20" strokeLinecap="round"/>
-          <path d="M160 350 Q155 378 150 408 Q146 432 144 450" fill="none" stroke="#1a0e00" strokeWidth="16" strokeLinecap="round"/>
-
-          {/* glow laranja sutil sob o lobo */}
-          <ellipse cx="195" cy="490" rx="80" ry="14" fill="rgba(255,100,0,0.12)"/>
-        </svg>
+        <img
+          src={wolfImg}
+          alt=""
+          style={{ width: '100%', display: 'block' }}
+        />
       </div>
 
       {/* Raios de luz sutis vindos do topo */}
