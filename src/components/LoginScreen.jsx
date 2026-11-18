@@ -61,16 +61,145 @@ function ParticleCanvas() {
   )
 }
 
-// SVG vetorizado do lobo real — contornos extraídos da imagem de referência
+const WOLF_PATH = "M 318.5 131.5 L 318.5 133.6 L 314.4 137.7 L 312.3 143.8 L 308.2 150.0 L 300.0 158.2 L 293.8 160.3 L 291.8 162.3 L 289.7 166.4 L 283.6 182.9 L 269.2 195.2 L 267.1 197.3 L 261.0 207.5 L 269.2 209.6 L 269.2 213.7 L 267.1 217.8 L 263.0 221.9 L 256.8 224.0 L 248.6 230.1 L 240.4 240.4 L 238.4 246.6 L 236.3 248.6 L 234.2 248.6 L 230.1 252.7 L 219.9 256.8 L 209.6 263.0 L 193.2 279.5 L 189.0 281.5 L 184.9 283.6 L 164.4 289.7 L 150.0 291.8 L 143.8 293.8 L 133.6 304.1 L 129.5 306.2 L 121.2 308.2 L 113.0 312.3 L 98.6 326.7 L 90.4 341.1 L 84.2 349.3 L 76.0 359.6 L 61.6 374.0 L 55.5 376.0 L 55.5 380.1 L 51.4 384.2 L 47.3 386.3 L 37.0 388.4 L 26.7 388.4 L 16.4 386.3 L 10.3 384.2 L 6.2 382.2 L 10.3 390.4 L 12.3 396.6 L 20.5 404.8 L 24.7 406.8 L 28.8 408.9 L 41.1 411.0 L 45.2 417.1 L 63.7 417.1 L 69.9 415.1 L 74.0 413.0 L 78.1 411.0 L 90.4 400.7 L 98.6 390.4 L 100.7 396.6 L 98.6 400.7 L 96.6 404.8 L 86.3 413.0 L 82.2 425.3 L 82.2 435.6 L 80.1 445.9 L 76.0 456.2 L 71.9 466.4 L 67.8 470.5 L 67.8 495.2 L 59.6 497.3 L 51.4 497.3 L 39.0 509.6 L 26.7 517.8 L 22.6 521.9 L 20.5 528.1 L 16.4 548.6 L 12.3 561.0 L 6.2 579.5 L 0.0 589.7 L 0.0 593.8 L -2.1 597.9 L 419.2 597.9 L 417.1 583.6 L 415.1 573.3 L 413.0 565.1 L 411.0 561.0 L 408.9 556.8 L 398.6 546.6 L 396.6 542.5 L 392.5 532.2 L 390.4 515.8 L 384.2 503.4 L 365.8 484.9 L 355.5 476.7 L 343.2 478.8 L 339.0 476.7 L 337.0 464.4 L 334.9 460.3 L 330.8 454.1 L 306.2 429.5 L 300.0 425.3 L 295.9 425.3 L 291.8 423.3 L 287.7 415.1 L 287.7 378.1 L 289.7 371.9 L 291.8 367.8 L 297.9 361.6 L 300.0 357.5 L 302.1 353.4 L 304.1 345.2 L 304.1 328.8 L 306.2 324.7 L 314.4 316.4 L 318.5 310.3 L 322.6 304.1 L 328.8 291.8 L 330.8 285.6 L 332.9 279.5 L 334.9 271.2 L 337.0 258.9 L 337.0 230.1 L 334.9 193.2 L 339.0 162.3 L 339.0 147.9 L 337.0 143.8 L 330.8 137.7 L 328.8 129.5 Z M 133.6 411.0 L 139.7 413.0 L 139.7 423.3 L 137.7 431.5 L 131.5 439.7 L 131.5 454.1 L 133.6 456.2 L 133.6 468.5 L 129.5 476.7 L 123.3 476.7 L 117.1 478.8 L 104.8 484.9 L 92.5 489.0 L 86.3 487.0 L 86.3 474.7 L 90.4 464.4 L 94.5 460.3 L 98.6 450.0 L 98.6 445.9 L 102.7 435.6 L 104.8 431.5 L 113.0 423.3 Z M 258.9 363.7 L 265.1 365.8 L 267.1 371.9 L 267.1 388.4 L 269.2 390.4 L 267.1 406.8 L 267.1 415.1 L 269.2 425.3 L 256.8 429.5 L 250.7 427.4 L 248.6 423.3 L 248.6 388.4 L 252.7 365.8 Z M 199.3 363.7 L 205.5 363.7 L 207.5 365.8 L 215.8 365.8 L 228.1 369.9 L 230.1 374.0 L 230.1 388.4 L 226.0 411.0 L 226.0 425.3 L 230.1 429.5 L 232.2 433.6 L 230.1 439.7 L 226.0 441.8 L 215.8 441.8 L 197.3 447.9 L 168.5 464.4 L 164.4 466.4 L 160.3 468.5 L 152.1 466.4 L 150.0 452.1 L 150.0 443.8 L 152.1 439.7 L 154.1 437.7 L 160.3 435.6 L 170.5 427.4 L 172.6 425.3 L 180.8 415.1 L 184.9 408.9 L 187.0 404.8 L 193.2 386.3 L 195.2 376.0 L 195.2 367.8 Z"
+
+// Fumaça saindo da boca do lobo — canvas animado
+function SmokeCanvas({ wolfWidth }) {
+  const canvasRef = useRef(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    let animId
+    // A boca do lobo fica em ~x=320/437 * width, y=~140/600 * height no SVG
+    // Convertemos para coordenadas do canvas
+    const particles = []
+
+    const spawnSmoke = () => {
+      const w = canvas.width
+      const h = canvas.height
+      // posição da boca no SVG viewBox 437x600 -> mapeia pro canvas
+      const mx = (320 / 437) * w
+      const my = (138 / 600) * h
+      for (let i = 0; i < 2; i++) {
+        particles.push({
+          x: mx + (Math.random() - 0.5) * (w * 0.02),
+          y: my,
+          vx: (Math.random() - 0.3) * 0.4,
+          vy: -(Math.random() * 0.6 + 0.3),
+          r: Math.random() * (w * 0.012) + (w * 0.008),
+          alpha: Math.random() * 0.18 + 0.08,
+          life: 1,
+          decay: Math.random() * 0.008 + 0.005,
+          grow: Math.random() * 0.3 + 0.15,
+        })
+      }
+    }
+
+    let frame = 0
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      frame++
+      if (frame % 4 === 0) spawnSmoke()
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i]
+        p.x += p.vx
+        p.y += p.vy
+        p.vy *= 0.995
+        p.vx += (Math.random() - 0.5) * 0.08
+        p.r += p.grow
+        p.life -= p.decay
+        p.alpha = p.life * 0.15
+
+        if (p.life <= 0) { particles.splice(i, 1); continue }
+
+        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r)
+        grad.addColorStop(0, `rgba(200, 180, 150, ${p.alpha})`)
+        grad.addColorStop(1, `rgba(200, 180, 150, 0)`)
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+        ctx.fillStyle = grad
+        ctx.fill()
+      }
+      animId = requestAnimationFrame(draw)
+    }
+    draw()
+    return () => cancelAnimationFrame(animId)
+  }, [])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={wolfWidth || 600}
+      height={Math.round((wolfWidth || 600) * 600 / 437)}
+      style={{ position: 'absolute', inset: 0, pointerEvents: 'none', width: '100%', height: '100%' }}
+    />
+  )
+}
+
+// SVG vetorizado do lobo real + brilho dourado animado na silhueta
 function WolfSilhouette() {
   return (
-    <svg viewBox="0 0 437 600" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
-      <path
-        fillRule="evenodd"
-        fill="currentColor"
-        d="M 318.5 131.5 L 318.5 133.6 L 314.4 137.7 L 312.3 143.8 L 308.2 150.0 L 300.0 158.2 L 293.8 160.3 L 291.8 162.3 L 289.7 166.4 L 283.6 182.9 L 269.2 195.2 L 267.1 197.3 L 261.0 207.5 L 269.2 209.6 L 269.2 213.7 L 267.1 217.8 L 263.0 221.9 L 256.8 224.0 L 248.6 230.1 L 240.4 240.4 L 238.4 246.6 L 236.3 248.6 L 234.2 248.6 L 230.1 252.7 L 219.9 256.8 L 209.6 263.0 L 193.2 279.5 L 189.0 281.5 L 184.9 283.6 L 164.4 289.7 L 150.0 291.8 L 143.8 293.8 L 133.6 304.1 L 129.5 306.2 L 121.2 308.2 L 113.0 312.3 L 98.6 326.7 L 90.4 341.1 L 84.2 349.3 L 76.0 359.6 L 61.6 374.0 L 55.5 376.0 L 55.5 380.1 L 51.4 384.2 L 47.3 386.3 L 37.0 388.4 L 26.7 388.4 L 16.4 386.3 L 10.3 384.2 L 6.2 382.2 L 10.3 390.4 L 12.3 396.6 L 20.5 404.8 L 24.7 406.8 L 28.8 408.9 L 41.1 411.0 L 45.2 417.1 L 63.7 417.1 L 69.9 415.1 L 74.0 413.0 L 78.1 411.0 L 90.4 400.7 L 98.6 390.4 L 100.7 396.6 L 98.6 400.7 L 96.6 404.8 L 86.3 413.0 L 82.2 425.3 L 82.2 435.6 L 80.1 445.9 L 76.0 456.2 L 71.9 466.4 L 67.8 470.5 L 67.8 495.2 L 59.6 497.3 L 51.4 497.3 L 39.0 509.6 L 26.7 517.8 L 22.6 521.9 L 20.5 528.1 L 16.4 548.6 L 12.3 561.0 L 6.2 579.5 L 0.0 589.7 L 0.0 593.8 L -2.1 597.9 L 419.2 597.9 L 417.1 583.6 L 415.1 573.3 L 413.0 565.1 L 411.0 561.0 L 408.9 556.8 L 398.6 546.6 L 396.6 542.5 L 392.5 532.2 L 390.4 515.8 L 384.2 503.4 L 365.8 484.9 L 355.5 476.7 L 343.2 478.8 L 339.0 476.7 L 337.0 464.4 L 334.9 460.3 L 330.8 454.1 L 306.2 429.5 L 300.0 425.3 L 295.9 425.3 L 291.8 423.3 L 287.7 415.1 L 287.7 378.1 L 289.7 371.9 L 291.8 367.8 L 297.9 361.6 L 300.0 357.5 L 302.1 353.4 L 304.1 345.2 L 304.1 328.8 L 306.2 324.7 L 314.4 316.4 L 318.5 310.3 L 322.6 304.1 L 328.8 291.8 L 330.8 285.6 L 332.9 279.5 L 334.9 271.2 L 337.0 258.9 L 337.0 230.1 L 334.9 193.2 L 339.0 162.3 L 339.0 147.9 L 337.0 143.8 L 330.8 137.7 L 328.8 129.5 Z M 133.6 411.0 L 139.7 413.0 L 139.7 423.3 L 137.7 431.5 L 131.5 439.7 L 131.5 454.1 L 133.6 456.2 L 133.6 468.5 L 129.5 476.7 L 123.3 476.7 L 117.1 478.8 L 104.8 484.9 L 92.5 489.0 L 86.3 487.0 L 86.3 474.7 L 90.4 464.4 L 94.5 460.3 L 98.6 450.0 L 98.6 445.9 L 102.7 435.6 L 104.8 431.5 L 113.0 423.3 Z M 258.9 363.7 L 265.1 365.8 L 267.1 371.9 L 267.1 388.4 L 269.2 390.4 L 267.1 406.8 L 267.1 415.1 L 269.2 425.3 L 256.8 429.5 L 250.7 427.4 L 248.6 423.3 L 248.6 388.4 L 252.7 365.8 Z M 199.3 363.7 L 205.5 363.7 L 207.5 365.8 L 215.8 365.8 L 228.1 369.9 L 230.1 374.0 L 230.1 388.4 L 226.0 411.0 L 226.0 425.3 L 230.1 429.5 L 232.2 433.6 L 230.1 439.7 L 226.0 441.8 L 215.8 441.8 L 197.3 447.9 L 168.5 464.4 L 164.4 466.4 L 160.3 468.5 L 152.1 466.4 L 150.0 452.1 L 150.0 443.8 L 152.1 439.7 L 154.1 437.7 L 160.3 435.6 L 170.5 427.4 L 172.6 425.3 L 180.8 415.1 L 184.9 408.9 L 187.0 404.8 L 193.2 386.3 L 195.2 376.0 L 195.2 367.8 Z"
-      />
-    </svg>
+    <div style={{ position: 'relative', width: '100%' }}>
+      <svg viewBox="0 0 437 600" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', display: 'block' }}>
+        <defs>
+          {/* Gradiente dourado que vai percorrer a silhueta */}
+          <linearGradient id="goldShimmer" x1="0%" y1="100%" x2="0%" y2="0%">
+            <stop offset="0%" stopColor="rgba(255,180,0,0)" />
+            <stop offset="45%" stopColor="rgba(255,180,0,0)" />
+            <stop offset="50%" stopColor="rgba(255,220,80,0.9)" />
+            <stop offset="55%" stopColor="rgba(255,180,0,0)" />
+            <stop offset="100%" stopColor="rgba(255,180,0,0)" >
+              <animate attributeName="offset" values="100%;-10%" dur="3s" repeatCount="indefinite" />
+            </stop>
+            <animateTransform
+              attributeName="gradientTransform"
+              type="translate"
+              values="0,600; 0,-600"
+              dur="3s"
+              repeatCount="indefinite"
+            />
+          </linearGradient>
+          <linearGradient id="goldFlow" x1="0%" y1="100%" x2="0%" y2="0%"
+            gradientUnits="userSpaceOnUse"
+            x1="0" y1="600" x2="0" y2="0"
+          >
+            <stop offset="0%" stopColor="transparent" />
+            <stop offset="0%" stopColor="transparent" stopOpacity="0">
+              <animate attributeName="offset" values="0;1" dur="3s" repeatCount="indefinite" />
+            </stop>
+            <stop offset="0%" stopColor="#ffd040" stopOpacity="1">
+              <animate attributeName="offset" values="0.0;1.0" dur="3s" repeatCount="indefinite" />
+            </stop>
+            <stop offset="8%" stopColor="#ffaa00" stopOpacity="0.5">
+              <animate attributeName="offset" values="0.08;1.08" dur="3s" repeatCount="indefinite" />
+            </stop>
+            <stop offset="15%" stopColor="transparent" stopOpacity="0">
+              <animate attributeName="offset" values="0.15;1.15" dur="3s" repeatCount="indefinite" />
+            </stop>
+            <stop offset="100%" stopColor="transparent" />
+          </linearGradient>
+          <clipPath id="wolfClip">
+            <path fillRule="evenodd" d={WOLF_PATH} />
+          </clipPath>
+        </defs>
+
+        {/* Silhueta base — bem escura e translúcida */}
+        <path fillRule="evenodd" fill="#1a0800" fillOpacity="0.9" d={WOLF_PATH} />
+
+        {/* Brilho dourado percorrendo de baixo para cima infinitamente */}
+        <rect
+          x="-10" y="-10" width="460" height="620"
+          fill="url(#goldFlow)"
+          clipPath="url(#wolfClip)"
+        />
+      </svg>
+
+      {/* Fumaça saindo da boca */}
+      <SmokeCanvas />
+    </div>
   )
 }
 
@@ -117,7 +246,7 @@ export default function LoginScreen({ section, sectionName, onUnlock }) {
         pointerEvents: 'none',
       }} />
 
-      {/* LOBO vetorizado — grandão, lado esquerdo, translúcido */}
+      {/* LOBO vetorizado — grandão, lado esquerdo, translúcido com brilho e fumaça */}
       <div style={{
         position: 'absolute',
         bottom: 0,
@@ -127,9 +256,8 @@ export default function LoginScreen({ section, sectionName, onUnlock }) {
         width: '48vw',
         maxWidth: 700,
         minWidth: 300,
-        color: '#c85000',
-        opacity: 0.13,
-        filter: 'drop-shadow(0 0 80px rgba(255,80,0,0.3))',
+        opacity: 0.45,
+        filter: 'drop-shadow(0 0 60px rgba(255,120,0,0.2))',
       }}>
         <WolfSilhouette />
       </div>
