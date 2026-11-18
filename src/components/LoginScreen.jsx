@@ -105,100 +105,92 @@ export default function LoginScreen({ section, sectionName, onUnlock }) {
         pointerEvents: 'none',
       }} />
 
-      {/* Silhueta do lobo — SVG geométrico estilizado */}
+      {/* Silhueta do lobo — lado esquerdo, em pé de perfil */}
       <div style={{
-        position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)',
-        zIndex: 0, opacity: 0.07, pointerEvents: 'none',
-        width: '100vw', maxWidth: 900,
+        position: 'absolute', bottom: 0, left: 0,
+        zIndex: 0, opacity: 0.18, pointerEvents: 'none',
+        width: '42vw', maxWidth: 560, minWidth: 300,
       }}>
-        <svg viewBox="0 0 900 520" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%' }}>
-          <defs>
-            <radialGradient id="wolfGlow" cx="50%" cy="90%" r="50%">
-              <stop offset="0%" stopColor="#ff6600" stopOpacity="0.6" />
-              <stop offset="100%" stopColor="#ff6600" stopOpacity="0" />
-            </radialGradient>
-          </defs>
-          {/* glow no chão */}
-          <ellipse cx="450" cy="510" rx="380" ry="60" fill="url(#wolfGlow)" />
+        {/* Silhueta de lobo de perfil — olhando para a direita (para o card de login) */}
+        <svg viewBox="0 0 500 700" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%' }}>
+          {/* cauda arqueada para cima — começa na garupa */}
+          <path d="M180 460 Q120 400 90 320 Q70 250 100 190 Q118 155 148 160 Q165 164 168 185" fill="none" stroke="#ff8800" strokeWidth="18" strokeLinecap="round"/>
 
-          {/* cauda longa arqueada para cima */}
-          <path d="M295 480 Q220 440 190 370 Q170 310 200 265 Q225 230 265 240 Q290 248 295 275" stroke="#cc6600" strokeWidth="22" strokeLinecap="round" fill="none" />
-          <path d="M295 275 Q300 260 310 268" stroke="#ff8800" strokeWidth="16" strokeLinecap="round" fill="none" />
+          {/* corpo principal */}
+          <path d="M168 460 Q165 390 175 355 Q190 320 220 300 Q255 278 300 268 Q340 260 370 265 Q400 272 415 290 Q430 310 428 345 Q425 390 418 460 Z" fill="#cc6000"/>
 
-          {/* corpo robusto */}
-          <path d="M295 480 Q300 390 330 355 Q360 320 390 300 L410 285 L450 272 L490 285 L510 300 Q540 320 570 355 Q600 390 605 480Z" fill="#b05500" />
-          {/* pelo do dorso mais claro */}
-          <path d="M390 300 Q420 280 450 272 Q480 280 510 300 Q490 285 450 280 Q410 285 390 300Z" fill="#cc6600" />
+          {/* dorso do pescoço até a cabeça */}
+          <path d="M220 300 Q240 265 268 240 Q285 225 300 220" fill="none" stroke="#cc6000" strokeWidth="38" strokeLinecap="round"/>
+          <path d="M300 268 Q325 255 340 240 Q350 228 350 215" fill="none" stroke="#cc6000" strokeWidth="30" strokeLinecap="round"/>
 
-          {/* pescoço largo */}
-          <path d="M408 285 Q428 255 450 245 Q472 255 492 285 Q470 272 450 270 Q430 272 408 285Z" fill="#cc6600" />
+          {/* cabeça — perfil voltado para direita */}
+          {/* crânio */}
+          <path d="M295 145 Q300 100 325 85 Q348 72 368 78 Q390 86 400 108 Q410 128 405 155 Q398 175 380 185 Q358 195 335 192 Q308 187 295 165 Z" fill="#c05800"/>
+          {/* testa larga */}
+          <path d="M295 145 Q302 110 328 97 Q352 86 375 94 Q395 104 400 128 Q390 108 365 100 Q340 95 318 108 Q300 120 295 145Z" fill="#b05000"/>
 
-          {/* cabeça — forma mais alongada de lobo */}
-          <path d="M385 245 Q390 195 420 175 Q435 168 450 166 Q465 168 480 175 Q510 195 515 245 Q500 268 450 272 Q400 268 385 245Z" fill="#c06000" />
+          {/* orelha — grande, pontiaguda, em pé */}
+          <path d="M305 130 L288 55 L330 118 Z" fill="#b05000"/>
+          <path d="M307 128 L293 65 L328 120 Z" fill="#7a2800"/>
+          {/* segunda orelha (atrás, menor) */}
+          <path d="M338 118 L332 58 L358 110 Z" fill="#994400"/>
 
-          {/* testa/crânio mais largo */}
-          <path d="M390 220 Q400 190 450 182 Q500 190 510 220 Q490 205 450 202 Q410 205 390 220Z" fill="#b05500" />
+          {/* focinho longo de lobo — apontado para direita */}
+          <path d="M395 155 Q420 158 440 165 Q458 172 462 182 Q465 192 455 198 Q440 204 420 200 Q400 195 390 182 Z" fill="#a04500"/>
+          {/* lábio inferior */}
+          <path d="M390 182 Q405 190 425 192 Q440 193 452 188 Q445 200 425 204 Q405 204 392 196 Z" fill="#8a3800"/>
+          {/* nariz */}
+          <ellipse cx="460" cy="178" rx="10" ry="7" fill="#3a1500"/>
 
-          {/* orelha esquerda — grande, pontiaguda */}
-          <path d="M393 215 L355 130 L400 200 Z" fill="#b05500" />
-          <path d="M393 215 L365 140 L398 205 Z" fill="#882200" />
+          {/* olho amendoado — agressivo */}
+          <path d="M370 138 Q385 128 400 136 Q388 148 370 138Z" fill="#ffe033"/>
+          <ellipse cx="385" cy="138" rx="10" ry="7" fill="#ffe033"/>
+          <ellipse cx="387" cy="138" rx="5" ry="6" fill="#1a0800"/>
+          {/* reflexo */}
+          <ellipse cx="384" cy="135" rx="2" ry="1.5" fill="#ffffff55"/>
 
-          {/* orelha direita */}
-          <path d="M507 215 L545 130 L500 200 Z" fill="#b05500" />
-          <path d="M507 215 L535 140 L502 205 Z" fill="#882200" />
+          {/* pelo do peito/gola */}
+          <path d="M295 192 Q305 210 318 220 Q300 215 285 225 Q275 232 268 240" fill="none" stroke="#dd7000" strokeWidth="12" strokeLinecap="round"/>
+          <path d="M295 192 Q285 215 275 235" fill="none" stroke="#cc6000" strokeWidth="8" strokeLinecap="round"/>
 
-          {/* focinho comprido e estreito — traço de lobo */}
-          <path d="M420 248 Q435 265 450 270 Q465 265 480 248 Q468 280 450 286 Q432 280 420 248Z" fill="#8b3a00" />
-          {/* narina/nariz */}
-          <ellipse cx="450" cy="258" rx="12" ry="7" fill="#5a2000" />
-          <ellipse cx="446" cy="256" rx="3" ry="2" fill="#7a3010" />
+          {/* pata dianteira frente */}
+          <path d="M395 300 Q400 360 402 420 Q403 460 400 490 Q398 510 390 520" fill="none" stroke="#b05000" strokeWidth="22" strokeLinecap="round"/>
+          {/* pata dianteira trás */}
+          <path d="M360 295 Q358 360 355 420 Q352 460 350 490 Q348 510 340 520" fill="none" stroke="#994400" strokeWidth="20" strokeLinecap="round"/>
 
-          {/* olhos amendoados — agressivos */}
-          <path d="M408 228 Q420 220 432 228 Q420 236 408 228Z" fill="#ffe033" />
-          <ellipse cx="420" cy="228" rx="7" ry="5" fill="#ffe033" />
-          <ellipse cx="420" cy="228" rx="3.5" ry="4.5" fill="#1a0a00" />
+          {/* dedos pata frente */}
+          <path d="M390 520 Q382 535 376 530" fill="none" stroke="#8a3800" strokeWidth="9" strokeLinecap="round"/>
+          <path d="M390 520 Q390 538 384 535" fill="none" stroke="#8a3800" strokeWidth="9" strokeLinecap="round"/>
+          <path d="M390 520 Q398 536 405 530" fill="none" stroke="#8a3800" strokeWidth="8" strokeLinecap="round"/>
 
-          <path d="M468 228 Q480 220 492 228 Q480 236 468 228Z" fill="#ffe033" />
-          <ellipse cx="480" cy="228" rx="7" ry="5" fill="#ffe033" />
-          <ellipse cx="480" cy="228" rx="3.5" ry="4.5" fill="#1a0a00" />
-
-          {/* pelo do peito */}
-          <path d="M420 285 Q435 295 450 298 Q465 295 480 285 Q470 305 450 308 Q430 305 420 285Z" fill="#dd7700" />
-
-          {/* patas dianteiras */}
-          <path d="M390 300 Q375 360 368 420 Q362 460 358 490 Q350 505 340 510 Q330 510 325 505" stroke="#b05500" strokeWidth="22" strokeLinecap="round" fill="none" />
-          <path d="M368 420 Q355 445 352 490" stroke="#b05500" strokeWidth="18" strokeLinecap="round" fill="none" />
-          {/* dedos pata esquerda */}
-          <path d="M325 505 Q315 515 310 510" stroke="#8b3a00" strokeWidth="8" strokeLinecap="round" fill="none"/>
-          <path d="M335 508 Q328 518 322 514" stroke="#8b3a00" strokeWidth="8" strokeLinecap="round" fill="none"/>
-          <path d="M343 507 Q338 517 333 513" stroke="#8b3a00" strokeWidth="7" strokeLinecap="round" fill="none"/>
-
-          <path d="M510 300 Q525 360 532 420 Q538 460 542 490 Q550 505 560 510 Q570 510 575 505" stroke="#b05500" strokeWidth="22" strokeLinecap="round" fill="none" />
-          <path d="M532 420 Q545 445 548 490" stroke="#b05500" strokeWidth="18" strokeLinecap="round" fill="none" />
-          {/* dedos pata direita */}
-          <path d="M575 505 Q585 515 590 510" stroke="#8b3a00" strokeWidth="8" strokeLinecap="round" fill="none"/>
-          <path d="M565 508 Q572 518 578 514" stroke="#8b3a00" strokeWidth="8" strokeLinecap="round" fill="none"/>
-          <path d="M557 507 Q562 517 567 513" stroke="#8b3a00" strokeWidth="7" strokeLinecap="round" fill="none"/>
+          {/* dedos pata trás */}
+          <path d="M340 520 Q332 535 326 530" fill="none" stroke="#8a3800" strokeWidth="9" strokeLinecap="round"/>
+          <path d="M340 520 Q340 538 334 535" fill="none" stroke="#8a3800" strokeWidth="9" strokeLinecap="round"/>
+          <path d="M340 520 Q348 536 354 530" fill="none" stroke="#8a3800" strokeWidth="8" strokeLinecap="round"/>
 
           {/* patas traseiras */}
-          <path d="M360 410 Q345 450 342 490 Q340 505 332 512" stroke="#8b3a00" strokeWidth="20" strokeLinecap="round" fill="none" />
-          <path d="M540 410 Q555 450 558 490 Q560 505 568 512" stroke="#8b3a00" strokeWidth="20" strokeLinecap="round" fill="none" />
+          <path d="M200 400 Q188 440 182 480 Q178 505 172 520" fill="none" stroke="#994400" strokeWidth="22" strokeLinecap="round"/>
+          <path d="M172 520 Q164 535 158 530" fill="none" stroke="#8a3800" strokeWidth="9" strokeLinecap="round"/>
+          <path d="M172 520 Q172 538 166 535" fill="none" stroke="#8a3800" strokeWidth="9" strokeLinecap="round"/>
+          <path d="M172 520 Q180 536 186 530" fill="none" stroke="#8a3800" strokeWidth="8" strokeLinecap="round"/>
+
+          <path d="M240 420 Q232 460 228 490 Q225 508 220 520" fill="none" stroke="#8a3800" strokeWidth="18" strokeLinecap="round"/>
         </svg>
       </div>
 
-      {/* Raios de luz vindos do centro */}
+      {/* Raios de luz sutis vindos do topo */}
       <div style={{
-        position: 'absolute', top: '30%', left: '50%',
-        transform: 'translateX(-50%) translateY(-50%)',
-        width: 600, height: 600, zIndex: 0, pointerEvents: 'none',
+        position: 'absolute', top: 0, left: '50%',
+        transform: 'translateX(-50%)',
+        width: 700, height: 500, zIndex: 0, pointerEvents: 'none',
       }}>
-        {[...Array(8)].map((_, i) => (
+        {[...Array(6)].map((_, i) => (
           <div key={i} style={{
-            position: 'absolute', top: '50%', left: '50%',
-            width: 2, height: 300,
-            background: 'linear-gradient(to bottom, rgba(255,140,0,0.06), transparent)',
+            position: 'absolute', top: 0, left: '50%',
+            width: 1, height: 400,
+            background: 'linear-gradient(to bottom, rgba(255,140,0,0.04), transparent)',
             transformOrigin: 'top center',
-            transform: `rotate(${i * 45}deg)`,
+            transform: `rotate(${-15 + i * 6}deg)`,
           }} />
         ))}
       </div>
