@@ -223,15 +223,26 @@ export default function ProdInsights({ demands, clients }) {
       !d.done && d.stage !== 'aprovado'
     )
 
-    return active
+    const result = active
       .map(d => {
         const est = estimarTempo(d.text)
         const client = clients.find(c => c.id === d.clientId)
         const priorityStatus = client?.priorityStatus || 'estavel'
         const score = calcScore(d.prazo, est.horas, priorityStatus)
+        // Debug: loga as 10 primeiras demandas com seu score e prioridade
+        console.log('[ProdInsights]', {
+          text: d.text?.slice(0, 40),
+          prazo: d.prazo,
+          clientName: client?.name,
+          priorityStatus,
+          score: score.toFixed(1),
+          clientFound: !!client,
+          clientId: d.clientId,
+        })
         return { demand: d, est, score, clientName: client?.name || '—', priorityStatus }
       })
       .sort((a, b) => a.score - b.score)
+    return result
   }, [demands, clients])
 
   if (prioritized.length === 0) return null
