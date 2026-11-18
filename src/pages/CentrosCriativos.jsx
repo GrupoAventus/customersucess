@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useApp } from '../lib/AppContext'
 import NewDemandModal from '../components/NewDemandModal'
 import DemandKanban from '../components/DemandKanban'
+import ProdInsights from '../components/ProdInsights'
 import SocialMediaTab from '../components/SocialMediaTab'
 import AlertBanner from '../components/AlertBanner'
 import NotificationBanner from '../components/NotificationBanner'
@@ -39,7 +40,12 @@ export default function CentrosCriativos({ label, title, sectionId }) {
         ))}
       </div>
 
-      {tab === 'demands' && <DemandKanban demands={ccDemands} destLabel={label} />}
+      {tab === 'demands' && (
+        <>
+          <ProdInsights demands={ccDemands} clients={clients} />
+          <DemandKanban demands={ccDemands} destLabel={label} />
+        </>
+      )}
       {tab === 'social' && <SocialMediaTab centroCriativo={label} />}
       {showDemand && <NewDemandModal defaultDest={label} onClose={() => setShowDemand(false)} />}
     </div>
