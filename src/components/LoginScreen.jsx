@@ -105,76 +105,59 @@ export default function LoginScreen({ section, sectionName, onUnlock }) {
         pointerEvents: 'none',
       }} />
 
-      {/* Silhueta do lobo — lado esquerdo, em pé de perfil */}
+      {/* Silhueta do lobo uivando — lado esquerdo */}
       <div style={{
-        position: 'absolute', bottom: 0, left: 0,
-        zIndex: 0, opacity: 0.18, pointerEvents: 'none',
-        width: '42vw', maxWidth: 560, minWidth: 300,
+        position: 'absolute', bottom: 0, left: '-2vw',
+        zIndex: 0, opacity: 0.55, pointerEvents: 'none',
+        width: '38vw', maxWidth: 520, minWidth: 280,
+        filter: 'drop-shadow(0 0 40px rgba(255,120,0,0.25))',
       }}>
-        {/* Silhueta de lobo de perfil — olhando para a direita (para o card de login) */}
-        <svg viewBox="0 0 500 700" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%' }}>
-          {/* cauda arqueada para cima — começa na garupa */}
-          <path d="M180 460 Q120 400 90 320 Q70 250 100 190 Q118 155 148 160 Q165 164 168 185" fill="none" stroke="#ff8800" strokeWidth="18" strokeLinecap="round"/>
+        <svg viewBox="0 0 400 500" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%' }}>
+          {/* Pedra / rocha base */}
+          <path d="M60 500 Q80 450 110 440 Q140 432 160 438 Q185 445 200 440 Q220 435 240 442 Q265 450 280 460 Q300 472 310 500 Z" fill="#1a0e00"/>
+          <path d="M80 500 Q95 458 118 448 Q145 440 165 445 Q188 452 205 448 Q222 443 242 450 Q262 458 275 468 Q288 478 295 500 Z" fill="#2a1500"/>
 
-          {/* corpo principal */}
-          <path d="M168 460 Q165 390 175 355 Q190 320 220 300 Q255 278 300 268 Q340 260 370 265 Q400 272 415 290 Q430 310 428 345 Q425 390 418 460 Z" fill="#cc6000"/>
+          {/* Corpo do lobo — silhueta sólida uivando */}
+          {/* cauda curvada para frente/baixo */}
+          <path d="M148 340 Q118 360 100 390 Q88 412 92 435 Q96 450 110 448" fill="none" stroke="#1a0e00" strokeWidth="22" strokeLinecap="round"/>
 
-          {/* dorso do pescoço até a cabeça */}
-          <path d="M220 300 Q240 265 268 240 Q285 225 300 220" fill="none" stroke="#cc6000" strokeWidth="38" strokeLinecap="round"/>
-          <path d="M300 268 Q325 255 340 240 Q350 228 350 215" fill="none" stroke="#cc6000" strokeWidth="30" strokeLinecap="round"/>
+          {/* traseiro/garupa */}
+          <path d="M148 340 Q152 310 158 290 Q164 270 172 258" fill="none" stroke="#1a0e00" strokeWidth="34" strokeLinecap="round"/>
 
-          {/* cabeça — perfil voltado para direita */}
+          {/* corpo central */}
+          <path d="M110 440 Q118 400 132 370 Q144 348 158 338 Q170 330 180 320 Q188 310 192 295" fill="none" stroke="#1a0e00" strokeWidth="40" strokeLinecap="round"/>
+
+          {/* barriga/volume do corpo */}
+          <path d="M125 430 Q130 395 148 365 Q162 342 175 328 Q186 316 192 300 L200 285 Q205 270 210 255" fill="#1a0e00"/>
+          <path d="M110 442 Q122 408 138 378 Q154 350 168 334 Q182 318 192 302 L200 288 Q205 272 212 256 Q188 262 175 278 Q162 294 158 310 Q150 332 142 358 Q130 390 120 426 Z" fill="#1a0e00"/>
+
+          {/* pescoço esticado para cima (uivando) */}
+          <path d="M192 300 Q196 270 200 245 Q204 220 208 195 Q210 178 212 160" fill="none" stroke="#1a0e00" strokeWidth="30" strokeLinecap="round"/>
+
+          {/* cabeça virada para cima — uivando */}
           {/* crânio */}
-          <path d="M295 145 Q300 100 325 85 Q348 72 368 78 Q390 86 400 108 Q410 128 405 155 Q398 175 380 185 Q358 195 335 192 Q308 187 295 165 Z" fill="#c05800"/>
-          {/* testa larga */}
-          <path d="M295 145 Q302 110 328 97 Q352 86 375 94 Q395 104 400 128 Q390 108 365 100 Q340 95 318 108 Q300 120 295 145Z" fill="#b05000"/>
+          <path d="M195 165 Q196 130 205 108 Q212 90 222 80 Q232 72 242 74 Q252 76 258 88 Q264 102 260 122 Q256 142 244 158 Q232 172 218 175 Q204 177 195 165Z" fill="#1a0e00"/>
 
-          {/* orelha — grande, pontiaguda, em pé */}
-          <path d="M305 130 L288 55 L330 118 Z" fill="#b05000"/>
-          <path d="M307 128 L293 65 L328 120 Z" fill="#7a2800"/>
-          {/* segunda orelha (atrás, menor) */}
-          <path d="M338 118 L332 58 L358 110 Z" fill="#994400"/>
+          {/* focinho apontado para cima */}
+          <path d="M242 100 Q255 88 265 78 Q274 68 278 60 Q280 52 276 46 Q270 40 262 44 Q254 50 248 62 Q242 74 240 88 Z" fill="#1a0e00"/>
 
-          {/* focinho longo de lobo — apontado para direita */}
-          <path d="M395 155 Q420 158 440 165 Q458 172 462 182 Q465 192 455 198 Q440 204 420 200 Q400 195 390 182 Z" fill="#a04500"/>
-          {/* lábio inferior */}
-          <path d="M390 182 Q405 190 425 192 Q440 193 452 188 Q445 200 425 204 Q405 204 392 196 Z" fill="#8a3800"/>
-          {/* nariz */}
-          <ellipse cx="460" cy="178" rx="10" ry="7" fill="#3a1500"/>
+          {/* orelha — pontiaguda, em pé */}
+          <path d="M200 148 Q196 118 200 95 Q202 78 210 68 Q216 60 220 65 Q222 72 218 90 Q215 110 212 132 Z" fill="#1a0e00"/>
+          {/* segunda orelha menor atrás */}
+          <path d="M218 142 Q216 120 220 103 Q224 90 230 85 Q235 82 236 88 Q236 98 232 115 Q228 130 224 142 Z" fill="#1a0e00"/>
 
-          {/* olho amendoado — agressivo */}
-          <path d="M370 138 Q385 128 400 136 Q388 148 370 138Z" fill="#ffe033"/>
-          <ellipse cx="385" cy="138" rx="10" ry="7" fill="#ffe033"/>
-          <ellipse cx="387" cy="138" rx="5" ry="6" fill="#1a0800"/>
-          {/* reflexo */}
-          <ellipse cx="384" cy="135" rx="2" ry="1.5" fill="#ffffff55"/>
+          {/* pata dianteira frente — esticada para baixo */}
+          <path d="M192 302 Q194 340 196 375 Q197 405 196 435 Q196 448 194 455" fill="none" stroke="#1a0e00" strokeWidth="20" strokeLinecap="round"/>
 
-          {/* pelo do peito/gola */}
-          <path d="M295 192 Q305 210 318 220 Q300 215 285 225 Q275 232 268 240" fill="none" stroke="#dd7000" strokeWidth="12" strokeLinecap="round"/>
-          <path d="M295 192 Q285 215 275 235" fill="none" stroke="#cc6000" strokeWidth="8" strokeLinecap="round"/>
-
-          {/* pata dianteira frente */}
-          <path d="M395 300 Q400 360 402 420 Q403 460 400 490 Q398 510 390 520" fill="none" stroke="#b05000" strokeWidth="22" strokeLinecap="round"/>
-          {/* pata dianteira trás */}
-          <path d="M360 295 Q358 360 355 420 Q352 460 350 490 Q348 510 340 520" fill="none" stroke="#994400" strokeWidth="20" strokeLinecap="round"/>
-
-          {/* dedos pata frente */}
-          <path d="M390 520 Q382 535 376 530" fill="none" stroke="#8a3800" strokeWidth="9" strokeLinecap="round"/>
-          <path d="M390 520 Q390 538 384 535" fill="none" stroke="#8a3800" strokeWidth="9" strokeLinecap="round"/>
-          <path d="M390 520 Q398 536 405 530" fill="none" stroke="#8a3800" strokeWidth="8" strokeLinecap="round"/>
-
-          {/* dedos pata trás */}
-          <path d="M340 520 Q332 535 326 530" fill="none" stroke="#8a3800" strokeWidth="9" strokeLinecap="round"/>
-          <path d="M340 520 Q340 538 334 535" fill="none" stroke="#8a3800" strokeWidth="9" strokeLinecap="round"/>
-          <path d="M340 520 Q348 536 354 530" fill="none" stroke="#8a3800" strokeWidth="8" strokeLinecap="round"/>
+          {/* pata dianteira traseira */}
+          <path d="M176 308 Q174 345 172 378 Q170 408 170 438 Q170 450 168 458" fill="none" stroke="#1a0e00" strokeWidth="18" strokeLinecap="round"/>
 
           {/* patas traseiras */}
-          <path d="M200 400 Q188 440 182 480 Q178 505 172 520" fill="none" stroke="#994400" strokeWidth="22" strokeLinecap="round"/>
-          <path d="M172 520 Q164 535 158 530" fill="none" stroke="#8a3800" strokeWidth="9" strokeLinecap="round"/>
-          <path d="M172 520 Q172 538 166 535" fill="none" stroke="#8a3800" strokeWidth="9" strokeLinecap="round"/>
-          <path d="M172 520 Q180 536 186 530" fill="none" stroke="#8a3800" strokeWidth="8" strokeLinecap="round"/>
+          <path d="M148 362 Q140 390 132 418 Q126 440 122 455" fill="none" stroke="#1a0e00" strokeWidth="20" strokeLinecap="round"/>
+          <path d="M160 350 Q155 378 150 408 Q146 432 144 450" fill="none" stroke="#1a0e00" strokeWidth="16" strokeLinecap="round"/>
 
-          <path d="M240 420 Q232 460 228 490 Q225 508 220 520" fill="none" stroke="#8a3800" strokeWidth="18" strokeLinecap="round"/>
+          {/* glow laranja sutil sob o lobo */}
+          <ellipse cx="195" cy="490" rx="80" ry="14" fill="rgba(255,100,0,0.12)"/>
         </svg>
       </div>
 
