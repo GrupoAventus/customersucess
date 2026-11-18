@@ -512,10 +512,10 @@ export function AppProvider({ children }) {
   const getClientDemands = (clientId) => demands.filter(d => d.clientId === clientId)
   const getSectionDemands = (dest) => demands.filter(d => d.dest === dest)
 
-  // Entregas da IA só valem para demandas dos Centros criativos
+  // Entregas (HTML) valem para demandas dos Centros criativos e do Squad
   const getDemandAi = (demandId) => {
     const d = demands.find(x => x.id === demandId)
-    if (!d || !String(d.dest || '').startsWith('Centro criativo')) return null
+    if (!d) return null
     return aiDeliverables[demandId] || null
   }
 
