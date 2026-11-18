@@ -111,35 +111,78 @@ export default function LoginScreen({ section, sectionName, onUnlock }) {
         zIndex: 0, opacity: 0.07, pointerEvents: 'none',
         width: '100vw', maxWidth: 900,
       }}>
-        <svg viewBox="0 0 900 500" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%' }}>
-          <ellipse cx="450" cy="480" rx="420" ry="80" fill="url(#glow)" />
-          {/* corpo */}
-          <path d="M310 500 Q320 400 360 360 Q380 340 400 320 L440 280 L460 280 L500 320 Q520 340 540 360 Q580 400 590 500Z" fill="#ff8800" />
-          {/* pescoço */}
-          <path d="M400 320 Q420 290 450 275 Q480 290 500 320 L460 280 Z" fill="#ff9900" />
-          {/* cabeça */}
-          <path d="M390 275 Q400 220 450 200 Q500 220 510 275 Q490 300 450 305 Q410 300 390 275Z" fill="#ffaa00" />
-          {/* orelhas */}
-          <path d="M395 240 L370 180 L410 230Z" fill="#ff8800" />
-          <path d="M505 240 L530 180 L490 230Z" fill="#ff8800" />
-          {/* focinho */}
-          <path d="M430 275 Q450 290 470 275 L460 295 Q450 300 440 295Z" fill="#cc6600" />
-          {/* olhos */}
-          <ellipse cx="430" cy="250" rx="8" ry="6" fill="#ffe066" />
-          <ellipse cx="470" cy="250" rx="8" ry="6" fill="#ffe066" />
-          {/* pernas */}
-          <path d="M360 420 Q350 460 345 500" stroke="#ff8800" strokeWidth="18" strokeLinecap="round" fill="none" />
-          <path d="M390 430 Q385 470 382 500" stroke="#ff8800" strokeWidth="16" strokeLinecap="round" fill="none" />
-          <path d="M540 420 Q550 460 555 500" stroke="#ff8800" strokeWidth="18" strokeLinecap="round" fill="none" />
-          <path d="M510 430 Q515 470 518 500" stroke="#ff8800" strokeWidth="16" strokeLinecap="round" fill="none" />
-          {/* cauda */}
-          <path d="M310 500 Q250 450 230 390 Q220 350 260 320 Q290 310 310 340" stroke="#ff8800" strokeWidth="14" strokeLinecap="round" fill="none" />
+        <svg viewBox="0 0 900 520" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%' }}>
           <defs>
-            <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#ff6600" stopOpacity="0.5" />
+            <radialGradient id="wolfGlow" cx="50%" cy="90%" r="50%">
+              <stop offset="0%" stopColor="#ff6600" stopOpacity="0.6" />
               <stop offset="100%" stopColor="#ff6600" stopOpacity="0" />
             </radialGradient>
           </defs>
+          {/* glow no chão */}
+          <ellipse cx="450" cy="510" rx="380" ry="60" fill="url(#wolfGlow)" />
+
+          {/* cauda longa arqueada para cima */}
+          <path d="M295 480 Q220 440 190 370 Q170 310 200 265 Q225 230 265 240 Q290 248 295 275" stroke="#cc6600" strokeWidth="22" strokeLinecap="round" fill="none" />
+          <path d="M295 275 Q300 260 310 268" stroke="#ff8800" strokeWidth="16" strokeLinecap="round" fill="none" />
+
+          {/* corpo robusto */}
+          <path d="M295 480 Q300 390 330 355 Q360 320 390 300 L410 285 L450 272 L490 285 L510 300 Q540 320 570 355 Q600 390 605 480Z" fill="#b05500" />
+          {/* pelo do dorso mais claro */}
+          <path d="M390 300 Q420 280 450 272 Q480 280 510 300 Q490 285 450 280 Q410 285 390 300Z" fill="#cc6600" />
+
+          {/* pescoço largo */}
+          <path d="M408 285 Q428 255 450 245 Q472 255 492 285 Q470 272 450 270 Q430 272 408 285Z" fill="#cc6600" />
+
+          {/* cabeça — forma mais alongada de lobo */}
+          <path d="M385 245 Q390 195 420 175 Q435 168 450 166 Q465 168 480 175 Q510 195 515 245 Q500 268 450 272 Q400 268 385 245Z" fill="#c06000" />
+
+          {/* testa/crânio mais largo */}
+          <path d="M390 220 Q400 190 450 182 Q500 190 510 220 Q490 205 450 202 Q410 205 390 220Z" fill="#b05500" />
+
+          {/* orelha esquerda — grande, pontiaguda */}
+          <path d="M393 215 L355 130 L400 200 Z" fill="#b05500" />
+          <path d="M393 215 L365 140 L398 205 Z" fill="#882200" />
+
+          {/* orelha direita */}
+          <path d="M507 215 L545 130 L500 200 Z" fill="#b05500" />
+          <path d="M507 215 L535 140 L502 205 Z" fill="#882200" />
+
+          {/* focinho comprido e estreito — traço de lobo */}
+          <path d="M420 248 Q435 265 450 270 Q465 265 480 248 Q468 280 450 286 Q432 280 420 248Z" fill="#8b3a00" />
+          {/* narina/nariz */}
+          <ellipse cx="450" cy="258" rx="12" ry="7" fill="#5a2000" />
+          <ellipse cx="446" cy="256" rx="3" ry="2" fill="#7a3010" />
+
+          {/* olhos amendoados — agressivos */}
+          <path d="M408 228 Q420 220 432 228 Q420 236 408 228Z" fill="#ffe033" />
+          <ellipse cx="420" cy="228" rx="7" ry="5" fill="#ffe033" />
+          <ellipse cx="420" cy="228" rx="3.5" ry="4.5" fill="#1a0a00" />
+
+          <path d="M468 228 Q480 220 492 228 Q480 236 468 228Z" fill="#ffe033" />
+          <ellipse cx="480" cy="228" rx="7" ry="5" fill="#ffe033" />
+          <ellipse cx="480" cy="228" rx="3.5" ry="4.5" fill="#1a0a00" />
+
+          {/* pelo do peito */}
+          <path d="M420 285 Q435 295 450 298 Q465 295 480 285 Q470 305 450 308 Q430 305 420 285Z" fill="#dd7700" />
+
+          {/* patas dianteiras */}
+          <path d="M390 300 Q375 360 368 420 Q362 460 358 490 Q350 505 340 510 Q330 510 325 505" stroke="#b05500" strokeWidth="22" strokeLinecap="round" fill="none" />
+          <path d="M368 420 Q355 445 352 490" stroke="#b05500" strokeWidth="18" strokeLinecap="round" fill="none" />
+          {/* dedos pata esquerda */}
+          <path d="M325 505 Q315 515 310 510" stroke="#8b3a00" strokeWidth="8" strokeLinecap="round" fill="none"/>
+          <path d="M335 508 Q328 518 322 514" stroke="#8b3a00" strokeWidth="8" strokeLinecap="round" fill="none"/>
+          <path d="M343 507 Q338 517 333 513" stroke="#8b3a00" strokeWidth="7" strokeLinecap="round" fill="none"/>
+
+          <path d="M510 300 Q525 360 532 420 Q538 460 542 490 Q550 505 560 510 Q570 510 575 505" stroke="#b05500" strokeWidth="22" strokeLinecap="round" fill="none" />
+          <path d="M532 420 Q545 445 548 490" stroke="#b05500" strokeWidth="18" strokeLinecap="round" fill="none" />
+          {/* dedos pata direita */}
+          <path d="M575 505 Q585 515 590 510" stroke="#8b3a00" strokeWidth="8" strokeLinecap="round" fill="none"/>
+          <path d="M565 508 Q572 518 578 514" stroke="#8b3a00" strokeWidth="8" strokeLinecap="round" fill="none"/>
+          <path d="M557 507 Q562 517 567 513" stroke="#8b3a00" strokeWidth="7" strokeLinecap="round" fill="none"/>
+
+          {/* patas traseiras */}
+          <path d="M360 410 Q345 450 342 490 Q340 505 332 512" stroke="#8b3a00" strokeWidth="20" strokeLinecap="round" fill="none" />
+          <path d="M540 410 Q555 450 558 490 Q560 505 568 512" stroke="#8b3a00" strokeWidth="20" strokeLinecap="round" fill="none" />
         </svg>
       </div>
 
