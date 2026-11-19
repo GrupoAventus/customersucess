@@ -485,6 +485,15 @@ function getAssistantContext(p) {
   return out;
 }
 
+// Rode esta função UMA vez no editor (▶️ Executar) para autorizar Drive e Agenda.
+function autorizarPermissoes() {
+  var pasta = getBriefingAudioFolder_();
+  var cal = CalendarApp.getCalendarById(ASSISTANT_CALENDAR_ID);
+  var n = cal ? cal.getEventsForDay(new Date()).length : -1;
+  UrlFetchApp.fetch('https://www.google.com', { muteHttpExceptions: true });
+  Logger.log('OK — pasta: ' + pasta.getName() + ' | eventos hoje: ' + n);
+}
+
 // ===================== PENDING SALES =====================
 function getPending() {
   return sheetToObjects(getSheet('pending_sales'));
