@@ -84,6 +84,7 @@ function doGet(e) {
     else if (action === 'getCriativoAccounts') out = getCriativoAccounts();
     else if (action === 'getSquadConfig')      out = getSquadConfig();
     else if (action === 'getAssistantContext') out = getAssistantContext(p);
+    else if (/^jarvis/.test(action))           out = jarvisRoute_(action, p);
     else out = { error: 'Unknown action: ' + action };
   } catch(err) {
     out = { error: err.message };
