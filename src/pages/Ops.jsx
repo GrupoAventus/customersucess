@@ -27,37 +27,24 @@ export default function Ops() {
 
   return (
     <div style={{ padding: '1.5rem' }}>
-      {/* Header com logo */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-        <div>
-          <div style={{
-            fontSize: 26, fontWeight: 800,
-            color: 'var(--orange)',
-            letterSpacing: '-0.02em',
-            textShadow: '0 0 28px rgba(255,107,26,0.5)',
-            lineHeight: 1,
-            marginBottom: 4,
-            fontFamily: 'inherit',
-          }}>
-            AventusCS_
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--text-dim)', letterSpacing: '0.01em' }}>
-            Centro de operações — {clients.length} cliente{clients.length !== 1 ? 's' : ''} ativo{clients.length !== 1 ? 's' : ''}
-          </div>
-        </div>
-        {tab === 'clients' && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            {isAdmin && (
-              <Btn onClick={runBackfill} disabled={backfilling}>
-                <i className="ti ti-refresh" /> {backfilling ? 'Gerando...' : 'Gerar demandas LP/Ecom'}
+      <SectionHeader
+        title="Centro de operações"
+        subtitle={`${clients.length} cliente${clients.length !== 1 ? 's' : ''} ativo${clients.length !== 1 ? 's' : ''}`}
+        action={
+          tab === 'clients' ? (
+            <div style={{ display: 'flex', gap: 8 }}>
+              {isAdmin && (
+                <Btn onClick={runBackfill} disabled={backfilling}>
+                  <i className="ti ti-refresh" /> {backfilling ? 'Gerando...' : 'Gerar demandas LP/Ecom'}
+                </Btn>
+              )}
+              <Btn primary onClick={() => { setPrefillName(''); setShowNew(true) }}>
+                <i className="ti ti-plus" /> Novo cliente
               </Btn>
-            )}
-            <Btn primary onClick={() => { setPrefillName(''); setShowNew(true) }}>
-              <i className="ti ti-plus" /> Novo cliente
-            </Btn>
-          </div>
-        )}
-      </div>
+            </div>
+          ) : null
+        }
+      />
 
       <AlertBanner section="ops" />
 
