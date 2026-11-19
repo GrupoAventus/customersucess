@@ -202,40 +202,54 @@ function Jarvis() {
   }, [open, close])
 
   // Palavra de ativação: "Jarvis" (Web Speech API — Chrome/Edge)
-  const [wakeOn, setWakeOn] = useState(false)
+  const [wake, setWake] = useState('off') // off | on | blocked | unsupported
   const openRef = useRef(open)
   openRef.current = open
+  const openJarvisRef = useRef(openJarvis)
+  openJarvisRef.current = openJarvis
   useEffect(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SR || open) { setWakeOn(false); return }
+    if (!SR) { setWake('unsupported'); return }
+    if (open) { setWake('off'); return }
     let stopped = false
     let rec = null
     let retry = null
-    const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z ]/g, ' ')
+    let fails = 0
+    const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z ]/g, ' ')
     const WAKE = /\b(d?jarv[iey]s?|jarb[ia]s|jarvi|garvis|jarves)\b/
+    const onGesture = () => { window.removeEventListener('pointerdown', onGesture); if (!stopped) start() }
     const start = () => {
       if (stopped || openRef.current) return
       rec = new SR()
       rec.lang = 'pt-BR'
       rec.continuous = true
       rec.interimResults = true
-      rec.onstart = () => setWakeOn(true)
+      rec.onstart = () => { fails = 0; setWake('on') }
       rec.onresult = (e) => {
         let txt = ''
         for (let i = e.resultIndex; i < e.results.length; i++) txt += ' ' + e.results[i][0].transcript
         if (WAKE.test(norm(txt))) {
           stopped = true
           try { rec.abort() } catch {}
-          setWakeOn(false)
-          openJarvis()
+          setWake('off')
+          openJarvisRef.current()
         }
       }
       rec.onerror = (e) => {
-        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { stopped = true; setWakeOn(false) }
+        console.warn('[JARVIS wake]', e.error)
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          // sem permissão ainda: tenta de novo no próximo clique na página
+          rec._blocked = true
+          setWake('blocked')
+          window.addEventListener('pointerdown', onGesture)
+        } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+          fails++
+        }
       }
       rec.onend = () => {
-        setWakeOn(false)
-        if (!stopped) retry = setTimeout(start, 400)
+        if (stopped || rec._blocked) return
+        setWake('off')
+        retry = setTimeout(start, Math.min(400 * Math.pow(2, fails), 15000))
       }
       try { rec.start() } catch { retry = setTimeout(start, 1500) }
     }
@@ -243,9 +257,11 @@ function Jarvis() {
     return () => {
       stopped = true
       clearTimeout(retry)
+      window.removeEventListener('pointerdown', onGesture)
       try { rec && rec.abort() } catch {}
     }
-  }, [open, openJarvis])
+  }, [open])
+  const wakeOn = wake === 'on'
 
   const label = err ? 'FALHA NA CONEXÃO'
     : status === 'connected' ? STATUS_LABEL[mode] || 'ONLINE'
@@ -256,10 +272,11 @@ function Jarvis() {
       <style>{JARVIS_CSS}</style>
       {!open && (
         <button className="jv-btn" onClick={openJarvis} aria-label="Falar com o JARVIS"
-          title={wakeOn ? 'Diga "Jarvis" ou clique' : 'Clique para falar com o JARVIS'}>
+          title={wakeOn ? 'Ouvindo — diga "Jarvis" ou clique' : wake === 'blocked' ? 'Comando de voz sem permissão do microfone — clique na página e permita' : wake === 'unsupported' ? 'Comando de voz só funciona no Chrome ou Edge' : 'Clique para falar com o JARVIS'}>
           <span className="jv-btn-core" />
           <span className="jv-btn-text">JARVIS</span>
           {wakeOn && <span className="jv-wake" />}
+          {wake === 'blocked' && <span className="jv-wake off" />}
         </button>
       )}
       {open && (
@@ -309,6 +326,7 @@ const JARVIS_CSS = `
   background: radial-gradient(circle, #fff 0 18%, #39d0ff 40%, rgba(57,208,255,.1) 70%); box-shadow: 0 0 12px #39d0ff }
 .jv-btn-core::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 1.5px dashed rgba(57,208,255,.8); animation: jvSpin 6s linear infinite }
 .jv-btn-text { text-shadow: 0 0 8px rgba(57,208,255,.8) }
+.jv-wake.off { background: #666; box-shadow: none; animation: none }
 .jv-wake { width: 6px; height: 6px; border-radius: 50%; background: #ff6b1a; box-shadow: 0 0 8px #ff6b1a; margin-left: -4px; animation: jvBlink 1.6s infinite }
 .jv-overlay { position: fixed; inset: 0; z-index: 9999; cursor: pointer; overflow: hidden; animation: jvIn .45s ease-out;
   background: radial-gradient(ellipse at center, #071a24 0%, #03080c 55%, #000 100%); font-family: Inter, system-ui, sans-serif }
