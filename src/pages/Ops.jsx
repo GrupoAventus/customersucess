@@ -27,6 +27,17 @@ export default function Ops() {
 
   return (
     <div style={{ padding: '1.5rem' }}>
+      {/* Logo + título da seção */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+        <span style={{
+          fontSize: 22, fontWeight: 800,
+          color: 'var(--orange)',
+          letterSpacing: '-0.02em',
+          textShadow: '0 0 24px rgba(255,107,26,0.45)',
+        }}>
+          ⬡ AventusCS_
+        </span>
+      </div>
       <SectionHeader
         title="Centro de operações"
         subtitle={`${clients.length} cliente${clients.length !== 1 ? 's' : ''} ativo${clients.length !== 1 ? 's' : ''}`}
@@ -83,9 +94,19 @@ export default function Ops() {
       {tab === 'clients' && (
         clients.length === 0
           ? <EmptyState icon="users" text="Nenhum cliente cadastrado ainda" />
-          : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
-              {clients.map(c => <ClientCard key={c.id} client={c} onClick={() => setSelected(c)} />)}
-            </div>
+          : (() => {
+              const PRIORITY_ORDER = { prioridade: 0, atencao: 1, estavel: 2 }
+              const sorted = [...clients].sort((a, b) => {
+                const pa = PRIORITY_ORDER[a.priorityStatus || 'estavel'] ?? 2
+                const pb = PRIORITY_ORDER[b.priorityStatus || 'estavel'] ?? 2
+                return pa - pb
+              })
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+                  {sorted.map(c => <ClientCard key={c.id} client={c} onClick={() => setSelected(c)} />)}
+                </div>
+              )
+            })()
       )}
 
       {tab === 'agenda' && (
