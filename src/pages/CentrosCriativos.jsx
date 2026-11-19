@@ -30,12 +30,14 @@ export default function CentrosCriativos({ label, title, sectionId }) {
       <AlertBanner section={sectionId} />
       <NotificationBanner section={sectionId} />
 
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '0.5px solid #1f1f1f' }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '0.5px solid var(--border)' }}>
         {[{ id: 'demands', label: 'Demandas' }, { id: 'social', label: 'Social Media' }].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
             padding: '8px 16px', background: 'none', border: 'none',
             borderBottom: tab === t.id ? '2px solid var(--orange)' : '2px solid transparent',
-            color: tab === t.id ? 'var(--orange)' : '#666', fontSize: 13, cursor: 'pointer'
+            color: tab === t.id ? 'var(--orange)' : 'var(--text-dim)',
+            fontSize: 13, cursor: 'pointer',
+            transition: 'color 0.15s',
           }}>{t.label}</button>
         ))}
       </div>

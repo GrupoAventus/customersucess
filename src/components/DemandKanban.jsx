@@ -5,19 +5,24 @@ import AiDeliverableModal from './AiDeliverableModal'
 import NewDemandModal from './NewDemandModal'
 
 const STAGES = [
-  { id: 'demandas',             label: 'Demandas',        color: '#888',    bg: '#161616' },
-  { id: 'em_producao',          label: 'Em produção',     color: '#f59e0b', bg: '#1a1500' },
-  { id: 'aguardando_aprovacao', label: 'Ag. aprovação',   color: '#3b82f6', bg: '#001020' },
-  { id: 'alteracao',            label: 'Alteração',       color: '#e24b4a', bg: '#1a0808' },
+  { id: 'demandas',             label: 'Demandas',        color: '#6b7280', glow: 'rgba(107,114,128,0.15)', bg: 'rgba(107,114,128,0.04)' },
+  { id: 'em_producao',          label: 'Em produção',     color: '#f59e0b', glow: 'rgba(245,158,11,0.15)',  bg: 'rgba(245,158,11,0.04)' },
+  { id: 'aguardando_aprovacao', label: 'Ag. aprovação',   color: '#3b82f6', glow: 'rgba(59,130,246,0.15)',  bg: 'rgba(59,130,246,0.04)' },
+  { id: 'alteracao',            label: 'Alteração',       color: '#e24b4a', glow: 'rgba(226,75,74,0.15)',   bg: 'rgba(226,75,74,0.04)' },
 ]
 
 const TODAY = new Date().toISOString().slice(0, 10)
 
-function ProgressBar({ pct }) {
-  const color = pct === 100 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#e24b4a'
+function ProgressBar({ pct, color }) {
+  const c = pct === 100 ? '#22c55e' : color || '#f59e0b'
   return (
-    <div style={{ height: 3, background: '#1e1e1e', borderRadius: 4, overflow: 'hidden', marginTop: 5 }}>
-      <div style={{ height: '100%', borderRadius: 4, width: `${pct}%`, background: color, transition: 'width 0.3s' }} />
+    <div style={{ height: 2, background: '#1a1710', borderRadius: 2, overflow: 'hidden', marginTop: 5 }}>
+      <div style={{
+        height: '100%', borderRadius: 2, width: `${pct}%`,
+        background: `linear-gradient(90deg, ${c}88, ${c})`,
+        boxShadow: `0 0 6px ${c}60`,
+        transition: 'width 0.4s ease',
+      }} />
     </div>
   )
 }
@@ -33,10 +38,18 @@ function DemandPill({ demand, onOpen, onToggle, onDelete, dragging, dragHandlers
     <div
       {...dragHandlers}
       style={{
-        background: dragging ? '#1a1a2e' : '#0e0e0e',
-        border: `1px solid ${isOverdue ? '#3a1010' : dragging ? '#3b82f6' : '#1c1c1c'}`,
-        borderRadius: 6,
-        padding: '5px 7px',
+        background: dragging
+          ? 'rgba(59,130,246,0.08)'
+          : isOverdue
+            ? 'rgba(226,75,74,0.05)'
+            : '#0c0a07',
+        border: `0.5px solid ${
+          isOverdue ? 'rgba(226,75,74,0.3)'
+          : dragging  ? 'rgba(59,130,246,0.4)'
+          : '#1e1b14'
+        }`,
+        borderRadius: 7,
+        padding: '6px 8px',
         marginBottom: 4,
         cursor: 'grab',
         opacity: dragging ? 0.5 : 1,
@@ -44,19 +57,17 @@ function DemandPill({ demand, onOpen, onToggle, onDelete, dragging, dragHandlers
         alignItems: 'flex-start',
         gap: 6,
         userSelect: 'none',
-        transition: 'opacity 0.15s, border-color 0.15s',
+        transition: 'opacity 0.15s, border-color 0.15s, background 0.15s',
       }}
     >
-      {/* grip icon */}
-      <span style={{ color: '#2a2a2a', fontSize: 10, flexShrink: 0, marginTop: 1, cursor: 'grab' }}>⠿</span>
+      <span style={{ color: '#2a2418', fontSize: 10, flexShrink: 0, marginTop: 1 }}>⠿</span>
 
-      {/* checkbox */}
       <button
         onMouseDown={e => e.stopPropagation()}
         onClick={e => { e.stopPropagation(); onToggle() }}
         style={{
-          width: 12, height: 12, borderRadius: 3, flexShrink: 0, marginTop: 1,
-          border: `1.5px solid ${demand.done ? '#22c55e' : '#2e2e2e'}`,
+          width: 12, height: 12, borderRadius: 3, flexShrink: 0, marginTop: 2,
+          border: `1.5px solid ${demand.done ? '#22c55e' : '#2e2818'}`,
           background: demand.done ? '#22c55e' : 'transparent',
           cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
         }}
@@ -64,13 +75,12 @@ function DemandPill({ demand, onOpen, onToggle, onDelete, dragging, dragHandlers
         {demand.done && <i className="ti ti-check" style={{ fontSize: 7, color: '#000' }} />}
       </button>
 
-      {/* text */}
       <span
         onMouseDown={e => e.stopPropagation()}
         onClick={onOpen}
         style={{
           flex: 1, fontSize: 11, lineHeight: 1.4,
-          color: demand.done ? '#3a3a3a' : '#bbb',
+          color: demand.done ? '#2a2418' : '#9a8f7e',
           textDecoration: demand.done ? 'line-through' : 'none',
           cursor: 'pointer',
           display: '-webkit-box',
@@ -82,12 +92,18 @@ function DemandPill({ demand, onOpen, onToggle, onDelete, dragging, dragHandlers
       >
         {demand.text}
       </span>
+
       {hasAi && (
         <button
           onMouseDown={e => e.stopPropagation()}
           onClick={e => { e.stopPropagation(); setShowAi(true) }}
-          title="ver demanda"
-          style={{ flexShrink: 0, background: 'rgba(226,160,74,0.12)', border: '0.5px solid var(--orange)', color: 'var(--orange)', borderRadius: 20, padding: '1px 7px', fontSize: 9, cursor: 'pointer', whiteSpace: 'nowrap' }}
+          style={{
+            flexShrink: 0,
+            background: 'rgba(255,107,26,0.08)',
+            border: '0.5px solid rgba(255,107,26,0.3)',
+            color: 'var(--orange)', borderRadius: 20,
+            padding: '1px 7px', fontSize: 9, cursor: 'pointer', whiteSpace: 'nowrap',
+          }}
         >
           <i className="ti ti-file-text" /> ver demanda
         </button>
@@ -96,7 +112,12 @@ function DemandPill({ demand, onOpen, onToggle, onDelete, dragging, dragHandlers
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
         {demand.prazo && (
-          <span style={{ fontSize: 9, color: isOverdue ? '#e24b4a' : '#333', whiteSpace: 'nowrap' }}>
+          <span style={{
+            fontSize: 9,
+            color: isOverdue ? '#e24b4a' : '#2e2820',
+            fontWeight: isOverdue ? 600 : 400,
+            whiteSpace: 'nowrap',
+          }}>
             {isOverdue && '⚠ '}{demand.prazo.slice(5)}
           </span>
         )}
@@ -104,7 +125,9 @@ function DemandPill({ demand, onOpen, onToggle, onDelete, dragging, dragHandlers
           <button
             onMouseDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); onDelete() }}
-            style={{ background: 'none', border: 'none', color: '#252525', cursor: 'pointer', padding: 0, fontSize: 9 }}
+            style={{ background: 'none', border: 'none', color: '#1e1b14', cursor: 'pointer', padding: 0, fontSize: 9, transition: 'color 0.1s' }}
+            onMouseEnter={e => e.currentTarget.style.color = '#e24b4a'}
+            onMouseLeave={e => e.currentTarget.style.color = '#1e1b14'}
           >
             <i className="ti ti-x" />
           </button>
@@ -114,7 +137,7 @@ function DemandPill({ demand, onOpen, onToggle, onDelete, dragging, dragHandlers
   )
 }
 
-/* ── Client card: compact by default, expands on click ── */
+/* ── Client mini-card dentro da coluna ── */
 function ClientCard({ client, demands, stageId, destLabel, onDragStart, onDragEnd, dragOverClientId, onDragEnterClient }) {
   const { toggleDemand, setDemandStage, isAdmin, deleteDemand } = useApp()
   const [open, setOpen]       = useState(false)
@@ -142,46 +165,36 @@ function ClientCard({ client, demands, stageId, destLabel, onDragStart, onDragEn
         onDragOver={e => { e.preventDefault(); onDragEnterClient(client.id) }}
         onDrop={e => { e.preventDefault() }}
         style={{
-          background: isDropTarget ? '#1a1a2e' : '#111',
-          border: `1px solid ${isDropTarget ? '#3b82f6' : '#1f1f1f'}`,
-          borderRadius: 8,
+          background: isDropTarget ? 'rgba(59,130,246,0.06)' : '#0e0c09',
+          border: `0.5px solid ${isDropTarget ? 'rgba(59,130,246,0.35)' : '#1e1b14'}`,
+          borderRadius: 9,
           marginBottom: 6,
           transition: 'border-color 0.15s, background 0.15s',
           overflow: 'hidden',
         }}
       >
-        {/* Compact header — always visible */}
         <div
           onClick={() => setOpen(o => !o)}
-          style={{
-            padding: '7px 8px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-          }}
+          style={{ padding: '7px 9px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
         >
           <i
             className={`ti ti-chevron-${open ? 'down' : 'right'}`}
-            style={{ fontSize: 10, color: '#333', flexShrink: 0 }}
+            style={{ fontSize: 9, color: '#2e2820', flexShrink: 0 }}
           />
           <span style={{
-            fontSize: 11, fontWeight: 600, color: '#ccc',
+            fontSize: 11, fontWeight: 600, color: '#c8bfb0',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
           }}>
             {client.name}
           </span>
-          <span style={{ fontSize: 9, color: '#333', flexShrink: 0 }}>
-            {done.length}/{total}
-          </span>
+          <span style={{ fontSize: 9, color: '#2e2820', flexShrink: 0 }}>{done.length}/{total}</span>
         </div>
-        <div style={{ padding: '0 8px 7px' }}>
+        <div style={{ padding: '0 9px 7px' }}>
           <ProgressBar pct={pct} />
         </div>
 
-        {/* Expanded demands list */}
         {open && (
-          <div style={{ padding: '0 8px 6px', borderTop: '1px solid #1a1a1a' }}>
+          <div style={{ padding: '0 8px 7px', borderTop: '0.5px solid #1a1710' }}>
             <div style={{ marginTop: 7 }}>
               {sorted.map(d => (
                 <DemandPill
@@ -193,29 +206,25 @@ function ClientCard({ client, demands, stageId, destLabel, onDragStart, onDragEn
                   onDelete={isAdmin ? () => { if (window.confirm('Excluir demanda?')) deleteDemand(d.id) } : null}
                   dragHandlers={{
                     draggable: true,
-                    onDragStart: (e) => {
-                      setDraggingId(d.id)
-                      onDragStart(d)
-                      e.dataTransfer.effectAllowed = 'move'
-                    },
-                    onDragEnd: () => {
-                      setDraggingId(null)
-                      onDragEnd()
-                    },
+                    onDragStart: (e) => { setDraggingId(d.id); onDragStart(d); e.dataTransfer.effectAllowed = 'move' },
+                    onDragEnd: () => { setDraggingId(null); onDragEnd() },
                   }}
                 />
               ))}
               {sorted.length === 0 && (
-                <div style={{ color: '#2a2a2a', fontSize: 10, padding: '4px 0' }}>Nenhuma ativa</div>
+                <div style={{ color: '#1e1b14', fontSize: 10, padding: '4px 0' }}>Nenhuma ativa</div>
               )}
             </div>
             <button
               onClick={() => setAdding(true)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 4,
-                background: 'none', border: 'none', color: '#2a2a2a',
+                background: 'none', border: 'none', color: '#2e2820',
                 cursor: 'pointer', fontSize: 10, padding: '3px 0 0',
+                transition: 'color 0.1s',
               }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--orange)'}
+              onMouseLeave={e => e.currentTarget.style.color = '#2e2820'}
             >
               <i className="ti ti-plus" style={{ fontSize: 10 }} /> demanda
             </button>
@@ -247,9 +256,7 @@ export default function DemandKanban({ demands, destLabel }) {
 
   const getClientsForStage = (stageId) => {
     const clientIds = [...new Set(
-      demands
-        .filter(d => (d.stage || 'demandas') === stageId && !d.done)
-        .map(d => d.clientId)
+      demands.filter(d => (d.stage || 'demandas') === stageId && !d.done).map(d => d.clientId)
     )]
     return clientIds
       .map(id => ({
@@ -265,117 +272,155 @@ export default function DemandKanban({ demands, destLabel }) {
   }
 
   const handleDrop = (stageId) => {
-    if (draggingDemand && draggingDemand.stage !== stageId) {
-      setDemandStage(draggingDemand.id, stageId)
-    }
-    setDraggingDemand(null)
-    setDragOverStage(null)
-    setDragOverClient(null)
+    if (draggingDemand && draggingDemand.stage !== stageId) setDemandStage(draggingDemand.id, stageId)
+    setDraggingDemand(null); setDragOverStage(null); setDragOverClient(null)
   }
 
   if (demands.length === 0) {
-    return <div style={{ color: '#333', fontSize: 13, padding: '16px 0' }}>Nenhuma demanda para este centro criativo</div>
+    return <div style={{ color: '#2e2820', fontSize: 13, padding: '16px 0' }}>Nenhuma demanda para este centro criativo</div>
   }
 
-  const approved = demands.filter(d => d.done)
-    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+  const approved = demands.filter(d => d.done).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
 
   return (
     <>
-    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8, position: 'relative' }}>
-      <button
-        onClick={() => setShowApproved(v => !v)}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#001a08', border: '1px solid #22c55e44', color: '#22c55e', borderRadius: 8, padding: '5px 12px', fontSize: 11, cursor: 'pointer' }}
-      >
-        <i className="ti ti-circle-check" /> Aprovadas ({approved.length}) <i className={`ti ti-chevron-${showApproved ? 'up' : 'down'}`} />
-      </button>
-      {showApproved && (
-        <div style={{ position: 'absolute', top: 34, right: 0, zIndex: 20, width: 440, maxHeight: 420, overflowY: 'auto', background: '#0b0b0b', border: '1px solid #22c55e33', borderRadius: 10, padding: 8, boxShadow: '0 12px 30px rgba(0,0,0,.6)' }}>
-          {approved.length === 0 && <div style={{ color: '#444', fontSize: 11, padding: 8 }}>Nenhuma demanda aprovada</div>}
-          {approved.map(d => (
-            <div key={d.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 6px', borderBottom: '1px solid #151515' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 10, color: 'var(--orange)' }}>{d.clientName}</div>
-                <div style={{ fontSize: 11, color: '#777', lineHeight: 1.4 }}>{d.text}</div>
-              </div>
-              {getDemandAi(d.id) && (
-                <button onClick={() => setViewDemand(d)} style={{ background: 'none', border: '0.5px solid var(--orange)', color: 'var(--orange)', borderRadius: 20, padding: '1px 8px', fontSize: 9, cursor: 'pointer', whiteSpace: 'nowrap' }}>ver demanda</button>
-              )}
-              <button onClick={() => toggleDemand(d.id)} title="Reabrir" style={{ background: 'none', border: '0.5px solid #333', color: '#888', borderRadius: 20, padding: '1px 8px', fontSize: 9, cursor: 'pointer', whiteSpace: 'nowrap' }}>reabrir</button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-    {viewDemand && <AiDeliverableModal demand={viewDemand} onClose={() => setViewDemand(null)} />}
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(4, 1fr)',
-      gap: 10,
-      alignItems: 'start',
-    }}>
-      {STAGES.map(stage => {
-        const colClients   = getClientsForStage(stage.id)
-        const totalActive  = colClients.reduce((s, x) => s + x.demands.filter(d => !d.done).length, 0)
-        const isDropTarget = dragOverStage === stage.id
+      {/* Botão aprovadas */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10, position: 'relative' }}>
+        <button
+          onClick={() => setShowApproved(v => !v)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: 'rgba(34,197,94,0.06)',
+            border: '0.5px solid rgba(34,197,94,0.25)',
+            color: '#22c55e', borderRadius: 8,
+            padding: '5px 12px', fontSize: 11, cursor: 'pointer',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(34,197,94,0.1)'; e.currentTarget.style.borderColor = 'rgba(34,197,94,0.4)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(34,197,94,0.06)'; e.currentTarget.style.borderColor = 'rgba(34,197,94,0.25)' }}
+        >
+          <i className="ti ti-circle-check" /> Aprovadas ({approved.length})
+          <i className={`ti ti-chevron-${showApproved ? 'up' : 'down'}`} />
+        </button>
 
-        return (
-          <div
-            key={stage.id}
-            onDragOver={e => { e.preventDefault(); setDragOverStage(stage.id) }}
-            onDragLeave={() => setDragOverStage(s => s === stage.id ? null : s)}
-            onDrop={() => handleDrop(stage.id)}
-            style={{
-              background: isDropTarget ? `${stage.color}10` : stage.bg,
-              border: `1px solid ${isDropTarget ? stage.color + '44' : 'transparent'}`,
-              borderRadius: 10,
-              padding: '8px 7px 6px',
-              minHeight: 80,
-              transition: 'background 0.15s, border-color 0.15s',
-            }}
-          >
-            {/* Column header */}
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              marginBottom: 10, paddingBottom: 7,
-              borderBottom: `1px solid ${stage.color}22`,
-            }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: stage.color, letterSpacing: '0.03em' }}>
-                {stage.label}
-              </span>
-              {totalActive > 0 && (
-                <span style={{
-                  fontSize: 9, color: stage.color,
-                  background: `${stage.color}22`,
-                  borderRadius: 20, padding: '1px 5px', flexShrink: 0,
-                }}>
-                  {totalActive}
-                </span>
-              )}
-            </div>
-
-            {colClients.length === 0
-              ? <div style={{ color: '#1f1f1f', fontSize: 10, textAlign: 'center', padding: '8px 0' }}>
-                  {draggingDemand ? '↓ soltar aqui' : '—'}
+        {showApproved && (
+          <div style={{
+            position: 'absolute', top: 34, right: 0, zIndex: 20,
+            width: 440, maxHeight: 420, overflowY: 'auto',
+            background: '#0c0a07',
+            border: '0.5px solid rgba(34,197,94,0.2)',
+            borderRadius: 12, padding: 8,
+            boxShadow: '0 16px 40px rgba(0,0,0,0.6), 0 0 20px rgba(34,197,94,0.05)',
+          }}>
+            {approved.length === 0 && <div style={{ color: '#2e2820', fontSize: 11, padding: 8 }}>Nenhuma demanda aprovada</div>}
+            {approved.map(d => (
+              <div key={d.id} style={{
+                display: 'flex', alignItems: 'flex-start', gap: 8,
+                padding: '7px 8px', borderBottom: '0.5px solid #1a1710',
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, color: 'var(--orange)', marginBottom: 2 }}>{d.clientName}</div>
+                  <div style={{ fontSize: 11, color: '#5a5040', lineHeight: 1.4 }}>{d.text}</div>
                 </div>
-              : colClients.map(({ client, demands: cDemands }) => (
-                  <ClientCard
-                    key={client.id}
-                    client={client}
-                    demands={cDemands}
-                    stageId={stage.id}
-                    destLabel={destLabel}
-                    dragOverClientId={dragOverClient}
-                    onDragStart={d => setDraggingDemand(d)}
-                    onDragEnd={() => { setDraggingDemand(null); setDragOverStage(null); setDragOverClient(null) }}
-                    onDragEnterClient={id => setDragOverClient(id)}
-                  />
-                ))
-            }
+                {getDemandAi(d.id) && (
+                  <button onClick={() => setViewDemand(d)} style={{
+                    background: 'none', border: '0.5px solid rgba(255,107,26,0.3)',
+                    color: 'var(--orange)', borderRadius: 20, padding: '2px 8px',
+                    fontSize: 9, cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}>ver demanda</button>
+                )}
+                <button onClick={() => toggleDemand(d.id)} title="Reabrir" style={{
+                  background: 'none', border: '0.5px solid #2e2820',
+                  color: '#5a5040', borderRadius: 20, padding: '2px 8px',
+                  fontSize: 9, cursor: 'pointer', whiteSpace: 'nowrap',
+                }}>reabrir</button>
+              </div>
+            ))}
           </div>
-        )
-      })}
-    </div>
+        )}
+      </div>
+
+      {viewDemand && <AiDeliverableModal demand={viewDemand} onClose={() => setViewDemand(null)} />}
+
+      {/* Colunas do kanban */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, alignItems: 'start' }}>
+        {STAGES.map(stage => {
+          const colClients  = getClientsForStage(stage.id)
+          const totalActive = colClients.reduce((s, x) => s + x.demands.filter(d => !d.done).length, 0)
+          const isDropTarget = dragOverStage === stage.id
+
+          return (
+            <div
+              key={stage.id}
+              onDragOver={e => { e.preventDefault(); setDragOverStage(stage.id) }}
+              onDragLeave={() => setDragOverStage(s => s === stage.id ? null : s)}
+              onDrop={() => handleDrop(stage.id)}
+              style={{
+                background: isDropTarget
+                  ? stage.glow
+                  : `linear-gradient(180deg, ${stage.bg} 0%, transparent 100%)`,
+                border: `0.5px solid ${isDropTarget ? stage.color + '44' : stage.color + '18'}`,
+                borderRadius: 12,
+                padding: '10px 8px 8px',
+                minHeight: 80,
+                transition: 'background 0.15s, border-color 0.15s',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              {/* Linha de acento no topo da coluna */}
+              <div style={{
+                position: 'absolute', top: 0, left: 12, right: 12, height: 1,
+                background: `linear-gradient(90deg, transparent, ${stage.color}66, transparent)`,
+              }} />
+
+              {/* Header da coluna */}
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                marginBottom: 10, paddingBottom: 8,
+                borderBottom: `0.5px solid ${stage.color}18`,
+              }}>
+                <span style={{
+                  fontSize: 10, fontWeight: 700, color: stage.color,
+                  letterSpacing: '0.05em', textTransform: 'uppercase',
+                }}>
+                  {stage.label}
+                </span>
+                {totalActive > 0 && (
+                  <span style={{
+                    fontSize: 9, color: stage.color,
+                    background: `${stage.color}18`,
+                    border: `0.5px solid ${stage.color}30`,
+                    borderRadius: 20, padding: '1px 6px', flexShrink: 0,
+                    fontWeight: 600,
+                  }}>
+                    {totalActive}
+                  </span>
+                )}
+              </div>
+
+              {colClients.length === 0
+                ? <div style={{ color: '#1e1b14', fontSize: 10, textAlign: 'center', padding: '12px 0' }}>
+                    {draggingDemand ? '↓ soltar aqui' : '—'}
+                  </div>
+                : colClients.map(({ client, demands: cDemands }) => (
+                    <ClientCard
+                      key={client.id}
+                      client={client}
+                      demands={cDemands}
+                      stageId={stage.id}
+                      destLabel={destLabel}
+                      dragOverClientId={dragOverClient}
+                      onDragStart={d => setDraggingDemand(d)}
+                      onDragEnd={() => { setDraggingDemand(null); setDragOverStage(null); setDragOverClient(null) }}
+                      onDragEnterClient={id => setDragOverClient(id)}
+                    />
+                  ))
+              }
+            </div>
+          )
+        })}
+      </div>
     </>
   )
 }

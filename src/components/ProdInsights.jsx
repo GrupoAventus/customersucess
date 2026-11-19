@@ -140,18 +140,18 @@ function DemandModal({ item, onClose, onFeito }) {
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: '#111',
-          border: '1px solid #222',
-          borderRadius: 12,
+          background: 'linear-gradient(180deg, #0e0c09 0%, #090701 100%)',
+          border: '0.5px solid #2e2818',
+          borderRadius: 14,
           width: '100%', maxWidth: 480,
           overflow: 'hidden',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.7), 0 0 40px rgba(168,85,247,0.05)',
         }}
       >
         {/* Header do modal */}
         <div style={{
           padding: '14px 16px',
-          borderBottom: '1px solid #1a1a1a',
+          borderBottom: '0.5px solid #1a1710',
           display: 'flex', alignItems: 'flex-start', gap: 10,
         }}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -165,7 +165,7 @@ function DemandModal({ item, onClose, onFeito }) {
             </div>
             {/* Texto da demanda */}
             <div style={{
-              fontSize: 14, fontWeight: 600, color: '#e0e0e0',
+              fontSize: 14, fontWeight: 600, color: '#c8bfb0',
               lineHeight: 1.4, wordBreak: 'break-word',
             }}>
               {demand.text}
@@ -174,7 +174,7 @@ function DemandModal({ item, onClose, onFeito }) {
           <button
             onClick={onClose}
             style={{
-              background: 'none', border: 'none', color: '#444',
+              background: 'none', border: 'none', color: '#3a3225',
               cursor: 'pointer', fontSize: 16, padding: 2, flexShrink: 0,
             }}
           >✕</button>
@@ -183,21 +183,23 @@ function DemandModal({ item, onClose, onFeito }) {
         {/* Prazo + status */}
         <div style={{
           padding: '10px 16px',
-          borderBottom: '1px solid #1a1a1a',
+          borderBottom: '0.5px solid #1a1710',
           display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
         }}>
           {diasLabel && (
             <span style={{
               fontSize: 11, fontWeight: 600, color: diasLabel.color,
-              background: '#161616', borderRadius: 6, padding: '3px 8px',
+              background: '#14110d', border: '0.5px solid #2e2818',
+              borderRadius: 6, padding: '3px 8px',
             }}>
               📅 {diasLabel.text}
             </span>
           )}
           {demand.stage && (
             <span style={{
-              fontSize: 10, color: '#555',
-              background: '#161616', borderRadius: 6, padding: '3px 8px',
+              fontSize: 10, color: '#3a3225',
+              background: '#14110d', border: '0.5px solid #2e2818',
+              borderRadius: 6, padding: '3px 8px',
             }}>
               {demand.stage.replace(/_/g, ' ')}
             </span>
@@ -205,7 +207,7 @@ function DemandModal({ item, onClose, onFeito }) {
         </div>
 
         {/* Insight */}
-        <div style={{ padding: '14px 16px', borderBottom: '1px solid #1a1a1a' }}>
+        <div style={{ padding: '14px 16px', borderBottom: '0.5px solid #1a1710' }}>
           <div style={{
             fontSize: 10, fontWeight: 700, color: '#a855f7',
             textTransform: 'uppercase', letterSpacing: '0.08em',
@@ -215,7 +217,7 @@ function DemandModal({ item, onClose, onFeito }) {
             Insight da IA
           </div>
           <div style={{
-            fontSize: 12, color: '#aaa', lineHeight: 1.6,
+            fontSize: 12, color: '#7a6f5e', lineHeight: 1.6,
             whiteSpace: 'pre-line',
           }}>
             {insight}
@@ -230,8 +232,8 @@ function DemandModal({ item, onClose, onFeito }) {
           <button
             onClick={onClose}
             style={{
-              background: 'none', border: '1px solid #2a2a2a',
-              color: '#666', borderRadius: 7, padding: '7px 14px',
+              background: 'none', border: '0.5px solid #2e2818',
+              color: '#5a5040', borderRadius: 7, padding: '7px 14px',
               fontSize: 11, cursor: 'pointer',
             }}
           >
@@ -269,8 +271,10 @@ function PriorityCard({ item, rank, onClick }) {
     <div
       onClick={onClick}
       style={{
-        background: isFazerAgora ? '#0f1a0f' : '#111',
-        border: `1px solid ${isFazerAgora ? '#22c55e44' : '#1c1c1c'}`,
+        background: isFazerAgora
+          ? 'linear-gradient(135deg, #0d150a 0%, #0a1007 100%)'
+          : 'linear-gradient(135deg, #0e0c09 0%, #090701 100%)',
+        border: `0.5px solid ${isFazerAgora ? 'rgba(34,197,94,0.3)' : '#1e1b14'}`,
         borderRadius: 8,
         padding: '10px 12px',
         display: 'flex',
@@ -282,10 +286,12 @@ function PriorityCard({ item, rank, onClick }) {
         transition: 'border-color 0.15s, background 0.15s',
       }}
       onMouseEnter={e => {
-        e.currentTarget.style.borderColor = isFazerAgora ? '#22c55e88' : '#333'
+        e.currentTarget.style.borderColor = isFazerAgora ? 'rgba(34,197,94,0.5)' : '#2e2818'
+        e.currentTarget.style.boxShadow = isFazerAgora ? '0 4px 20px rgba(34,197,94,0.08)' : '0 4px 16px rgba(0,0,0,0.3)'
       }}
       onMouseLeave={e => {
-        e.currentTarget.style.borderColor = isFazerAgora ? '#22c55e44' : '#1c1c1c'
+        e.currentTarget.style.borderColor = isFazerAgora ? 'rgba(34,197,94,0.3)' : '#1e1b14'
+        e.currentTarget.style.boxShadow = 'none'
       }}
     >
       {/* Nome do cliente — visível e destacado */}
@@ -295,9 +301,9 @@ function PriorityCard({ item, rank, onClick }) {
         <div style={{
           width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: isFazerAgora ? '#22c55e' : '#1a1a1a',
+          background: isFazerAgora ? '#22c55e' : '#14110d',
           fontSize: 9, fontWeight: 700,
-          color: isFazerAgora ? '#000' : '#333',
+          color: isFazerAgora ? '#000' : '#2e2818',
         }}>
           {isFazerAgora ? '▶' : rank + 1}
         </div>
@@ -316,7 +322,7 @@ function PriorityCard({ item, rank, onClick }) {
 
       {/* Texto da demanda */}
       <div style={{
-        fontSize: 11, color: isFazerAgora ? '#ddd' : '#777',
+        fontSize: 11, color: isFazerAgora ? '#c8bfb0' : '#5a5040',
         lineHeight: 1.4, fontWeight: isFazerAgora ? 500 : 400,
         display: '-webkit-box', WebkitLineClamp: 2,
         WebkitBoxOrient: 'vertical', overflow: 'hidden',
@@ -333,7 +339,7 @@ function PriorityCard({ item, rank, onClick }) {
           </span>
         )}
         <span style={{
-          fontSize: 9, color: '#333',
+          fontSize: 9, color: '#2a2418',
           marginLeft: 'auto',
           display: 'flex', alignItems: 'center', gap: 3,
         }}>
@@ -384,11 +390,12 @@ export default function ProdInsights({ demands, clients }) {
   return (
     <>
       <div style={{
-        background: '#0d0d0d',
-        border: '1px solid #1a1a1a',
-        borderRadius: 10,
+        background: 'linear-gradient(135deg, #0e0c09 0%, #0a0802 100%)',
+        border: '0.5px solid #1e1b14',
+        borderRadius: 12,
         marginBottom: 18,
         overflow: 'hidden',
+        boxShadow: '0 2px 16px rgba(0,0,0,0.3)',
       }}>
         {/* Header */}
         <div
@@ -396,7 +403,7 @@ export default function ProdInsights({ demands, clients }) {
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '10px 14px', cursor: 'pointer',
-            borderBottom: collapsed ? 'none' : '1px solid #161616',
+            borderBottom: collapsed ? 'none' : '0.5px solid #1a1710',
           }}
         >
           <i className="ti ti-brain" style={{ fontSize: 14, color: '#a855f7' }} />
@@ -407,7 +414,9 @@ export default function ProdInsights({ demands, clients }) {
           {totalAtrasadas > 0 && (
             <span style={{
               fontSize: 9, fontWeight: 700, color: '#e24b4a',
-              background: '#1a0808', borderRadius: 10, padding: '2px 7px',
+              background: 'rgba(226,75,74,0.1)',
+              border: '0.5px solid rgba(226,75,74,0.25)',
+              borderRadius: 10, padding: '2px 7px',
             }}>
               {totalAtrasadas} atrasada{totalAtrasadas !== 1 ? 's' : ''}
             </span>
@@ -415,17 +424,19 @@ export default function ProdInsights({ demands, clients }) {
           {totalUrgentes > 0 && (
             <span style={{
               fontSize: 9, fontWeight: 700, color: '#f59e0b',
-              background: '#1a1500', borderRadius: 10, padding: '2px 7px',
+              background: 'rgba(245,158,11,0.1)',
+              border: '0.5px solid rgba(245,158,11,0.25)',
+              borderRadius: 10, padding: '2px 7px',
             }}>
               {totalUrgentes} urgente{totalUrgentes !== 1 ? 's' : ''}
             </span>
           )}
-          <span style={{ fontSize: 9, color: '#333' }}>
+          <span style={{ fontSize: 9, color: '#2a2418' }}>
             {prioritized.length} demandas ativas
           </span>
           <i
             className={`ti ti-chevron-${collapsed ? 'down' : 'up'}`}
-            style={{ fontSize: 10, color: '#333' }}
+            style={{ fontSize: 10, color: '#2a2418' }}
           />
         </div>
 
@@ -438,7 +449,7 @@ export default function ProdInsights({ demands, clients }) {
               }}>
                 ▶ Faça agora
               </span>
-              <div style={{ flex: 1, height: 1, background: '#1a1a1a' }} />
+              <div style={{ flex: 1, height: 1, background: '#1a1710' }} />
               {top4.length > 1 && (
                 <span style={{
                   fontSize: 9, color: '#333',
@@ -469,14 +480,14 @@ export default function ProdInsights({ demands, clients }) {
               ))}
             </div>
 
-            <div style={{ marginTop: 10, fontSize: 9, color: '#252525', lineHeight: 1.5 }}>
+            <div style={{ marginTop: 10, fontSize: 9, color: '#2a2418', lineHeight: 1.5 }}>
               Clique em um card para ver o insight e marcar como feito.
               {prioritized.length > 4 && ` Mais ${prioritized.length - 4} demanda${prioritized.length - 4 !== 1 ? 's' : ''} na fila.`}
             </div>
 
             {/* Seção de longa duração */}
             {longaDuracao.length > 0 && (
-              <div style={{ marginTop: 12, borderTop: '1px solid #161616', paddingTop: 10 }}>
+              <div style={{ marginTop: 12, borderTop: '0.5px solid #1a1710', paddingTop: 10 }}>
                 <div
                   onClick={e => { e.stopPropagation(); setLongaCollapsed(c => !c) }}
                   style={{
@@ -484,13 +495,13 @@ export default function ProdInsights({ demands, clients }) {
                     cursor: 'pointer', userSelect: 'none',
                   }}
                 >
-                  <i className="ti ti-clock-hour-4" style={{ fontSize: 11, color: '#555' }} />
-                  <span style={{ fontSize: 10, color: '#444', fontWeight: 600, flex: 1 }}>
+                  <i className="ti ti-clock-hour-4" style={{ fontSize: 11, color: '#3a3225' }} />
+                  <span style={{ fontSize: 10, color: '#3a3225', fontWeight: 600, flex: 1 }}>
                     Longa duração ({longaDuracao.length})
                   </span>
                   <i
                     className={`ti ti-chevron-${longaCollapsed ? 'down' : 'up'}`}
-                    style={{ fontSize: 9, color: '#333' }}
+                    style={{ fontSize: 9, color: '#2a2418' }}
                   />
                 </div>
 
@@ -506,17 +517,17 @@ export default function ProdInsights({ demands, clients }) {
                           style={{
                             display: 'flex', alignItems: 'center', gap: 8,
                             padding: '7px 10px',
-                            background: '#0d0d0d',
-                            border: '1px solid #191919',
+                            background: '#0c0a07',
+                            border: '0.5px solid #1e1b14',
                             borderRadius: 7,
                             cursor: 'pointer',
-                            transition: 'border-color 0.15s',
+                            transition: 'border-color 0.15s, background 0.15s',
                           }}
-                          onMouseEnter={e => e.currentTarget.style.borderColor = '#2a2a2a'}
-                          onMouseLeave={e => e.currentTarget.style.borderColor = '#191919'}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = '#2e2818'; e.currentTarget.style.background = '#0e0c09' }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = '#1e1b14'; e.currentTarget.style.background = '#0c0a07' }}
                         >
                           {/* Posição */}
-                          <span style={{ fontSize: 9, color: '#333', width: 14, textAlign: 'right', flexShrink: 0 }}>
+                          <span style={{ fontSize: 9, color: '#2a2418', width: 14, textAlign: 'right', flexShrink: 0 }}>
                             {i + 1}
                           </span>
                           {/* Cliente */}
@@ -529,7 +540,7 @@ export default function ProdInsights({ demands, clients }) {
                           </span>
                           {/* Texto */}
                           <span style={{
-                            fontSize: 10, color: '#666', flex: 1,
+                            fontSize: 10, color: '#5a5040', flex: 1,
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                           }}>
                             {item.demand.text}
