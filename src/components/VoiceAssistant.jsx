@@ -201,7 +201,7 @@ function Jarvis() {
     return () => window.removeEventListener('keydown', onKey)
   }, [open, close])
 
-  // Palavra de ativação: "Jarvis, aqui em casa" (Web Speech API — Chrome/Edge)
+  // Palavra de ativação: "Jarvis" (Web Speech API — Chrome/Edge)
   const [wakeOn, setWakeOn] = useState(false)
   const openRef = useRef(open)
   openRef.current = open
@@ -212,7 +212,7 @@ function Jarvis() {
     let rec = null
     let retry = null
     const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z ]/g, ' ')
-    const WAKE = /\b(d?jarv[iey]s?|jarb[ia]s|jarvi|garvis|jarves)\b.{0,25}\baqui\s+em\s+casa\b/
+    const WAKE = /\b(d?jarv[iey]s?|jarb[ia]s|jarvi|garvis|jarves)\b/
     const start = () => {
       if (stopped || openRef.current) return
       rec = new SR()
@@ -256,7 +256,7 @@ function Jarvis() {
       <style>{JARVIS_CSS}</style>
       {!open && (
         <button className="jv-btn" onClick={openJarvis} aria-label="Falar com o JARVIS"
-          title={wakeOn ? 'Diga "Jarvis, aqui em casa" ou clique' : 'Clique para falar com o JARVIS'}>
+          title={wakeOn ? 'Diga "Jarvis" ou clique' : 'Clique para falar com o JARVIS'}>
           <span className="jv-btn-core" />
           <span className="jv-btn-text">JARVIS</span>
           {wakeOn && <span className="jv-wake" />}
