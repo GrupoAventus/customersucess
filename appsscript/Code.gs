@@ -83,6 +83,7 @@ function doGet(e) {
     else if (action === 'runPredictiveAINow')    out = runPredictiveAINow();
     else if (action === 'getCriativoAccounts') out = getCriativoAccounts();
     else if (action === 'getSquadConfig')      out = getSquadConfig();
+    else if (action === 'getAssistantContext') out = getAssistantContext(p);
     else out = { error: 'Unknown action: ' + action };
   } catch(err) {
     out = { error: err.message };
@@ -374,6 +375,114 @@ function deleteDemand(body) {
   if (row < 0) return { error: 'Not found' };
   sh.deleteRow(row);
   return { ok: true };
+}
+
+// ===================== ASSISTENTE DE VOZ =====================
+// Resumo enxuto para o agente de voz (ElevenLabs) responder:
+// "o que fazer agora", "demandas vencidas", "minha agenda".
+// GET ?action=getAssistantContext[&date=AAAA-MM-DD][&days=N]
+var ASSISTANT_CALENDAR_ID = 'bruno@grupoaventus.com.br';
+var ASSISTANT_TZ = 'America/Sao_Paulo';
+
+function ymd_(v) {
+  if (!v) return '';
+  if (Object.prototype.toString.call(v) === '[object Date]') return Utilities.formatDate(v, ASSISTANT_TZ, 'yyyy-MM-dd');
+  var s = String(v);
+  var m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (m) {
+    // ISO com hora (ex.: 2026-11-19T08:00:00.000Z) → converte para o dia local
+    if (s.length > 10 && s.indexOf('T') === 10) return Utilities.formatDate(new Date(s), ASSISTANT_TZ, 'yyyy-MM-dd');
+    return m[1];
+  }
+  var br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  return br ? br[3] + '-' + br[2] + '-' + br[1] : '';
+}
+
+function isDone_(v) { return v === true || String(v).toUpperCase() === 'TRUE'; }
+
+function daysBetween_(a, b) { // b - a em dias, datas AAAA-MM-DD
+  return Math.round((new Date(b + 'T12:00:00Z') - new Date(a + 'T12:00:00Z')) / 86400000);
+}
+
+function getAssistantContext(p) {
+  p = p || {};
+  var now = new Date();
+  var today = Utilities.formatDate(now, ASSISTANT_TZ, 'yyyy-MM-dd');
+  var out = {
+    agora: Utilities.formatDate(now, ASSISTANT_TZ, "EEEE, dd/MM/yyyy HH:mm"),
+    hoje: today
+  };
+
+  // Clientes (id → nome)
+  var clientName = {};
+  try { getClients().forEach(function(c) { clientName[c.id] = c.name; }); } catch (e) {}
+
+  // Painel (aba agenda): tarefas do WhatsApp, briefing e itens manuais
+  var agenda = [];
+  try { agenda = getAgenda(); } catch (e) { out.erroPainel = e.message; }
+  var wa = [], manual = [], briefing = null;
+  agenda.forEach(function(it) {
+    var r = String(it.responsavel || '');
+    if (r === 'WhatsAppBriefing') { briefing = it; return; }
+    if (r === 'WhatsAppRodada' || isDone_(it.done)) return;
+    var text = String(it.text || '');
+    if (r === 'WhatsApp') {
+      var parts = text.split('|||');
+      wa.push({ tarefa: parts[0].trim(), temRascunho: parts.length > 1, desde: ymd_(it.createdAt) });
+    } else {
+      var pz = ymd_(it.prazo);
+      manual.push({ tarefa: text, responsavel: r, prazo: pz, diasAtraso: pz && pz < today ? daysBetween_(pz, today) : 0 });
+    }
+  });
+  var rank = function(t) { return /^🔴/.test(t) ? 0 : /^🟠/.test(t) ? 1 : /^🟡/.test(t) ? 2 : 3; };
+  wa.sort(function(a, b) { return rank(a.tarefa) - rank(b.tarefa); });
+  out.tarefasWhatsApp = wa;
+  out.ultimoBriefing = briefing ? String(briefing.text || '').split('\n').filter(function(l) { return !/^🔊/.test(l); }).join('\n') : '';
+  out.itensDoPainel = manual;
+
+  // Demandas (aba demands): vencidas e de hoje
+  var venc = [], hojeD = [], prox = [];
+  try {
+    getDemands().forEach(function(d) {
+      if (isDone_(d.done)) return;
+      var pz = ymd_(d.prazo);
+      if (!pz) return;
+      var item = { cliente: clientName[d.clientId] || '', demanda: String(d.text || ''), prazo: pz, responsavel: d.dest || '', etapa: d.stage || '' };
+      if (pz < today) { item.diasAtraso = daysBetween_(pz, today); venc.push(item); }
+      else if (pz === today) hojeD.push(item);
+      else if (daysBetween_(today, pz) <= 3) prox.push(item);
+    });
+  } catch (e) { out.erroDemandas = e.message; }
+  venc.sort(function(a, b) { return b.diasAtraso - a.diasAtraso; });
+  prox.sort(function(a, b) { return a.prazo.localeCompare(b.prazo); });
+  out.demandasVencidas = venc;
+  out.demandasDeHoje = hojeD;
+  out.demandasProximos3Dias = prox;
+
+  // Google Agenda
+  try {
+    var startDay = /^\d{4}-\d{2}-\d{2}$/.test(p.date || '') ? p.date : today;
+    var days = Math.max(1, Math.min(14, parseInt(p.days, 10) || (p.date ? 1 : 2)));
+    var cal = CalendarApp.getCalendarById(ASSISTANT_CALENDAR_ID);
+    if (!cal) throw new Error('Agenda não encontrada');
+    var from = new Date(startDay + 'T00:00:00-03:00');
+    var to = new Date(from.getTime() + days * 86400000);
+    out.agenda = cal.getEvents(from, to).filter(function(ev) {
+      try { return ev.getMyStatus() !== CalendarApp.GuestStatus.NO; } catch (e) { return true; }
+    }).map(function(ev) {
+      var allDay = ev.isAllDayEvent();
+      return {
+        dia: Utilities.formatDate(ev.getStartTime(), ASSISTANT_TZ, 'EEE dd/MM'),
+        inicio: allDay ? 'dia inteiro' : Utilities.formatDate(ev.getStartTime(), ASSISTANT_TZ, 'HH:mm'),
+        fim: allDay ? '' : Utilities.formatDate(ev.getEndTime(), ASSISTANT_TZ, 'HH:mm'),
+        titulo: ev.getTitle()
+      };
+    });
+    out.agendaPeriodo = startDay + ' (+' + days + ' dia' + (days > 1 ? 's' : '') + ')';
+  } catch (e) {
+    out.erroAgenda = e.message;
+  }
+  return out;
 }
 
 // ===================== PENDING SALES =====================

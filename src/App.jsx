@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard'
 import Squad from './pages/Squad'
 import CentrosCriativos from './pages/CentrosCriativos'
 import PredictiveAI from './pages/PredictiveAI'
+import VoiceAssistant from './components/VoiceAssistant'
 
 const SECTIONS = {
   ops:        { label: 'Centro de operações',  component: () => <Ops /> },
@@ -31,6 +32,7 @@ function AppInner() {
     <div>
       <Nav current={current} onChange={setCurrent} />
       <section.component />
+      <VoiceAssistant />
     </div>
   )
 }
