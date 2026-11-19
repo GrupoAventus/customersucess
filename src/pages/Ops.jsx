@@ -5,7 +5,7 @@ import ClientDetail from '../components/ClientDetail'
 import NewClientModal from '../components/NewClientModal'
 import AgendaTab from '../components/AgendaTab'
 import AlertBanner from '../components/AlertBanner'
-import { Btn, SectionHeader, EmptyState } from '../components/UI'
+import { Btn, EmptyState } from '../components/UI'
 
 export default function Ops() {
   const { clients, cancelledClients, loading, pendingSales, dismissPendingSale, isAdmin, backfillLpEcomDemands } = useApp()
