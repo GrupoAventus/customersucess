@@ -38,13 +38,12 @@ export default function Nav({ current, onChange }) {
       }}>
         {/* Logo */}
         <span style={{
-          fontSize: 15, fontWeight: 700,
-          color: 'var(--orange)',
+          fontSize: 15, fontWeight: 900,
           marginRight: '2rem', flexShrink: 0,
-          letterSpacing: '-0.01em',
-          textShadow: '0 0 20px rgba(255,107,26,0.4)',
+          letterSpacing: '0.15em',
         }}>
-          ⬡ AventusCS_
+          <span style={{ color: '#ff8c00', textShadow: '0 0 20px rgba(255,140,0,0.8), 0 0 40px rgba(255,100,0,0.4)' }}>A</span>
+          <span style={{ color: '#fff', textShadow: '0 0 12px rgba(255,255,255,0.1)' }}>VENTUS</span>
         </span>
 
         {/* Abas */}
