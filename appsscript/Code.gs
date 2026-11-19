@@ -1408,6 +1408,10 @@ function checkBalanceAndStatus() {
   clients.forEach(function(client) {
     if (client.cancelado === true || client.cancelado === 'TRUE') return;
     if (client.status !== 'Campanha ativa') return;
+    // Pula clientes sem conta Meta (ex: apenas Google Ads)
+    if (!client.criativoAccountId) return;
+    // Pula clientes que pagam no cartão — não usam recarga manual
+    if (client.hasCard === true || client.hasCard === 'TRUE') return;
 
     // Determina o grupo de destino: SOMENTE grupo do squad — nunca grupo do cliente
     var clientDestino = String(client.destino || '');
@@ -1437,11 +1441,13 @@ function checkBalanceAndStatus() {
       var alertParts = alertVal.split('|');
       var alertLastRecharge = alertParts[1] || '';
       var clientLastRecharge = lastRechargeStr;
-      // Se lastRecharge mudou → cliente fez recarga → reseta flag
+      // Se lastRecharge mudou → cliente fez recarga → reseta flag e NÃO envia hoje
+      // (o saldo foi recarregado, próxima execução avaliará o novo ciclo)
       var houveRecarga = clientLastRecharge && alertLastRecharge && alertLastRecharge !== clientLastRecharge;
       if (houveRecarga) {
         props.deleteProperty(alertKey);
-        alertVal = '';
+        Logger.log('Alerta de saldo: ' + client.name + ' → recarga detectada, flag resetada — alerta adiado para próximo ciclo');
+        return; // não envia no mesmo dia da recarga
       }
       // Só envia se ainda não enviou alerta neste ciclo de recarga
       if (!alertVal) {
@@ -1888,6 +1894,7 @@ function backfillMetrics() {
 // 7. runClientFeedback        → Gatilho de tempo → Diário → 10h-11h
 // 8. weeklyAiAnalysis         → Gatilho de tempo → Semanal → Segunda → 6h-7h
 // 9. checkMetaAccountsHourly → Gatilho de tempo → A cada hora (toda hora)
+// 10. checkDemandDeadlines   → Gatilho de tempo → Diário → 8h-9h  ← OBRIGATÓRIO para alertas de prazo
 //
 // Propriedades do Script (configurar em Configurações do projeto > Propriedades):
 // - META_TOKEN: token de acesso Meta (Business Manager) — NUNCA comitar no GitHub
