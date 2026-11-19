@@ -27,24 +27,28 @@ export default function Ops() {
 
   return (
     <div style={{ padding: '1.5rem' }}>
-      <SectionHeader
-        title="Centro de operações"
-        subtitle={`${clients.length} cliente${clients.length !== 1 ? 's' : ''} ativo${clients.length !== 1 ? 's' : ''}`}
-        action={
-          tab === 'clients' ? (
-            <div style={{ display: 'flex', gap: 8 }}>
-              {isAdmin && (
-                <Btn onClick={runBackfill} disabled={backfilling}>
-                  <i className="ti ti-refresh" /> {backfilling ? 'Gerando...' : 'Gerar demandas LP/Ecom'}
-                </Btn>
-              )}
-              <Btn primary onClick={() => { setPrefillName(''); setShowNew(true) }}>
-                <i className="ti ti-plus" /> Novo cliente
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+        <div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: '#FF6B1A', letterSpacing: '-0.02em', lineHeight: 1, textShadow: '0 0 30px rgba(255,107,26,0.5)' }}>
+            AventusCS_
+          </div>
+          <div style={{ fontSize: 12, color: '#4a4035', marginTop: 4 }}>
+            {clients.length} cliente{clients.length !== 1 ? 's' : ''} ativo{clients.length !== 1 ? 's' : ''}
+          </div>
+        </div>
+        {tab === 'clients' && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            {isAdmin && (
+              <Btn onClick={runBackfill} disabled={backfilling}>
+                <i className="ti ti-refresh" /> {backfilling ? 'Gerando...' : 'Gerar demandas LP/Ecom'}
               </Btn>
-            </div>
-          ) : null
-        }
-      />
+            )}
+            <Btn primary onClick={() => { setPrefillName(''); setShowNew(true) }}>
+              <i className="ti ti-plus" /> Novo cliente
+            </Btn>
+          </div>
+        )}
+      </div>
 
       <AlertBanner section="ops" />
 
