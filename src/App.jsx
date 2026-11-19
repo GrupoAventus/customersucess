@@ -32,7 +32,7 @@ function AppInner() {
     <div>
       <Nav current={current} onChange={setCurrent} />
       <section.component />
-      <VoiceAssistant />
+      {current === 'dash' && <VoiceAssistant />}
     </div>
   )
 }
