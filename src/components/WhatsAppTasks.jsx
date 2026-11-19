@@ -194,7 +194,8 @@ function Briefing({ item }) {
   // Linha "🔊 audio:<id do arquivo no Drive>" vira o player; não aparece no texto
   const audioLine = allLines.find(l => /^🔊\s*audio:/i.test(l.trim()))
   const audioId = audioLine ? audioLine.trim().replace(/^🔊\s*audio:\s*/i, '').trim() : ''
-  const audioSrc = /^[\w-]{10,}$/.test(audioId) ? `https://drive.google.com/uc?export=download&id=${audioId}` : ''
+  const audioSrc = /^https:\/\//.test(audioId) ? audioId
+    : /^[\w-]{10,}$/.test(audioId) ? `https://drive.google.com/uc?export=download&id=${audioId}` : ''
   const lines = allLines.filter(l => l !== audioLine)
 
   return (
