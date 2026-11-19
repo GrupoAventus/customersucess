@@ -42,7 +42,7 @@ export default function Ops() {
             AventusCS_
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-dim)', letterSpacing: '0.01em' }}>
-            Centro de operações &mdash; {clients.length} cliente{clients.length !== 1 ? 's' : ''} ativo{clients.length !== 1 ? 's' : ''}
+            Centro de operações — {clients.length} cliente{clients.length !== 1 ? 's' : ''} ativo{clients.length !== 1 ? 's' : ''}
           </div>
         </div>
         {tab === 'clients' && (
