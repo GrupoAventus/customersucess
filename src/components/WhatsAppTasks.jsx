@@ -190,7 +190,12 @@ function Briefing({ item }) {
   const [open, setOpen] = useState(true)
   if (!item) return null
   const when = item.createdAt ? new Date(item.createdAt) : null
-  const lines = String(item.text || '').split('\n').map(l => l.trimEnd())
+  const allLines = String(item.text || '').split('\n').map(l => l.trimEnd())
+  // Linha "🔊 audio:<id do arquivo no Drive>" vira o player; não aparece no texto
+  const audioLine = allLines.find(l => /^🔊\s*audio:/i.test(l.trim()))
+  const audioId = audioLine ? audioLine.trim().replace(/^🔊\s*audio:\s*/i, '').trim() : ''
+  const audioSrc = /^[\w-]{10,}$/.test(audioId) ? `https://drive.google.com/uc?export=download&id=${audioId}` : ''
+  const lines = allLines.filter(l => l !== audioLine)
 
   return (
     <div style={{ border: '0.5px solid #2a2a2a', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-card)' }}>
@@ -210,6 +215,12 @@ function Briefing({ item }) {
       </button>
       {open && (
         <div style={{ padding: '10px 16px 14px', borderTop: '0.5px solid #1f1f1f', display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {audioSrc && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <i className="ti ti-volume" style={{ fontSize: 16, color: '#8fa6ff' }} />
+              <audio controls preload="none" src={audioSrc} style={{ height: 32, flex: 1, maxWidth: 420 }} />
+            </div>
+          )}
           {lines.map((l, i) => {
             const isHeader = /^(📅|🔴|📉|🗓|☀️|⏸️|Total)/.test(l.trim())
             return l.trim() === '' ? <div key={i} style={{ height: 6 }} /> : (

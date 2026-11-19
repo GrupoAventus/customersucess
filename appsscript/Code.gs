@@ -44,6 +44,7 @@ function doGet(e) {
       else if (writeAction === 'addAgenda')          out = addAgenda(body);
       else if (writeAction === 'toggleAgenda')       out = toggleAgenda(body);
       else if (writeAction === 'deleteAgenda')       out = deleteAgenda(body);
+      else if (writeAction === 'saveBriefingAudio')  out = saveBriefingAudio(body);
       else if (writeAction === 'addAlert')           out = addAlert(body);
       else if (writeAction === 'dismissAlert')       out = dismissAlert(body);
       else if (writeAction === 'setPipelineStep')    out = setPipelineStep(body);
@@ -119,6 +120,7 @@ function doPost(e) {
     else if (action === 'addAgenda')          out = addAgenda(body);
     else if (action === 'toggleAgenda')       out = toggleAgenda(body);
     else if (action === 'deleteAgenda')       out = deleteAgenda(body);
+    else if (action === 'saveBriefingAudio')  out = saveBriefingAudio(body);
     else if (action === 'addAlert')           out = addAlert(body);
     else if (action === 'dismissAlert')       out = dismissAlert(body);
     else if (action === 'setPipelineStep')    out = setPipelineStep(body);
@@ -455,6 +457,45 @@ function deleteAgenda(body) {
   if (row < 0) return { error: 'Not found' };
   sh.deleteRow(row);
   return { ok: true };
+}
+
+// ===================== ÁUDIO DO BRIEFING =====================
+// Baixa o MP3 gerado no ElevenLabs (link temporário) e guarda no Drive com link
+// público de leitura, para o botão de play do Briefing no CRM.
+var BRIEFING_AUDIO_FOLDER = 'AventusCS - Áudios do Briefing';
+var BRIEFING_AUDIO_HOSTS = ['elevenlabsusercontent.com', 'storage.googleapis.com', 'api.elevenlabs.io', 'api.us.elevenlabs.io'];
+var BRIEFING_AUDIO_KEEP_DAYS = 3;
+
+function getBriefingAudioFolder_() {
+  var it = DriveApp.getFoldersByName(BRIEFING_AUDIO_FOLDER);
+  return it.hasNext() ? it.next() : DriveApp.createFolder(BRIEFING_AUDIO_FOLDER);
+}
+
+function saveBriefingAudio(body) {
+  var url = String(body.url || '');
+  var m = url.match(/^https:\/\/([^\/?#]+)\//);
+  if (!m) return { error: 'URL inválida' };
+  var host = m[1].toLowerCase();
+  var allowed = BRIEFING_AUDIO_HOSTS.some(function(h) { return host === h || host.slice(-(h.length + 1)) === '.' + h; });
+  if (!allowed) return { error: 'Host não permitido: ' + host };
+
+  var resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
+  if (resp.getResponseCode() !== 200) return { error: 'Download falhou: HTTP ' + resp.getResponseCode() };
+  var blob = resp.getBlob().setContentType('audio/mpeg')
+    .setName('briefing_' + Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'yyyy-MM-dd_HH-mm') + '.mp3');
+
+  var folder = getBriefingAudioFolder_();
+  var file = folder.createFile(blob);
+  try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (err) {}
+
+  // limpeza: apaga (lixeira) áudios com mais de BRIEFING_AUDIO_KEEP_DAYS dias
+  var limit = Date.now() - BRIEFING_AUDIO_KEEP_DAYS * 86400000;
+  var files = folder.getFiles();
+  while (files.hasNext()) {
+    var f = files.next();
+    if (f.getId() !== file.getId() && f.getDateCreated().getTime() < limit) f.setTrashed(true);
+  }
+  return { id: file.getId() };
 }
 
 // ===================== ALERTS =====================
