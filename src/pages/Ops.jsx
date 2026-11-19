@@ -29,8 +29,9 @@ export default function Ops() {
     <div style={{ padding: '1.5rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
         <div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#FF6B1A', letterSpacing: '-0.02em', lineHeight: 1, textShadow: '0 0 30px rgba(255,107,26,0.5)' }}>
-            AventusCS_
+          <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: '0.18em', lineHeight: 1 }}>
+            <span style={{ color: '#ff8c00', textShadow: '0 0 30px rgba(255,140,0,0.8), 0 0 60px rgba(255,100,0,0.4)' }}>A</span>
+            <span style={{ color: '#fff', textShadow: '0 0 20px rgba(255,255,255,0.15)' }}>VENTUS</span>
           </div>
           <div style={{ fontSize: 12, color: '#4a4035', marginTop: 4 }}>
             {clients.length} cliente{clients.length !== 1 ? 's' : ''} ativo{clients.length !== 1 ? 's' : ''}
